@@ -1,0 +1,272 @@
+// mycommish — ADP agent commission portal (rebuild)
+// See README.md for product invariants (source filters, lock-after-pay, ledger).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Auth / scoping ───────────────────────────────────────────────────────────
+
+model Agent {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  displayName  String
+  isAdmin      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  aliases AgentAlias[]
+  uploads UploadBatch[]
+}
+
+model AgentAlias {
+  id        String @id @default(cuid())
+  agentId   String
+  agentName String @unique // exact CRM "Sales Rep" spelling
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+}
+
+// ─── Periods ──────────────────────────────────────────────────────────────────
+
+enum PeriodSource {
+  calculated // live CRM / Cordoba holding — what agents are owed
+  history // backfilled account-manager ledger — audit / anti-double-pay only
+}
+
+enum PeriodStatus {
+  open // CRM recompute may refresh units/gross
+  closed // past payday (25th of next month): no unit/gross rewrite; clawbacks still allowed
+}
+
+model CommissionPeriod {
+  id          String       @id @default(cuid())
+  periodLabel String // YYYY-MM
+  source      PeriodSource
+  status      PeriodStatus @default(open)
+  filename    String?
+  uploadedAt  DateTime     @default(now())
+  closedAt    DateTime?
+
+  agentPeriods AgentPeriod[]
+  clientEvents ClientEvent[]
+  ledgerEntries LedgerEntry[]
+
+  @@unique([periodLabel, source])
+  @@index([periodLabel])
+  @@index([source, periodLabel])
+}
+
+model AgentPeriod {
+  id       String @id @default(cuid())
+  periodId String
+  agentName String
+
+  // Cached rollup of non-reversed LedgerEntry rows (+ classification stats).
+  // Ledger is authoritative for money; recompute on every ledger write.
+  unitsCleared             Int     @default(0)
+  totalClearedDebt         Decimal @default(0) @db.Decimal(14, 2)
+  cancellationRate         Decimal @default(0) @db.Decimal(8, 4)
+  rawTier                 Int     @default(0)
+  adjustedTier             Int     @default(0)
+  tierRate                 Decimal @default(0) @db.Decimal(8, 6)
+  grossCommission          Decimal @default(0) @db.Decimal(14, 2)
+  clawbackAmount           Decimal @default(0) @db.Decimal(14, 2)
+  netCommission            Decimal @default(0) @db.Decimal(14, 2)
+  payout                   Decimal @default(0) @db.Decimal(14, 2)
+  payoutType               String  @default("commission")
+  qualityBonusEligible     Boolean @default(false)
+  cancellationPenaltyApplied Boolean @default(false)
+  nsfFlagged               Boolean @default(false)
+  pendingUnits             Int     @default(0)
+  pendingDebt              Decimal @default(0) @db.Decimal(14, 2)
+  notes                    String?
+
+  period        CommissionPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  clientEvents  ClientEvent[]
+  ledgerEntries LedgerEntry[]
+
+  @@unique([periodId, agentName])
+  @@index([agentName])
+}
+
+// ─── Clients ──────────────────────────────────────────────────────────────────
+
+model ClientIdentity {
+  crmId        String   @id // CRM "ID"
+  clientName   String?
+  email        String?
+  phone        String?
+  enrolledDebt Decimal? @db.Decimal(14, 2)
+  creditScore  Int?
+  payFreq      String?
+  updatedAt    DateTime @updatedAt
+
+  events        ClientEvent[]
+  ledgerEntries LedgerEntry[]
+  cordobaPaid   CordobaPaid?
+  chargebackSeen CordobaChargebackSeen?
+  chargebackSnapshot CordobaChargebackSnapshot?
+}
+
+enum ClientEventKind {
+  cleared
+  pending
+  safe_cancel
+  same_month_cancel
+  clawback
+  cordoba_clawback
+  history_paid
+  history_subtract
+  low_credit_cleared
+}
+
+model ClientEvent {
+  id            String         @id @default(cuid())
+  crmId         String
+  periodId      String
+  agentPeriodId String?
+  agentName     String
+  kind          ClientEventKind
+
+  clientName               String?
+  enrolledDate             String?
+  firstPaymentClearedDate  String?
+  droppedDate              String?
+  payFreq                  String?
+  paymentsMade             Int     @default(0)
+  enrolledDebt             Decimal @default(0) @db.Decimal(14, 2)
+  creditScore              Int?
+  isLowCredit              Boolean @default(false)
+  isCleared                Boolean @default(false) // was paid commission
+  clawbackApplied          Boolean @default(false)
+  commissionOnClient       Decimal @default(0) @db.Decimal(14, 2)
+  clawbackAmount           Decimal @default(0) @db.Decimal(14, 2)
+  paidRate                 Decimal? @db.Decimal(8, 6) // history Rate column only
+  isLateActivation         Boolean @default(false)
+  originalClearedPeriod    String?
+  uploadBatchId            String?
+
+  identity    ClientIdentity    @relation(fields: [crmId], references: [crmId])
+  period      CommissionPeriod  @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  agentPeriod AgentPeriod?      @relation(fields: [agentPeriodId], references: [id], onDelete: SetNull)
+  uploadBatch UploadBatch?      @relation(fields: [uploadBatchId], references: [id], onDelete: SetNull)
+
+  @@index([crmId])
+  @@index([periodId])
+  @@index([agentPeriodId])
+  @@index([crmId, isCleared])
+  @@index([crmId, droppedDate])
+}
+
+// ─── Ledger (authoritative money) ─────────────────────────────────────────────
+
+enum LedgerType {
+  commission_credit
+  clawback_crm
+  clawback_cordoba
+  clawback_history
+  reversal
+}
+
+model LedgerEntry {
+  id              String     @id @default(cuid())
+  type            LedgerType
+  amount          Decimal    @db.Decimal(14, 2) // signed: credits +, clawbacks typically stored positive and applied as deductions
+  crmId           String?
+  agentName       String
+  periodId        String
+  agentPeriodId   String?
+  reasonCode      String?
+  note            String?
+  uploadBatchId   String?
+  reversesEntryId String?    @unique // if set, this row undoes another
+  createdAt       DateTime   @default(now())
+
+  identity      ClientIdentity?   @relation(fields: [crmId], references: [crmId])
+  period        CommissionPeriod  @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  agentPeriod   AgentPeriod?      @relation(fields: [agentPeriodId], references: [id], onDelete: SetNull)
+  uploadBatch   UploadBatch?      @relation(fields: [uploadBatchId], references: [id], onDelete: SetNull)
+  reversesEntry LedgerEntry?      @relation("LedgerReversal", fields: [reversesEntryId], references: [id])
+  reversedBy    LedgerEntry?      @relation("LedgerReversal")
+
+  @@index([periodId, agentName])
+  @@index([crmId])
+  @@index([uploadBatchId])
+  @@index([type])
+}
+
+// ─── Cordoba display ledgers ──────────────────────────────────────────────────
+
+model CordobaPaid {
+  crmId             String   @id
+  clientName        String?
+  source            String? // first_pays | epf
+  uploadedFilename  String?
+  uploadedAt        DateTime @default(now())
+
+  identity ClientIdentity @relation(fields: [crmId], references: [crmId])
+}
+
+model CordobaChargebackSeen {
+  crmId            String   @id
+  clientName        String?
+  uploadedFilename  String?
+  uploadedAt        DateTime @default(now())
+
+  identity ClientIdentity @relation(fields: [crmId], references: [crmId])
+}
+
+model CordobaChargebackSnapshot {
+  crmId                      String   @id
+  agentName                  String
+  periodLabel                String // from OUR dropped_date
+  assignedCompany            String?
+  enrolledDate               String?
+  clientName                 String?
+  status                     String?
+  marketingPayoutDebt        Decimal? @db.Decimal(14, 2)
+  firstPaymentClearedDate    String?
+  payFreq                    String?
+  paymentsMade               Int?
+  marketingPaymentCleared    String?
+  marketingPaymentChargeback String?
+  fileDroppedDate            String?
+  uploadedFilename           String?
+  uploadedAt                 DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  identity ClientIdentity @relation(fields: [crmId], references: [crmId])
+
+  @@index([agentName, periodLabel])
+}
+
+// ─── Upload audit ─────────────────────────────────────────────────────────────
+
+enum UploadType {
+  crm
+  cordoba
+  history
+}
+
+model UploadBatch {
+  id           String     @id @default(cuid())
+  type         UploadType
+  filename     String
+  uploadedById String?
+  summaryJson  Json? // counts + skip tallies (inspectable, not flash-only)
+  createdAt    DateTime   @default(now())
+
+  uploadedBy    Agent?         @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  clientEvents  ClientEvent[]
+  ledgerEntries LedgerEntry[]
+
+  @@index([type, createdAt])
+}

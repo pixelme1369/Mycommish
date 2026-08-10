@@ -1,0 +1,38 @@
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@/generated/prisma/client";
+
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+
+/** Quiet pg's sslmode deprecation warning against Neon URLs. */
+function neonCompatibleUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (!u.searchParams.has("uselibpqcompat")) {
+      u.searchParams.set("uselibpqcompat", "true");
+    }
+    if (!u.searchParams.get("sslmode")) {
+      u.searchParams.set("sslmode", "require");
+    }
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+function createPrismaClient() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is not set");
+  }
+  const adapter = new PrismaPg({ connectionString: neonCompatibleUrl(connectionString) });
+  return new PrismaClient({
+    adapter,
+    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+  });
+}
+
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
