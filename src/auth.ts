@@ -68,6 +68,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.isAdmin = false;
         token.aliasNames = [];
         token.displayName = undefined;
+        token.employmentType = undefined;
+        token.companyName = undefined;
         return token;
       }
 
@@ -75,6 +77,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       token.isAdmin = agent.isAdmin;
       token.displayName = agent.displayName;
       token.aliasNames = agent.aliases.map((a) => a.agentName);
+      token.employmentType = agent.employmentType;
+      token.companyName = agent.companyName;
       return token;
     },
   },

@@ -231,3 +231,36 @@ export function paymentDateForPeriod(periodLabel: string): Date {
 export function isPeriodClosedByPayday(periodLabel: string, asOf: Date = new Date()): boolean {
   return asOf.getTime() >= paymentDateForPeriod(periodLabel).getTime();
 }
+
+/**
+ * Units still needed this period to reach the next tier's low threshold.
+ * null for fixed-rate agents (Alex/Peter) or already at Tier 6.
+ */
+export function unitsToNextTier(
+  unitsCleared: number,
+  agentName?: string | null,
+): number | null {
+  if (getFixedRate(agentName) !== null) return null;
+  if (unitsCleared < 1) return TIERS[0].low - unitsCleared;
+  const { tier } = getTier(unitsCleared);
+  if (tier >= TIERS.length) return null;
+  const nextLow = TIERS[tier].low; // next tier (0-indexed: current tier index = tier-1, next = tier)
+  return nextLow - unitsCleared;
+}
+
+/**
+ * Motivational "tier up and earn this much more" on the same cleared debt
+ * at the next tier's rate. Not a payout forecast — more units also add debt.
+ */
+export function commissionGainAtNextTier(
+  adjustedTier: number,
+  totalClearedDebt: number,
+  grossCommission: number,
+  agentName?: string | null,
+): number | null {
+  if (getFixedRate(agentName) !== null) return null;
+  if (adjustedTier < 1 || adjustedTier >= TIERS.length) return null;
+  const nextRate = TIERS[adjustedTier].rate; // next tier (0-indexed)
+  const potentialGross = totalClearedDebt * nextRate;
+  return Math.round((potentialGross - grossCommission) * 100) / 100;
+}

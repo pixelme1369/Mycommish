@@ -8,6 +8,8 @@ declare module "next-auth" {
       isAdmin: boolean;
       displayName: string;
       aliasNames: string[];
+      employmentType: "employee" | "contractor";
+      companyName: string | null;
     };
   }
 }
@@ -18,6 +20,8 @@ declare module "next-auth/jwt" {
     isAdmin?: boolean;
     displayName?: string;
     aliasNames?: string[];
+    employmentType?: "employee" | "contractor";
+    companyName?: string | null;
   }
 }
 

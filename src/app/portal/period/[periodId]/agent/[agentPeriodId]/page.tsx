@@ -2,6 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/auth-guards";
 import { SignOutButton } from "@/components/sign-out-button";
+import { AppShell, PageHeader } from "@/components/app-shell";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   cancelRatePercent,
   getClientsForAgentPeriod,
@@ -12,6 +17,12 @@ import {
   ratePercent,
   type MergedClawbackRow,
 } from "@/lib/portal/queries";
+import {
+  commissionGainAtNextTier,
+  getFixedRate,
+  unitsToNextTier,
+} from "@/lib/commission/calculator";
+import { NextTierCard } from "@/components/next-tier-card";
 import type { ClientEvent } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +36,6 @@ export default async function PeriodDetailPage({
   const { periodId, agentPeriodId } = await params;
   const aliases = new Set(session.user.aliasNames || []);
 
-  // Admins can open any calculated agent period; agents only their aliases in latest-2.
   let row = null;
   if (session.user.isAdmin) {
     const { prisma } = await import("@/lib/db");
@@ -58,27 +68,49 @@ export default async function PeriodDetailPage({
   const showAdminCordobaClawback = session.user.isAdmin;
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <div className="flex flex-wrap items-baseline justify-between gap-4">
-        <p className="text-sm text-zinc-500">
-          {session.user.isAdmin ? (
-            <Link href={`/admin/periods/${periodId}`} className="hover:underline">
+    <AppShell wide>
+      <PageHeader
+        eyebrow={
+          session.user.isAdmin ? (
+            <Link
+              href={`/admin/periods/${periodId}`}
+              className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2")}
+            >
               ← {row.period.periodLabel} agents
             </Link>
           ) : (
-            <Link href="/portal" className="hover:underline">
+            <Link
+              href="/portal"
+              className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2")}
+            >
               ← My commissions
             </Link>
-          )}
-        </p>
-        <SignOutButton />
-      </div>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-        {row.agentName} · {row.period.periodLabel}
-      </h1>
-      <p className="mt-1 text-sm text-zinc-500">
-        Status: {row.period.status} · source: calculated
-      </p>
+          )
+        }
+        title={`${row.agentName} · ${row.period.periodLabel}`}
+        description={`Status: ${row.period.status} · source: calculated`}
+        actions={
+          <>
+            {session.user.isAdmin ? (
+              <>
+                <a
+                  href={`/api/admin/periods/${periodId}/agents/${agentPeriodId}/statement`}
+                  className={cn(buttonVariants({ variant: "default", size: "sm" }))}
+                >
+                  Statement PDF
+                </a>
+                <a
+                  href={`/api/admin/periods/${periodId}/agents/${agentPeriodId}/export`}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                >
+                  Excel
+                </a>
+              </>
+            ) : null}
+            <SignOutButton />
+          </>
+        }
+      />
 
       <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Units" value={String(row.unitsCleared)} />
@@ -97,14 +129,25 @@ export default async function PeriodDetailPage({
           value={Number(row.clawbackAmount) > 0 ? `-${money(row.clawbackAmount)}` : "—"}
         />
         <Stat label="Cancel rate" value={cancelRatePercent(row.cancellationRate)} />
-        <Stat label="Pending units" value={String(row.pendingUnits)} />
+        <Stat label="Pending cancellations" value={String(row.pendingUnits)} />
         <Stat label="Cleared debt" value={money(row.totalClearedDebt)} />
+        <NextTierCard
+          unitsNeeded={unitsToNextTier(row.unitsCleared, row.agentName)}
+          gain={commissionGainAtNextTier(
+            row.adjustedTier,
+            Number(row.totalClearedDebt),
+            Number(row.grossCommission),
+            row.agentName,
+          )}
+          atTopTier={row.adjustedTier >= 6}
+          fixedRate={getFixedRate(row.agentName) !== null}
+        />
       </div>
 
       {row.notes ? (
-        <p className="mt-6 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
+        <Card className="glass-panel mt-6 px-4 py-3 text-sm text-muted-foreground">
           {row.notes}
-        </p>
+        </Card>
       ) : null}
 
       <ClearedSection
@@ -114,13 +157,17 @@ export default async function PeriodDetailPage({
         showCordobaClawback={showAdminCordobaClawback}
       />
       <ClawbackSection rows={mergedClawbacks} />
-      <ClientSection title="Pending" clients={pending} empty="No pending clients." />
+      <ClientSection
+        title="Pending cancellations"
+        clients={pending}
+        empty="No pending cancellations."
+      />
       <ClientSection
         title="Cancelled (not clawed)"
         clients={cancelled}
         empty="No same-month / safe cancels."
       />
-    </main>
+    </AppShell>
   );
 }
 
@@ -134,25 +181,32 @@ function Stat({
   accent?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</p>
-      <p className={`mt-1 text-lg ${accent ? "font-semibold" : "font-medium"}`}>{value}</p>
-    </div>
+    <Card className="glass-panel px-4 py-3">
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {label}
+      </p>
+      <p
+        className={`mt-1 text-lg ${accent ? "font-semibold text-[oklch(0.4_0.08_175)]" : "font-medium"}`}
+      >
+        {value}
+      </p>
+    </Card>
   );
 }
 
 function YesNo({ yes, tone }: { yes: boolean; tone: "green" | "red" | "amber" }) {
   if (!yes) {
-    return <span className="text-zinc-500">No</span>;
+    return <span className="text-muted-foreground">No</span>;
   }
-  const cls =
-    tone === "green"
-      ? "bg-emerald-50 text-emerald-800"
-      : tone === "red"
-        ? "bg-red-50 text-red-800"
-        : "bg-amber-50 text-amber-800";
+  const variant =
+    tone === "green" ? "default" : tone === "red" ? "destructive" : "secondary";
   return (
-    <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${cls}`}>Yes</span>
+    <Badge
+      variant={variant}
+      className={tone === "green" ? "bg-[oklch(0.45_0.08_175)]" : undefined}
+    >
+      Yes
+    </Badge>
   );
 }
 
@@ -169,16 +223,18 @@ function ClearedSection({
 }) {
   return (
     <section className="mt-10">
-      <h2 className="text-lg font-medium">
+      <h2 className="font-heading text-xl tracking-tight">
         Cleared clients{" "}
-        <span className="text-sm font-normal text-zinc-500">({clients.length})</span>
+        <span className="text-sm font-sans font-normal text-muted-foreground">
+          ({clients.length})
+        </span>
       </h2>
       {clients.length === 0 ? (
-        <p className="mt-3 text-sm text-zinc-500">No cleared clients.</p>
+        <p className="mt-3 text-sm text-muted-foreground">No cleared clients.</p>
       ) : (
-        <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+        <Card className="glass-panel mt-3 overflow-x-auto py-0">
           <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-zinc-200 bg-zinc-50 text-zinc-600">
+            <thead className="border-b border-border bg-muted/40 text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 font-medium">ID</th>
                 <th className="px-3 py-2 font-medium">Name</th>
@@ -193,7 +249,7 @@ function ClearedSection({
                 <th className="px-3 py-2 font-medium">Kind</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
+            <tbody className="divide-y divide-border/70">
               {clients.map((c) => (
                 <tr key={c.id}>
                   <td className="px-3 py-2 font-mono text-xs">{c.crmId}</td>
@@ -206,7 +262,10 @@ function ClearedSection({
                   <td className="px-3 py-2">{money(c.enrolledDebt)}</td>
                   <td className="px-3 py-2">{money(c.commissionOnClient)}</td>
                   <td className="px-3 py-2">
-                    <YesNo yes={paidIds.has(c.crmId)} tone={paidIds.has(c.crmId) ? "green" : "amber"} />
+                    <YesNo
+                      yes={paidIds.has(c.crmId)}
+                      tone={paidIds.has(c.crmId) ? "green" : "amber"}
+                    />
                   </td>
                   {showCordobaClawback ? (
                     <td className="px-3 py-2">
@@ -218,12 +277,12 @@ function ClearedSection({
                   ) : null}
                   <td className="px-3 py-2">{c.firstPaymentClearedDate || "—"}</td>
                   <td className="px-3 py-2">{c.droppedDate || "—"}</td>
-                  <td className="px-3 py-2 text-zinc-500">{c.kind}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{c.kind}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
     </section>
   );
@@ -232,20 +291,22 @@ function ClearedSection({
 function ClawbackSection({ rows }: { rows: MergedClawbackRow[] }) {
   return (
     <section className="mt-10">
-      <h2 className="text-lg font-medium">
+      <h2 className="font-heading text-xl tracking-tight">
         Clawbacks{" "}
-        <span className="text-sm font-normal text-zinc-500">({rows.length})</span>
+        <span className="text-sm font-sans font-normal text-muted-foreground">
+          ({rows.length})
+        </span>
       </h2>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-muted-foreground">
         Cordoba Charge back is Yes when Cordoba&apos;s Chargebacks tab also lists the client. A
         $0.00 row with Yes means flagged but not deducted yet (usually no Dropped Date on file).
       </p>
       {rows.length === 0 ? (
-        <p className="mt-3 text-sm text-zinc-500">No clawbacks.</p>
+        <p className="mt-3 text-sm text-muted-foreground">No clawbacks.</p>
       ) : (
-        <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+        <Card className="glass-panel mt-3 overflow-x-auto py-0">
           <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-zinc-200 bg-zinc-50 text-zinc-600">
+            <thead className="border-b border-border bg-muted/40 text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 font-medium">ID</th>
                 <th className="px-3 py-2 font-medium">Name</th>
@@ -257,9 +318,9 @@ function ClawbackSection({ rows }: { rows: MergedClawbackRow[] }) {
                 <th className="px-3 py-2 font-medium">Kind</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
+            <tbody className="divide-y divide-border/70">
               {rows.map((c) => (
-                <tr key={c.id} className={c.cordobaOnly ? "bg-zinc-50/80" : undefined}>
+                <tr key={c.id} className={c.cordobaOnly ? "bg-muted/30" : undefined}>
                   <td className="px-3 py-2 font-mono text-xs">{c.crmId}</td>
                   <td className="px-3 py-2">
                     {c.clientName || "—"}
@@ -271,17 +332,17 @@ function ClawbackSection({ rows }: { rows: MergedClawbackRow[] }) {
                   <td className="px-3 py-2">{c.firstPaymentClearedDate || "—"}</td>
                   <td className="px-3 py-2">{c.droppedDate || "—"}</td>
                   <td className="px-3 py-2">
-                    <span className="text-red-700">-{money(c.clawbackAmount)}</span>
+                    <span className="text-destructive">-{money(c.clawbackAmount)}</span>
                   </td>
                   <td className="px-3 py-2">
                     <YesNo yes={c.cordobaChargeBack} tone="red" />
                   </td>
-                  <td className="px-3 py-2 text-zinc-500">{c.kind}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{c.kind}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
     </section>
   );
@@ -298,16 +359,18 @@ function ClientSection({
 }) {
   return (
     <section className="mt-10">
-      <h2 className="text-lg font-medium">
+      <h2 className="font-heading text-xl tracking-tight">
         {title}{" "}
-        <span className="text-sm font-normal text-zinc-500">({clients.length})</span>
+        <span className="text-sm font-sans font-normal text-muted-foreground">
+          ({clients.length})
+        </span>
       </h2>
       {clients.length === 0 ? (
-        <p className="mt-3 text-sm text-zinc-500">{empty}</p>
+        <p className="mt-3 text-sm text-muted-foreground">{empty}</p>
       ) : (
-        <div className="mt-3 overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+        <Card className="glass-panel mt-3 overflow-x-auto py-0">
           <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-zinc-200 bg-zinc-50 text-zinc-600">
+            <thead className="border-b border-border bg-muted/40 text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 font-medium">ID</th>
                 <th className="px-3 py-2 font-medium">Name</th>
@@ -318,7 +381,7 @@ function ClientSection({
                 <th className="px-3 py-2 font-medium">Kind</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
+            <tbody className="divide-y divide-border/70">
               {clients.map((c) => (
                 <tr key={c.id}>
                   <td className="px-3 py-2 font-mono text-xs">{c.crmId}</td>
@@ -332,12 +395,12 @@ function ClientSection({
                   <td className="px-3 py-2">{c.firstPaymentClearedDate || "—"}</td>
                   <td className="px-3 py-2">{c.droppedDate || "—"}</td>
                   <td className="px-3 py-2">{money(c.commissionOnClient)}</td>
-                  <td className="px-3 py-2 text-zinc-500">{c.kind}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{c.kind}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
     </section>
   );

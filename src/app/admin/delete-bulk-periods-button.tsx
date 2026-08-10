@@ -1,12 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
 import {
   deleteAllCalculatedPeriodsAction,
   deleteAllHistoryPeriodsAction,
   deletePeriodsByFilenameAction,
 } from "./actions";
+import { ConfirmDelete } from "@/components/confirm-delete";
 
 type Kind = "calculated" | "history";
 
@@ -18,37 +18,24 @@ export function DeleteAllPeriodsButton({
   count: number;
 }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
   const label = kind === "history" ? "history" : "calculated";
 
   return (
-    <button
-      type="button"
-      disabled={pending || count === 0}
-      className="text-xs font-medium text-red-700 hover:underline disabled:opacity-50"
-      onClick={() => {
-        if (
-          !confirm(
-            `Delete ALL ${count} ${label} period(s)? This removes every agent and client row they contain. You can re-upload afterward. This cannot be undone.`,
-          )
-        ) {
-          return;
-        }
-        start(async () => {
-          const res =
-            kind === "history"
-              ? await deleteAllHistoryPeriodsAction()
-              : await deleteAllCalculatedPeriodsAction();
-          if (!res.ok) {
-            alert("Delete failed.");
-            return;
-          }
-          router.refresh();
-        });
+    <ConfirmDelete
+      title={`Delete all ${label} periods?`}
+      description={`This permanently deletes ALL ${count} ${label} period(s) and every agent/client/ledger row they contain. You can re-upload afterward. This cannot be undone.`}
+      triggerLabel={`Delete all ${label} (${count})`}
+      confirmLabel={`Yes, delete all ${count}`}
+      disabled={count === 0}
+      onConfirm={async () => {
+        const res =
+          kind === "history"
+            ? await deleteAllHistoryPeriodsAction()
+            : await deleteAllCalculatedPeriodsAction();
+        if (!res.ok) throw new Error("Delete failed.");
+        router.refresh();
       }}
-    >
-      {pending ? "Deleting…" : `Delete all ${label} (${count})`}
-    </button>
+    />
   );
 }
 
@@ -62,33 +49,20 @@ export function DeleteUploadByFilenameButton({
   periodCount: number;
 }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
   const label = kind === "history" ? "history" : "calculated";
 
   return (
-    <button
-      type="button"
-      disabled={pending || !filename}
-      className="text-xs font-medium text-red-700 hover:underline disabled:opacity-50"
-      onClick={() => {
-        if (
-          !confirm(
-            `Delete ${periodCount} ${label} period(s) from "${filename}"? This removes every agent and client record they contain. This cannot be undone.`,
-          )
-        ) {
-          return;
-        }
-        start(async () => {
-          const res = await deletePeriodsByFilenameAction(filename, kind);
-          if (!res.ok) {
-            alert(res.error);
-            return;
-          }
-          router.refresh();
-        });
+    <ConfirmDelete
+      title={`Delete upload “${filename}”?`}
+      description={`This permanently deletes ${periodCount} ${label} period(s) from “${filename}” and every agent/client record they contain. This cannot be undone.`}
+      triggerLabel="Delete upload"
+      confirmLabel="Yes, delete upload"
+      disabled={!filename}
+      onConfirm={async () => {
+        const res = await deletePeriodsByFilenameAction(filename, kind);
+        if (!res.ok) throw new Error(res.error);
+        router.refresh();
       }}
-    >
-      {pending ? "Deleting…" : "Delete upload"}
-    </button>
+    />
   );
 }

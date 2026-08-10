@@ -21,6 +21,9 @@ export const authConfig = {
         session.user.displayName =
           (token.displayName as string) || session.user.name || "";
         session.user.aliasNames = (token.aliasNames as string[]) || [];
+        session.user.employmentType =
+          (token.employmentType as "employee" | "contractor" | undefined) || "employee";
+        session.user.companyName = (token.companyName as string | null | undefined) ?? null;
       }
       return session;
     },

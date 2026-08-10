@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
 import { deleteCalculatedPeriodAction } from "./actions";
+import { ConfirmDelete } from "@/components/confirm-delete";
 
 export function DeletePeriodButton({
   periodId,
@@ -12,33 +12,19 @@ export function DeletePeriodButton({
   periodLabel: string;
 }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
 
   return (
-    <button
-      type="button"
-      disabled={pending}
-      className="text-xs font-medium text-red-700 hover:underline disabled:opacity-50"
-      onClick={() => {
-        if (
-          !confirm(
-            `Delete calculated period ${periodLabel}? You can re-upload the CRM afterward.`,
-          )
-        ) {
-          return;
-        }
-        start(async () => {
-          const res = await deleteCalculatedPeriodAction(periodId);
-          if (!res.ok) {
-            alert(res.error);
-            return;
-          }
-          router.push("/admin");
-          router.refresh();
-        });
+    <ConfirmDelete
+      title={`Delete ${periodLabel}?`}
+      description={`This permanently removes the calculated period ${periodLabel} and every agent/client/ledger row in it. You can re-upload the CRM afterward. This cannot be undone.`}
+      triggerLabel="Delete"
+      confirmLabel="Yes, delete period"
+      onConfirm={async () => {
+        const res = await deleteCalculatedPeriodAction(periodId);
+        if (!res.ok) throw new Error(res.error);
+        router.push("/admin");
+        router.refresh();
       }}
-    >
-      {pending ? "Deleting…" : "Delete"}
-    </button>
+    />
   );
 }

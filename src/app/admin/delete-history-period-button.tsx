@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
 import { deleteHistoryPeriodAction } from "./actions";
+import { ConfirmDelete } from "@/components/confirm-delete";
 
 export function DeleteHistoryPeriodButton({
   periodId,
@@ -11,40 +11,25 @@ export function DeleteHistoryPeriodButton({
 }: {
   periodId: string;
   periodLabel: string;
-  /** After delete, navigate here (e.g. `/admin` from a detail page). */
   redirectTo?: string;
 }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
 
   return (
-    <button
-      type="button"
-      disabled={pending}
-      className="text-xs font-medium text-red-700 hover:underline disabled:opacity-50"
-      onClick={() => {
-        if (
-          !confirm(
-            `Delete history period ${periodLabel}? You can re-import that month afterward.`,
-          )
-        ) {
+    <ConfirmDelete
+      title={`Delete history ${periodLabel}?`}
+      description={`This permanently removes the history period ${periodLabel} and every agent/client/ledger row in it. You can re-import that month afterward. This cannot be undone.`}
+      triggerLabel="Delete"
+      confirmLabel="Yes, delete history"
+      onConfirm={async () => {
+        const res = await deleteHistoryPeriodAction(periodId);
+        if (!res.ok) throw new Error(res.error);
+        if (redirectTo) {
+          router.push(redirectTo);
           return;
         }
-        start(async () => {
-          const res = await deleteHistoryPeriodAction(periodId);
-          if (!res.ok) {
-            alert(res.error);
-            return;
-          }
-          if (redirectTo) {
-            router.push(redirectTo);
-            return;
-          }
-          router.refresh();
-        });
+        router.refresh();
       }}
-    >
-      {pending ? "Deleting…" : "Delete"}
-    </button>
+    />
   );
 }

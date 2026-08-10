@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function SignIn() {
   const router = useRouter();
@@ -37,11 +40,9 @@ export function SignIn() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium text-zinc-700">
-          Email
-        </label>
-        <input
+      <div className="space-y-2">
+        <Label htmlFor="email">Email</Label>
+        <Input
           id="email"
           name="email"
           type="email"
@@ -49,35 +50,26 @@ export function SignIn() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mt-1 h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500"
+          className="h-11 bg-background/80"
         />
       </div>
-      <div>
-        <label
-          htmlFor="password"
-          className="block text-sm font-medium text-zinc-700"
-        >
-          Password
-        </label>
-        <input
+      <div className="space-y-2">
+        <Label htmlFor="password">Password</Label>
+        <Input
           id="password"
           name="password"
           type="password"
-          autoComplete="off"
+          autoComplete="current-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mt-1 h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-500"
+          className="h-11 bg-background/80"
         />
       </div>
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      <button
-        type="submit"
-        disabled={pending}
-        className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-zinc-900 px-5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60"
-      >
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <Button type="submit" disabled={pending} className="h-11 w-full text-base" size="lg">
         {pending ? "Signing in…" : "Sign in"}
-      </button>
+      </Button>
     </form>
   );
 }

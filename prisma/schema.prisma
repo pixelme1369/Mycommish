@@ -12,13 +12,22 @@ datasource db {
 
 // ─── Auth / scoping ───────────────────────────────────────────────────────────
 
+enum EmploymentType {
+  employee
+  contractor
+}
+
 model Agent {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String?
-  displayName  String
-  isAdmin      Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  id             String         @id @default(cuid())
+  email          String         @unique
+  passwordHash   String?
+  displayName    String
+  isAdmin        Boolean        @default(false)
+  /// Employees vs 1099 contractors — commission sheet / Excel export differs later.
+  employmentType EmploymentType @default(employee)
+  /// Legal entity for contractors (shown small on profile; used on contractor sheets).
+  companyName    String?
+  createdAt      DateTime       @default(now())
 
   aliases AgentAlias[]
   uploads UploadBatch[]

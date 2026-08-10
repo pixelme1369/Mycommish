@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
 import { closeCalculatedPeriodAction } from "./actions";
+import { ConfirmDelete } from "@/components/confirm-delete";
 
 export function ClosePeriodButton({
   periodId,
@@ -12,32 +12,19 @@ export function ClosePeriodButton({
   periodLabel: string;
 }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
 
   return (
-    <button
-      type="button"
-      disabled={pending}
-      className="text-xs font-medium text-zinc-700 hover:underline disabled:opacity-50"
-      onClick={() => {
-        if (
-          !confirm(
-            `Close ${periodLabel}? New CRM units/gross for this month will be blocked. Clawbacks can still land.`,
-          )
-        ) {
-          return;
-        }
-        start(async () => {
-          const res = await closeCalculatedPeriodAction(periodId);
-          if (!res.ok) {
-            alert(res.error);
-            return;
-          }
-          router.refresh();
-        });
+    <ConfirmDelete
+      title={`Close ${periodLabel}?`}
+      description={`New CRM units/gross for ${periodLabel} will be blocked. Clawbacks can still land. You can still delete the period later if needed.`}
+      triggerLabel="Close"
+      confirmLabel="Yes, close period"
+      triggerVariant="outline"
+      onConfirm={async () => {
+        const res = await closeCalculatedPeriodAction(periodId);
+        if (!res.ok) throw new Error(res.error);
+        router.refresh();
       }}
-    >
-      {pending ? "Closing…" : "Close"}
-    </button>
+    />
   );
 }

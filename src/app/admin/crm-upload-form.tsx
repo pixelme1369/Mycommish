@@ -2,6 +2,9 @@
 
 import { useActionState } from "react";
 import { uploadCrmAction, type UploadCrmState } from "./actions";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 const initial: UploadCrmState = null;
 
@@ -11,14 +14,12 @@ export function CrmUploadForm() {
   return (
     <div className="space-y-4">
       <form action={action} className="space-y-4">
-        <div>
-          <label htmlFor="crm-file" className="block text-sm font-medium text-zinc-800">
-            CRM export (.csv)
-          </label>
-          <p className="mt-1 text-sm text-zinc-500">
+        <div className="space-y-2">
+          <Label htmlFor="crm-file">CRM export (.csv)</Label>
+          <p className="text-sm text-muted-foreground">
             Full-history export. Creates/updates <span className="font-medium">calculated</span>{" "}
-            periods. Closed months (past payday) skip new units; clawbacks still apply. Large files
-            can take 30–90 seconds — leave this tab open until it finishes.
+            periods. Closed months (past payday) skip new units; clawbacks still apply. Large
+            files can take 30–90 seconds — leave this tab open until it finishes.
           </p>
           <input
             id="crm-file"
@@ -26,22 +27,19 @@ export function CrmUploadForm() {
             type="file"
             accept=".csv,text/csv"
             required
-            className="mt-3 block w-full text-sm text-zinc-700 file:mr-4 file:rounded-md file:border-0 file:bg-zinc-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-zinc-800"
+            className="mt-1 block w-full text-sm text-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
           />
         </div>
-        <button
-          type="submit"
-          disabled={pending}
-          className="inline-flex h-10 items-center rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
-        >
+        <Button type="submit" disabled={pending} className="h-10 px-4">
           {pending ? "Processing… (can take up to ~90s)" : "Upload CRM"}
-        </button>
+        </Button>
       </form>
 
       {state?.ok === false && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          {state.error}
-        </div>
+        <Alert variant="destructive">
+          <AlertTitle>Upload failed</AlertTitle>
+          <AlertDescription>{state.error}</AlertDescription>
+        </Alert>
       )}
 
       {state?.ok === true && <UploadSummary summary={state.summary} />}
@@ -62,23 +60,23 @@ function UploadSummary({
   ];
 
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white px-4 py-4 text-sm">
-      <p className="font-medium text-zinc-900">Upload complete</p>
-      <p className="mt-1 text-zinc-500">Batch {summary.uploadBatchId}</p>
+    <div className="rounded-lg border border-border bg-muted/30 px-4 py-4 text-sm">
+      <p className="font-medium text-foreground">Upload complete</p>
+      <p className="mt-1 text-muted-foreground">Batch {summary.uploadBatchId}</p>
       <ul className="mt-3 space-y-2">
         {rows.map((row) => (
           <li key={row.label}>
-            <span className="text-zinc-600">{row.label}:</span>{" "}
+            <span className="text-muted-foreground">{row.label}:</span>{" "}
             {row.items.length ? (
-              <span className="font-medium text-zinc-900">{row.items.join(", ")}</span>
+              <span className="font-medium text-foreground">{row.items.join(", ")}</span>
             ) : (
-              <span className="text-zinc-400">none</span>
+              <span className="text-muted-foreground/70">none</span>
             )}
           </li>
         ))}
       </ul>
       {summary.errors.length > 0 && (
-        <div className="mt-3 border-t border-zinc-100 pt-3">
+        <div className="mt-3 border-t border-border pt-3">
           <p className="font-medium text-amber-800">Notes / warnings</p>
           <ul className="mt-1 list-disc space-y-1 pl-5 text-amber-900">
             {[...new Set(summary.errors)].slice(0, 20).map((e) => (
