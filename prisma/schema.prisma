@@ -17,20 +17,40 @@ enum EmploymentType {
   contractor
 }
 
+/// Portal login role (separate from employee vs 1099 contractor).
+enum AgentRole {
+  admin
+  manager
+  agent
+}
+
 model Agent {
   id             String         @id @default(cuid())
   email          String         @unique
   passwordHash   String?
   displayName    String
+  role           AgentRole      @default(agent)
+  /// Derived convenience for gates: true when role == admin.
   isAdmin        Boolean        @default(false)
   /// Employees vs 1099 contractors — commission sheet / Excel export differs later.
   employmentType EmploymentType @default(employee)
   /// Legal entity for contractors (shown small on profile; used on contractor sheets).
   companyName    String?
+  lastLoginAt    DateTime?
+  /// When set, portal login is blocked (separate from SalesRepDismissal).
+  suspendedAt    DateTime?
+  suspendedById  String?
   createdAt      DateTime       @default(now())
 
+  suspendedBy    Agent?  @relation("AgentSuspender", fields: [suspendedById], references: [id], onDelete: SetNull)
+  suspendedAgents Agent[] @relation("AgentSuspender")
   aliases AgentAlias[]
   uploads UploadBatch[]
+  fileClaims FileClaim[]
+  reviewedClaims FileClaim[] @relation("FileClaimReviewer")
+
+  @@index([suspendedAt])
+  @@index([lastLoginAt])
 }
 
 model AgentAlias {
@@ -41,6 +61,45 @@ model AgentAlias {
   agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   @@index([agentId])
+}
+
+enum FileClaimStatus {
+  pending
+  accepted
+  rejected
+}
+
+/// Agent reports a CRM file (client) missing from their book; admin reviews.
+model FileClaim {
+  id           String          @id @default(cuid())
+  agentId      String
+  crmId        String
+  clientName   String
+  note         String?
+  status       FileClaimStatus @default(pending)
+  adminNote    String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  agent      Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  reviewedBy Agent? @relation("FileClaimReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([agentId, status])
+  @@index([status, createdAt])
+  @@index([crmId])
+}
+
+/// Soft-dismiss a CRM Sales Rep from active commission views / Gusto.
+/// Ledger + AgentPeriod rows stay for audit; UI and payroll export hide them.
+model SalesRepDismissal {
+  id           String   @id @default(cuid())
+  agentNameKey String   @unique // lowercase CRM spelling
+  agentName    String
+  dismissedAt  DateTime @default(now())
+  note         String?
+  createdAt    DateTime @default(now())
 }
 
 // ─── Periods ──────────────────────────────────────────────────────────────────
@@ -109,13 +168,23 @@ model AgentPeriod {
 // ─── Clients ──────────────────────────────────────────────────────────────────
 
 model ClientIdentity {
-  crmId        String   @id // CRM "ID"
+  /// ADP CRM "ID" column — internal ledger / event key (not what agents see).
+  crmId        String   @id
+  /// ADP CRM "External ID" === Cordoba file "ID". Agents search/claim with this only.
+  externalId   String?
+  /// Last known CRM Sales Rep (for assignment checks even when not commissionable yet).
+  salesRep     String?
   clientName   String?
   email        String?
   phone        String?
   enrolledDebt Decimal? @db.Decimal(14, 2)
   creditScore  Int?
   payFreq      String?
+  /// CRM Status string when last seen (e.g. Pending Affiliate Cancellation).
+  crmStatus    String?
+  enrolledDate String?
+  firstPaymentClearedDate String?
+  droppedDate  String?
   updatedAt    DateTime @updatedAt
 
   events        ClientEvent[]
@@ -123,6 +192,10 @@ model ClientIdentity {
   cordobaPaid   CordobaPaid?
   chargebackSeen CordobaChargebackSeen?
   chargebackSnapshot CordobaChargebackSnapshot?
+
+  @@index([externalId])
+  @@index([clientName])
+  @@index([salesRep])
 }
 
 enum ClientEventKind {

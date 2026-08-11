@@ -24,8 +24,10 @@ export function DeleteAllPeriodsButton({
     <ConfirmDelete
       title={`Delete all ${label} periods?`}
       description={`This permanently deletes ALL ${count} ${label} period(s) and every agent/client/ledger row they contain. You can re-upload afterward. This cannot be undone.`}
-      triggerLabel={`Delete all ${label} (${count})`}
+      triggerLabel={`Delete all (${count})`}
       confirmLabel={`Yes, delete all ${count}`}
+      triggerVariant="ghost"
+      triggerClassName="text-muted-foreground hover:text-destructive"
       disabled={count === 0}
       onConfirm={async () => {
         const res =
@@ -55,8 +57,10 @@ export function DeleteUploadByFilenameButton({
     <ConfirmDelete
       title={`Delete upload “${filename}”?`}
       description={`This permanently deletes ${periodCount} ${label} period(s) from “${filename}” and every agent/client record they contain. This cannot be undone.`}
-      triggerLabel="Delete upload"
+      triggerLabel="Remove upload"
       confirmLabel="Yes, delete upload"
+      triggerVariant="ghost"
+      triggerClassName="text-muted-foreground hover:text-destructive"
       disabled={!filename}
       onConfirm={async () => {
         const res = await deletePeriodsByFilenameAction(filename, kind);

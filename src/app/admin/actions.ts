@@ -118,7 +118,7 @@ export async function uploadHistoryAction(
 export async function listCalculatedPeriods() {
   return prisma.commissionPeriod.findMany({
     where: { source: PeriodSource.calculated },
-    orderBy: [{ filename: "asc" }, { periodLabel: "desc" }],
+    orderBy: [{ periodLabel: "desc" }, { uploadedAt: "desc" }],
     include: {
       _count: { select: { agentPeriods: true } },
     },
@@ -128,7 +128,7 @@ export async function listCalculatedPeriods() {
 export async function listHistoryPeriods() {
   return prisma.commissionPeriod.findMany({
     where: { source: PeriodSource.history },
-    orderBy: [{ filename: "asc" }, { periodLabel: "desc" }],
+    orderBy: [{ periodLabel: "desc" }, { uploadedAt: "desc" }],
     include: {
       _count: { select: { agentPeriods: true } },
     },
@@ -138,7 +138,7 @@ export async function listHistoryPeriods() {
 export async function listRecentUploads() {
   return prisma.uploadBatch.findMany({
     orderBy: { createdAt: "desc" },
-    take: 10,
+    take: 30,
   });
 }
 

@@ -48,10 +48,32 @@ describe("classification", () => {
     const june = byPeriod(periods)["2026-06"];
     expect(june.results[0].unitsCleared).toBe(1);
     expect(june.results[0].clawbackAmount).toBe(0);
-    expect(june.results[0].cancellationRate).toBe(0);
+    // 2 enrolled in June, 1 with Dropped Date → 50%
+    expect(june.results[0].cancellationRate).toBe(50);
     const dropped = june.clientRows.find((c) => c.crmId === "A2");
     expect(dropped?.isCancelled).toBe(true);
     expect(dropped?.commissionOnClient).toBe(0);
+  });
+
+  it("cancel rate uses Enrolled Date month cohort (incl. never-cleared)", () => {
+    const periods = parse([
+      // 10 enrolled in July; 5 have a drop date → 50%
+      clientRow("E1", { enrolled: "07/01/26", cleared: "07/10/26" }),
+      clientRow("E2", { enrolled: "07/02/26", cleared: "07/11/26" }),
+      clientRow("E3", { enrolled: "07/03/26", cleared: "07/12/26" }),
+      clientRow("E4", { enrolled: "07/04/26", cleared: "07/13/26" }),
+      clientRow("E5", { enrolled: "07/05/26", cleared: "07/14/26" }),
+      clientRow("E6", { enrolled: "07/06/26", cleared: "07/15/26", dropped: "08/01/26", payments: "1" }),
+      clientRow("E7", { enrolled: "07/07/26", cleared: "07/16/26", dropped: "08/02/26", payments: "1" }),
+      clientRow("E8", { enrolled: "07/08/26", dropped: "07/20/26" }), // never cleared, has drop
+      clientRow("E9", { enrolled: "07/09/26", dropped: "08/03/26" }), // never cleared, has drop
+      clientRow("E10", { enrolled: "07/10/26", dropped: "09/01/26" }), // never cleared, has drop
+      // June enrollment must not affect July rate
+      clientRow("J1", { enrolled: "06/01/26", cleared: "07/20/26", dropped: "08/10/26", payments: "1" }),
+    ]);
+    const july = byPeriod(periods)["2026-07"];
+    expect(july.results[0].cancellationRate).toBe(50);
+    expect(july.results[0].unitsCleared).toBe(5); // E1–E5; J1 is clawback (dropped Aug)
   });
 
   it("safe_cancel counts as $0 unit", () => {

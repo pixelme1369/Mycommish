@@ -1,0 +1,426 @@
+{
+  "employees": [
+    {
+      "lastName": "Acuna",
+      "firstName": "Diego",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "c664b5",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Aoukal",
+      "firstName": "Taha",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "36f4bb",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Apana",
+      "firstName": "Logan",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "76e968",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Arredondo",
+      "firstName": "Liz",
+      "title": "Team Lead/Manager (Primary)",
+      "gustoEmployeeId": "602eef",
+      "regularHours": "86.666667"
+    },
+    {
+      "lastName": "Arreola",
+      "firstName": "Daniel",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "92087d",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Baghalian Zadeh",
+      "firstName": "Siavash",
+      "title": "Sr. Account Manager (Primary)",
+      "gustoEmployeeId": "5393fe",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Bakhoda",
+      "firstName": "Shayan",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "b6bbfb",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Ballman",
+      "firstName": "Brian",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "cd9bed",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Beeson",
+      "firstName": "Eileen",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "2719b4",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Bell",
+      "firstName": "BigDawgDon",
+      "title": "Sr. Account Manager (Primary)",
+      "gustoEmployeeId": "50e090",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Bullock",
+      "firstName": "Neka",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "957970",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Ceja",
+      "firstName": "Erika",
+      "title": "Retention Specialist (Primary)",
+      "gustoEmployeeId": "ad9409",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Claros",
+      "firstName": "Mark",
+      "title": "Opener (Primary)",
+      "gustoEmployeeId": "df229d",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Dadou",
+      "firstName": "Mo",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "9c3b47",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Desai",
+      "firstName": "Parth",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "e3c092",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "El Serwan",
+      "firstName": "Abdul",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "9c14c0",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Elqaza",
+      "firstName": "Adam",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "a7e67a",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Elserwan",
+      "firstName": "Tom",
+      "title": "Call center opener (Primary)",
+      "gustoEmployeeId": "7dff0b",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Esparza",
+      "firstName": "Angel",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "15c6e5",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Ford",
+      "firstName": "Darrin",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "6bc8ab",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Gallagher",
+      "firstName": "Dylan",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "ac5a4d",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Habhab",
+      "firstName": "Faisal",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "67a86b",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Hall",
+      "firstName": "Josh",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "c3da1d",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Insuaste",
+      "firstName": "Logan",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "a70d47",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Keith",
+      "firstName": "Kyle",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "781768",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Luu",
+      "firstName": "David",
+      "title": "Billing And Collections (Primary)",
+      "gustoEmployeeId": "ffad0f",
+      "regularHours": "86.666667"
+    },
+    {
+      "lastName": "Mackay",
+      "firstName": "Ariyo",
+      "title": "Sales/Operations (Primary)",
+      "gustoEmployeeId": "24b182",
+      "regularHours": "86.666667"
+    },
+    {
+      "lastName": "Maestas",
+      "firstName": "Chuvar",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "32f369",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Malone",
+      "firstName": "Riley",
+      "title": "Opener (Primary)",
+      "gustoEmployeeId": "fe1035",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Morse",
+      "firstName": "Mercy",
+      "title": "Call center opener (Primary)",
+      "gustoEmployeeId": "25402c",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Nassif",
+      "firstName": "Joseph",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "e29947",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Porterfield",
+      "firstName": "Spencer",
+      "title": "Opener (Primary)",
+      "gustoEmployeeId": "c9b874",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Randolph",
+      "firstName": "Stanley",
+      "title": "Call center opener (Primary)",
+      "gustoEmployeeId": "8a7e22",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Riano",
+      "firstName": "Eli",
+      "title": "Retention Specialist (Primary)",
+      "gustoEmployeeId": "74efe7",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Saldana",
+      "firstName": "Jennifer",
+      "title": "Opener (Primary)",
+      "gustoEmployeeId": "9c4d33",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Salgado",
+      "firstName": "Jose",
+      "title": "Retention Specialist (Primary)",
+      "gustoEmployeeId": "905865",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Salim",
+      "firstName": "Imren",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "317f5c",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Sims",
+      "firstName": "Paul",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "85260d",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Smith",
+      "firstName": "Brian",
+      "title": "Call center opener (Primary)",
+      "gustoEmployeeId": "ac8670",
+      "regularHours": "72.0"
+    },
+    {
+      "lastName": "Soldevilla",
+      "firstName": "Daniel",
+      "title": "Retention Specialist (Primary)",
+      "gustoEmployeeId": "014f50",
+      "regularHours": "86.666667"
+    },
+    {
+      "lastName": "Tade",
+      "firstName": "John",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "cce95c",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Tayara",
+      "firstName": "Omar",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "f5cef8",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Tulkoff",
+      "firstName": "Alexander",
+      "title": "Opener (Primary)",
+      "gustoEmployeeId": "2befc8",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Valipour",
+      "firstName": "Amirarsalan",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "a330a1",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Wahlberg",
+      "firstName": "Alexander",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "a23b6c",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Whitmer",
+      "firstName": "Robert",
+      "title": "Debt Settlement Officer (Primary)",
+      "gustoEmployeeId": "b7cfcc",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "Yomorta",
+      "firstName": "Alon",
+      "title": "Call center opener (Primary)",
+      "gustoEmployeeId": "8507c6",
+      "regularHours": "0.0"
+    },
+    {
+      "lastName": "arman",
+      "firstName": "Shannon",
+      "title": "Head of Operations (Primary)",
+      "gustoEmployeeId": "5e21fd",
+      "regularHours": "86.666667"
+    },
+    {
+      "lastName": "lopez",
+      "firstName": "Jaiden",
+      "title": "Call center (Primary)",
+      "gustoEmployeeId": "61c9a3",
+      "regularHours": "0.0"
+    }
+  ],
+  "contractors": [
+    {
+      "lastName": "Arman",
+      "firstName": "Shabnam",
+      "businessName": "",
+      "ein": "*2952",
+      "hourlyRate": ""
+    },
+    {
+      "lastName": "Jaggers",
+      "firstName": "Tabitha",
+      "businessName": "",
+      "ein": "*8862",
+      "hourlyRate": "17.0"
+    },
+    {
+      "lastName": "",
+      "firstName": "",
+      "businessName": "Aluna Consulting Group LLC",
+      "ein": "*6305",
+      "hourlyRate": "16.5"
+    },
+    {
+      "lastName": "",
+      "firstName": "",
+      "businessName": "Aly Debt Solutions",
+      "ein": "*5852",
+      "hourlyRate": ""
+    },
+    {
+      "lastName": "",
+      "firstName": "",
+      "businessName": "BeeDub Enterprises Inc",
+      "ein": "*0099",
+      "hourlyRate": ""
+    },
+    {
+      "lastName": "",
+      "firstName": "",
+      "businessName": "Debt Free Consulting LLC",
+      "ein": "*7505",
+      "hourlyRate": "16.5"
+    },
+    {
+      "lastName": "",
+      "firstName": "",
+      "businessName": "Lorenzo ventures LLC",
+      "ein": "*2155",
+      "hourlyRate": "16.5"
+    },
+    {
+      "lastName": "",
+      "firstName": "",
+      "businessName": "M and A Financial Solutions LLC",
+      "ein": "*5852",
+      "hourlyRate": ""
+    },
+    {
+      "lastName": "",
+      "firstName": "",
+      "businessName": "Obtain Funding LLC",
+      "ein": "*7019",
+      "hourlyRate": ""
+    },
+    {
+      "lastName": "",
+      "firstName": "",
+      "businessName": "Simple Mobile Notary Services LLC",
+      "ein": "*6762",
+      "hourlyRate": ""
+    },
+    {
+      "lastName": "",
+      "firstName": "",
+      "businessName": "Wise Consulting",
+      "ein": "*7310",
+      "hourlyRate": ""
+    }
+  ]
+}

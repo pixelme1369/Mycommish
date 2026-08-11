@@ -18,7 +18,7 @@ Greenfield rebuild of the ADP agent commission portal ([mycommish.app](https://m
 - **Lock after payday** (25th of next month): no rewrite of units/gross on closed periods
 - **Clawbacks allowed on closed periods** (Cordoba can arrive late)
 - Money: immutable **LedgerEntry** + cached `AgentPeriod` rollup
-- Cordoba placement: paid evidence + **any** own `dropped_date` for that `crm_id`
+- Cordoba placement: paid evidence + **any** own `dropped_date` for that client (Cordoba ID = CRM External ID → resolve to CRM ID)
 
 ## Stack
 
@@ -45,7 +45,10 @@ npx tsx scripts/seed-admin.ts you@company.com "Your Name"
 ```
 
 3. Google Cloud Console: OAuth client with redirect  
-`http://localhost:3000/api/auth/callback/google` (and your prod URL later).
+`http://localhost:3000/api/auth/callback/google` (and your prod URL later).  
+Agents must be created under **Admin → Agents** (email allowlist) before Google sign-in works. Password is optional if they only use Google.
+
+Portal: **My files** (`/portal/files`) — CRM file list, lookup chat (File ID / name → status + 1st payment cleared), missing-file claims for admin review at `/admin/claims`.
 
 4. Run:
 
@@ -68,7 +71,9 @@ src/app/portal/                   # agent-facing (next)
 ## Invariants (do not “fix” without owner sign-off)
 
 1. Tier table: 1–20 / 21–31 / 32–39 / 40–45 / 46–60 / 61+
-2. Cancel rate > 20% drops one tier; exactly 20% does not
+2. Cancel rate > 25% drops one tier; exactly 25% does not.
+   Cancel rate = (Enrolled Date in commission month with a Dropped Date) /
+   (Enrolled Date in commission month)
 3. Alex Tambouly 2%, Peter Godwin 1.75% fixed — no tier penalty
 4. Clawbacks land in the client’s own dropped month
 5. Cordoba never uses the Chargebacks file’s Dropped Date / debt for math

@@ -4,18 +4,17 @@ import { requireAdmin } from "@/lib/auth-guards";
 import { SignOutButton } from "@/components/sign-out-button";
 import { prisma } from "@/lib/db";
 import { PeriodSource } from "@/generated/prisma/client";
-import { cancelRatePercent, money, ratePercent } from "@/lib/format";
+import { money } from "@/lib/format";
 import {
-  getFixedRate,
-  unitsToNextTier,
-} from "@/lib/commission/calculator";
-import { resolveEmployment } from "@/lib/agents/contractors";
+  dismissalKey,
+  listDismissedKeys,
+} from "@/lib/agents/dismissal";
 import { DeletePeriodButton } from "@/app/admin/delete-period-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PeriodAgentsGustoTable } from "../period-agents-gusto-table";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +31,31 @@ export default async function AdminPeriodPage({
   });
   if (!period) notFound();
 
-  const agents = await prisma.agentPeriod.findMany({
-    where: { periodId },
-    orderBy: [{ netCommission: "desc" }, { agentName: "asc" }],
-  });
+  const [agents, dismissedKeys] = await Promise.all([
+    prisma.agentPeriod.findMany({
+      where: { periodId },
+      orderBy: [{ netCommission: "desc" }, { agentName: "asc" }],
+    }),
+    listDismissedKeys(),
+  ]);
 
-  const totals = agents.reduce(
+  const tableRows = agents.map((a) => ({
+    id: a.id,
+    agentName: a.agentName,
+    unitsCleared: a.unitsCleared,
+    adjustedTier: a.adjustedTier,
+    rawTier: a.rawTier,
+    cancellationPenaltyApplied: a.cancellationPenaltyApplied,
+    tierRate: Number(a.tierRate),
+    grossCommission: Number(a.grossCommission),
+    clawbackAmount: Number(a.clawbackAmount),
+    netCommission: Number(a.netCommission),
+    cancellationRate: Number(a.cancellationRate),
+    dismissed: dismissedKeys.has(dismissalKey(a.agentName)),
+  }));
+
+  const activeRows = tableRows.filter((r) => !r.dismissed);
+  const activeTotals = activeRows.reduce(
     (acc, a) => {
       acc.units += a.unitsCleared;
       acc.gross += Number(a.grossCommission);
@@ -47,6 +65,7 @@ export default async function AdminPeriodPage({
     },
     { units: 0, gross: 0, clawback: 0, net: 0 },
   );
+  const dismissedCount = tableRows.length - activeRows.length;
 
   return (
     <AppShell wide>
@@ -67,6 +86,7 @@ export default async function AdminPeriodPage({
             {period.uploadedAt
               ? ` · uploaded ${period.uploadedAt.toISOString().slice(0, 10)}`
               : ""}
+            {dismissedCount > 0 ? ` · ${dismissedCount} dismissed hidden` : ""}
           </>
         }
         actions={
@@ -78,155 +98,20 @@ export default async function AdminPeriodPage({
       />
 
       <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Agents" value={String(agents.length)} />
-        <Stat label="Units cleared" value={String(totals.units)} />
-        <Stat label="Gross" value={money(totals.gross)} />
-        <Stat label="Net" value={money(totals.net)} accent />
+        <Stat label="Agents" value={String(activeRows.length)} />
+        <Stat label="Units cleared" value={String(activeTotals.units)} />
+        <Stat label="Gross" value={money(activeTotals.gross)} />
+        <Stat label="Net" value={money(activeTotals.net)} accent />
       </div>
 
       {agents.length === 0 ? (
         <p className="mt-10 text-sm text-muted-foreground">No agent rows for this period.</p>
       ) : (
-        <Card className="glass-panel mt-8 overflow-hidden py-0">
-          <table className="w-full table-fixed text-left text-[13px]">
-            <colgroup>
-              <col className="w-[20%]" />
-              <col className="w-[6%]" />
-              <col className="w-[7%]" />
-              <col className="w-[6%]" />
-              <col className="w-[7%]" />
-              <col className="w-[12%]" />
-              <col className="w-[11%]" />
-              <col className="w-[12%]" />
-              <col className="w-[7%]" />
-              <col className="w-[12%]" />
-            </colgroup>
-            <thead className="border-b border-border bg-muted/40 text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2.5 font-medium">Agent</th>
-                <th className="px-2 py-2.5 text-right font-medium">Units</th>
-                <th className="px-2 py-2.5 text-right font-medium">Next</th>
-                <th className="px-2 py-2.5 text-right font-medium">Tier</th>
-                <th className="px-2 py-2.5 text-right font-medium">Rate</th>
-                <th className="px-2 py-2.5 text-right font-medium">Gross</th>
-                <th className="px-2 py-2.5 text-right font-medium">Clawback</th>
-                <th className="px-2 py-2.5 text-right font-medium">Net</th>
-                <th className="px-2 py-2.5 text-right font-medium">Cancel</th>
-                <th className="px-3 py-2.5 text-right font-medium">Export</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/70">
-              {agents.map((r) => {
-                const toNext = unitsToNextTier(r.unitsCleared, r.agentName);
-                const fixed = getFixedRate(r.agentName) !== null;
-                const hot = toNext != null && toNext <= 3;
-                const warm = toNext != null && toNext <= 10;
-                const employment = resolveEmployment(r.agentName);
-                const isContractor = employment.employmentType === "contractor";
-                const companyTitle = employment.companyName
-                  ? `Contractor · ${employment.companyName}`
-                  : "Contractor";
-
-                return (
-                  <tr key={r.id} className="hover:bg-muted/30">
-                    <td className="px-3 py-2 align-middle">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate font-medium" title={r.agentName}>
-                          {r.agentName}
-                        </span>
-                        {isContractor ? (
-                          <span
-                            className="shrink-0 text-[10px] font-medium tracking-wide text-muted-foreground uppercase"
-                            title={companyTitle}
-                          >
-                            1099
-                          </span>
-                        ) : null}
-                      </div>
-                      {isContractor && employment.companyName ? (
-                        <p
-                          className="truncate text-[11px] leading-tight text-muted-foreground"
-                          title={employment.companyName}
-                        >
-                          {employment.companyName}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="px-2 py-2 text-right align-middle tabular-nums">
-                      {r.unitsCleared}
-                    </td>
-                    <td className="px-2 py-2 text-right align-middle">
-                      {toNext == null ? (
-                        <span className="text-muted-foreground">
-                          {fixed ? "Fixed" : r.adjustedTier >= 6 ? "Top" : "—"}
-                        </span>
-                      ) : (
-                        <Badge
-                          variant="secondary"
-                          className={cn(
-                            "px-1.5 py-0 text-[11px] tabular-nums",
-                            hot && "bg-amber-100 text-amber-900",
-                            warm && !hot && "bg-amber-50 text-amber-800",
-                          )}
-                        >
-                          {toNext}
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="px-2 py-2 text-right align-middle tabular-nums">
-                      {r.cancellationPenaltyApplied
-                        ? `${r.rawTier}→${r.adjustedTier}`
-                        : r.adjustedTier || "—"}
-                    </td>
-                    <td className="px-2 py-2 text-right align-middle tabular-nums">
-                      {ratePercent(r.tierRate)}
-                    </td>
-                    <td className="px-2 py-2 text-right align-middle tabular-nums">
-                      {money(r.grossCommission)}
-                    </td>
-                    <td className="px-2 py-2 text-right align-middle tabular-nums">
-                      {Number(r.clawbackAmount) > 0 ? (
-                        <span className="text-destructive">-{money(r.clawbackAmount)}</span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-2 py-2 text-right align-middle font-semibold tabular-nums">
-                      {money(r.netCommission)}
-                    </td>
-                    <td className="px-2 py-2 text-right align-middle tabular-nums">
-                      {cancelRatePercent(r.cancellationRate)}
-                    </td>
-                    <td className="px-3 py-2 text-right align-middle">
-                      <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                        <a
-                          href={`/api/admin/periods/${period.id}/agents/${r.id}/statement`}
-                          className="font-medium text-foreground underline-offset-2 hover:underline"
-                        >
-                          PDF
-                        </a>
-                        <span className="text-border">·</span>
-                        <a
-                          href={`/api/admin/periods/${period.id}/agents/${r.id}/export`}
-                          className="font-medium text-foreground underline-offset-2 hover:underline"
-                        >
-                          XLS
-                        </a>
-                        <span className="text-border">·</span>
-                        <Link
-                          href={`/portal/period/${period.id}/agent/${r.id}`}
-                          className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                        >
-                          View
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Card>
+        <PeriodAgentsGustoTable
+          periodId={period.id}
+          agents={tableRows}
+          dismissedCount={dismissedCount}
+        />
       )}
     </AppShell>
   );
@@ -247,7 +132,7 @@ function Stat({
         {label}
       </p>
       <p
-        className={`mt-1 text-lg ${accent ? "font-semibold text-[oklch(0.4_0.08_175)]" : "font-medium"}`}
+        className={`mt-1 text-lg ${accent ? "font-semibold text-money" : "font-medium"}`}
       >
         {value}
       </p>

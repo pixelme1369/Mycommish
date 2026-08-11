@@ -6,7 +6,7 @@
 
 import { prisma } from "@/lib/db";
 import { isPeriodClosedByPayday } from "@/lib/commission/calculator";
-import type { PeriodOutput } from "@/lib/commission/crm-parser";
+import type { CrmClient, PeriodOutput } from "@/lib/commission/crm-parser";
 import { isPoisonedDebtDroppedDate, parseCrmAndCalculate } from "@/lib/commission/crm-parser";
 import {
   ClientEventKind,
@@ -168,6 +168,10 @@ export async function saveCrmPeriodResults(
   });
   summary.uploadBatchId = batch.id;
 
+  // Upsert full CRM directory (External ID + Sales Rep) even for not-yet-cleared files.
+  // Batched — full exports are large; per-row upserts were taking minutes.
+  await upsertDirectoryIdentities(periods[0]?.directoryClients ?? []);
+
   for (const period of periods) {
     if (!period.periodLabel) continue;
 
@@ -240,18 +244,8 @@ async function createFullPeriod(
   });
 
   // Batch identities (one round-trip) before events reference them.
-  const identityMap = new Map<
-    string,
-    {
-      crmId: string;
-      clientName?: string;
-      email?: string;
-      phone?: string;
-      enrolledDebt?: number;
-      creditScore?: number | null;
-      payFreq?: string;
-    }
-  >();
+  // Directory upsert above usually already wrote these; skipDuplicates covers races.
+  const identityMap = new Map<string, CrmClient>();
   for (const r of period.results) {
     for (const c of [
       ...(r._clearedClients ?? []),
@@ -266,12 +260,18 @@ async function createFullPeriod(
     await prisma.clientIdentity.createMany({
       data: [...identityMap.values()].map((c) => ({
         crmId: c.crmId,
+        externalId: c.externalId?.trim() || null,
+        salesRep: c.agentName ?? null,
         clientName: c.clientName ?? null,
         email: c.email ?? null,
         phone: c.phone ?? null,
         enrolledDebt: c.enrolledDebt != null ? dec(c.enrolledDebt) : null,
         creditScore: c.creditScore ?? null,
         payFreq: c.payFreq ?? null,
+        crmStatus: c.status ?? null,
+        enrolledDate: c.enrolledDate || null,
+        firstPaymentClearedDate: c.firstPaymentClearedDate || null,
+        droppedDate: c.droppedDate || null,
       })),
       skipDuplicates: true,
     });
@@ -459,7 +459,7 @@ async function applyClawbacksOnly(
       });
       if (already) continue;
 
-      await upsertIdentity(c);
+      await upsertDirectoryIdentities([c]);
       await prisma.clientEvent.create({
         data: {
           crmId: c.crmId,
@@ -513,33 +513,69 @@ async function applyClawbacksOnly(
   }
 }
 
-async function upsertIdentity(c: {
-  crmId: string;
-  clientName?: string;
-  email?: string;
-  phone?: string;
-  enrolledDebt?: number;
-  creditScore?: number | null;
-  payFreq?: string;
-}) {
-  await prisma.clientIdentity.upsert({
-    where: { crmId: c.crmId },
-    create: {
-      crmId: c.crmId,
-      clientName: c.clientName,
-      email: c.email,
-      phone: c.phone,
-      enrolledDebt: c.enrolledDebt != null ? dec(c.enrolledDebt) : null,
-      creditScore: c.creditScore ?? null,
-      payFreq: c.payFreq,
-    },
-    update: {
-      clientName: c.clientName,
-      email: c.email,
-      phone: c.phone,
-      enrolledDebt: c.enrolledDebt != null ? dec(c.enrolledDebt) : undefined,
-      creditScore: c.creditScore ?? undefined,
-      payFreq: c.payFreq,
-    },
-  });
+async function upsertDirectoryIdentities(clients: CrmClient[]) {
+  const byId = new Map<string, CrmClient>();
+  for (const c of clients) {
+    if (!c.crmId || byId.has(c.crmId)) continue;
+    byId.set(c.crmId, c);
+  }
+  const rows = [...byId.values()];
+  if (!rows.length) return;
+
+  const CHUNK = 200;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    const values = chunk.map(
+      (c) => Prisma.sql`(
+        ${c.crmId},
+        ${c.externalId?.trim() || null},
+        ${c.agentName?.trim() || null},
+        ${c.clientName || null},
+        ${c.email || null},
+        ${c.phone || null},
+        ${c.enrolledDebt != null ? dec(c.enrolledDebt) : null},
+        ${c.creditScore},
+        ${c.payFreq || null},
+        ${c.status || null},
+        ${c.enrolledDate || null},
+        ${c.firstPaymentClearedDate || null},
+        ${c.droppedDate || null},
+        NOW()
+      )`,
+    );
+
+    await prisma.$executeRaw`
+      INSERT INTO "ClientIdentity" (
+        "crmId",
+        "externalId",
+        "salesRep",
+        "clientName",
+        "email",
+        "phone",
+        "enrolledDebt",
+        "creditScore",
+        "payFreq",
+        "crmStatus",
+        "enrolledDate",
+        "firstPaymentClearedDate",
+        "droppedDate",
+        "updatedAt"
+      )
+      VALUES ${Prisma.join(values)}
+      ON CONFLICT ("crmId") DO UPDATE SET
+        "externalId" = COALESCE(EXCLUDED."externalId", "ClientIdentity"."externalId"),
+        "salesRep" = COALESCE(EXCLUDED."salesRep", "ClientIdentity"."salesRep"),
+        "clientName" = COALESCE(EXCLUDED."clientName", "ClientIdentity"."clientName"),
+        "email" = COALESCE(EXCLUDED."email", "ClientIdentity"."email"),
+        "phone" = COALESCE(EXCLUDED."phone", "ClientIdentity"."phone"),
+        "enrolledDebt" = COALESCE(EXCLUDED."enrolledDebt", "ClientIdentity"."enrolledDebt"),
+        "creditScore" = COALESCE(EXCLUDED."creditScore", "ClientIdentity"."creditScore"),
+        "payFreq" = COALESCE(EXCLUDED."payFreq", "ClientIdentity"."payFreq"),
+        "crmStatus" = COALESCE(EXCLUDED."crmStatus", "ClientIdentity"."crmStatus"),
+        "enrolledDate" = COALESCE(EXCLUDED."enrolledDate", "ClientIdentity"."enrolledDate"),
+        "firstPaymentClearedDate" = COALESCE(EXCLUDED."firstPaymentClearedDate", "ClientIdentity"."firstPaymentClearedDate"),
+        "droppedDate" = COALESCE(EXCLUDED."droppedDate", "ClientIdentity"."droppedDate"),
+        "updatedAt" = NOW()
+    `;
+  }
 }

@@ -9,6 +9,7 @@ See root README. Do not change tier / clawback / Cordoba / history Rate policy w
 - `LedgerEntry` is authoritative for dollars; `AgentPeriod` is a cached rollup recomputed on writes.
 - Undo an upload by writing `reversal` ledger rows — never orphan Cordoba state.
 - Agent queries: `CommissionPeriod.source = calculated`, latest 2 `periodLabel`s, alias-scoped `agentName`.
+- **IDs:** ADP CRM `External ID` === Cordoba `ID` (agent-facing). Ledger/`ClientEvent` use CRM `ID` as `crmId`; Cordoba ingest resolves via `ClientIdentity.externalId`.
 
 ## Next build slices
 

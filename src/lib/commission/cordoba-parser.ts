@@ -7,12 +7,14 @@
 import ExcelJS from "exceljs";
 
 export type CordobaPaidRow = {
+  /** Cordoba file ID — same value as ADP CRM External ID (not CRM ID). */
   crmId: string;
   clientName: string;
   source: "first_pays" | "epf";
 };
 
 export type CordobaChargebackRow = {
+  /** Cordoba file ID — same value as ADP CRM External ID (not CRM ID). */
   crmId: string;
   clientName: string;
   marketingPayoutDebt: number;

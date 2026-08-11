@@ -42,22 +42,22 @@ describe("fixed rates", () => {
 });
 
 describe("cancellation penalty", () => {
-  it("exactly 20% does not drop", () => {
+  it("exactly 25% does not drop", () => {
     const r = calculateAgentCommission({
       agentName: "Test",
       unitsCleared: 25,
       totalClearedDebt: 100_000,
-      cancellationRatePct: 20,
+      cancellationRatePct: 25,
     });
     expect(r.adjustedTier).toBe(2);
     expect(r.cancellationPenaltyApplied).toBe(false);
   });
-  it(">20% drops one tier", () => {
+  it(">25% drops one tier", () => {
     const r = calculateAgentCommission({
       agentName: "Test",
       unitsCleared: 25,
       totalClearedDebt: 100_000,
-      cancellationRatePct: 20.01,
+      cancellationRatePct: 25.01,
     });
     expect(r.adjustedTier).toBe(1);
     expect(r.tierRate).toBe(0.01);

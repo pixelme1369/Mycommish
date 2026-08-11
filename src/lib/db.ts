@@ -1,7 +1,14 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+  /** Bump when adding Prisma models so hot-reload drops a stale singleton. */
+  prismaSchemaEpoch?: number;
+};
+
+/** Must match schema additions that need a fresh PrismaClient in `next dev`. */
+const PRISMA_SCHEMA_EPOCH = 7;
 
 /** Quiet pg's sslmode deprecation warning against Neon URLs. */
 function neonCompatibleUrl(url: string): string {
@@ -31,8 +38,18 @@ function createPrismaClient() {
   });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+function getPrismaClient() {
+  const stale =
+    !globalForPrisma.prisma ||
+    globalForPrisma.prismaSchemaEpoch !== PRISMA_SCHEMA_EPOCH ||
+    typeof (globalForPrisma.prisma as { fileClaim?: unknown }).fileClaim === "undefined";
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  if (stale) {
+    globalForPrisma.prisma = createPrismaClient();
+    globalForPrisma.prismaSchemaEpoch = PRISMA_SCHEMA_EPOCH;
+  }
+
+  return globalForPrisma.prisma!;
 }
+
+export const prisma = getPrismaClient();

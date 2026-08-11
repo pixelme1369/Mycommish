@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 type ConfirmDeleteProps = {
   title: string;
   description: string;
-  triggerLabel: string;
+  triggerLabel?: string;
   confirmLabel?: string;
   pendingLabel?: string;
   /** Ghost/text style trigger (e.g. agent remove links). */
@@ -26,45 +26,56 @@ type ConfirmDeleteProps = {
   triggerSize?: "default" | "sm" | "xs";
   triggerClassName?: string;
   disabled?: boolean;
+  /** Controlled open — use when trigger lives in a menu that unmounts. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Hide built-in trigger (pair with controlled open). */
+  hideTrigger?: boolean;
   onConfirm: () => Promise<void> | void;
 };
 
 export function ConfirmDelete({
   title,
   description,
-  triggerLabel,
+  triggerLabel = "Delete",
   confirmLabel = "Delete",
   pendingLabel = "Deleting…",
   triggerVariant = "destructive",
   triggerSize = "sm",
   triggerClassName,
   disabled,
+  open: openProp,
+  onOpenChange,
+  hideTrigger,
   onConfirm,
 }: ConfirmDeleteProps) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const [pending, start] = useTransition();
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (pending && !next) return;
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
 
   return (
-    <AlertDialog
-      open={open}
-      onOpenChange={(next) => {
-        if (pending && !next) return;
-        setOpen(next);
-      }}
-    >
-      <AlertDialogTrigger
-        disabled={disabled || pending}
-        render={
-          <Button
-            variant={triggerVariant}
-            size={triggerSize}
-            className={triggerClassName}
-            disabled={disabled || pending}
-          />
-        }
-      >
-        {pending ? pendingLabel : triggerLabel}
-      </AlertDialogTrigger>
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      {!hideTrigger ? (
+        <AlertDialogTrigger
+          disabled={disabled || pending}
+          render={
+            <Button
+              variant={triggerVariant}
+              size={triggerSize}
+              className={triggerClassName}
+              disabled={disabled || pending}
+            />
+          }
+        >
+          {pending ? pendingLabel : triggerLabel}
+        </AlertDialogTrigger>
+      ) : null}
       <AlertDialogContent size="default">
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>

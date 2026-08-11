@@ -21,7 +21,6 @@ import {
   getFixedRate,
   unitsToNextTier,
 } from "@/lib/commission/calculator";
-import { resolveEmployment } from "@/lib/agents/contractors";
 import {
   agentRowsForLatestPeriods,
   cancelRatePercent,
@@ -54,16 +53,6 @@ export default async function PortalHome() {
     ? unique.filter((r) => r.period.periodLabel === latestLabel)
     : [];
 
-  const employmentFromAlias = aliasNames
-    .map((n) => resolveEmployment(n))
-    .find((e) => e.employmentType === "contractor");
-  const employment =
-    employmentFromAlias ||
-    resolveEmployment(null, {
-      employmentType: session.user.employmentType,
-      companyName: session.user.companyName,
-    });
-
   return (
     <AppShell wide>
       <PageHeader
@@ -73,17 +62,10 @@ export default async function PortalHome() {
             <span>· portal</span>
           </span>
         }
-        title="My commissions"
+        title="Upcoming commissions"
         description={
           <>
             {session.user.displayName}
-            {employment.employmentType === "contractor" ? (
-              <span className="text-muted-foreground">
-                {" "}
-                · contractor
-                {employment.companyName ? ` · ${employment.companyName}` : ""}
-              </span>
-            ) : null}
             {windowLabels.length > 0 ? (
               <>
                 {" "}
@@ -95,6 +77,12 @@ export default async function PortalHome() {
         }
         actions={
           <>
+            <Link
+              href="/portal/files"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              My files
+            </Link>
             {session.user.isAdmin ? (
               <Link
                 href="/admin"
@@ -189,7 +177,7 @@ export default async function PortalHome() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge className="bg-[oklch(0.45_0.08_175)] text-white hover:bg-[oklch(0.45_0.08_175)]">
+                      <Badge className="bg-money text-money-foreground hover:bg-money/90">
                         {money(r.netCommission)}
                       </Badge>
                     </TableCell>

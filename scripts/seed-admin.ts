@@ -32,11 +32,13 @@ async function main() {
     create: {
       email,
       displayName,
+      role: "admin",
       isAdmin: true,
       ...(passwordHash ? { passwordHash } : {}),
     },
     update: {
       displayName,
+      role: "admin",
       isAdmin: true,
       ...(passwordHash ? { passwordHash } : {}),
     },

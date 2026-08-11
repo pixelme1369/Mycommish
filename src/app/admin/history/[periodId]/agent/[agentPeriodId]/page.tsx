@@ -105,7 +105,7 @@ function Stat({
   return (
     <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
       <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</p>
-      <p className={`mt-1 text-lg ${accent ? "font-semibold" : "font-medium"}`}>{value}</p>
+      <p className={`mt-1 text-lg ${accent ? "font-semibold text-money" : "font-medium"}`}>{value}</p>
     </div>
   );
 }

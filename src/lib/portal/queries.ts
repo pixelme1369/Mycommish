@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { PeriodSource, ClientEventKind } from "@/generated/prisma/client";
+import { dismissalKey, listDismissedKeys } from "@/lib/agents/dismissal";
 
 export const LATEST_PERIODS_SHOWN = 2;
 
@@ -16,17 +17,27 @@ export async function listAgentNamesInLatestPeriods() {
   const periods = await latestCalculatedPeriods();
   if (!periods.length) return [] as string[];
 
-  const names = await prisma.agentPeriod.findMany({
-    where: { periodId: { in: periods.map((p) => p.id) } },
-    select: { agentName: true },
-    distinct: ["agentName"],
-    orderBy: { agentName: "asc" },
-  });
-  return names.map((n) => n.agentName);
+  const [names, dismissed] = await Promise.all([
+    prisma.agentPeriod.findMany({
+      where: { periodId: { in: periods.map((p) => p.id) } },
+      select: { agentName: true },
+      distinct: ["agentName"],
+      orderBy: { agentName: "asc" },
+    }),
+    listDismissedKeys(),
+  ]);
+  return names
+    .map((n) => n.agentName)
+    .filter((name) => !dismissed.has(dismissalKey(name)));
 }
 
 
 export async function agentRowsForLatestPeriods(agentName: string) {
+  if (await isNameDismissed(agentName)) {
+    const periods = await latestCalculatedPeriods();
+    return { periods, rows: [] as Awaited<ReturnType<typeof fetchRows>> };
+  }
+
   const periods = await latestCalculatedPeriods();
   if (!periods.length) return { periods, rows: [] as Awaited<ReturnType<typeof fetchRows>> };
 
@@ -40,6 +51,11 @@ export async function agentRowsForLatestPeriods(agentName: string) {
   return { periods, rows: ordered };
 }
 
+async function isNameDismissed(agentName: string) {
+  const dismissed = await listDismissedKeys();
+  return dismissed.has(dismissalKey(agentName));
+}
+
 async function fetchRows(agentName: string, periodIds: string[]) {
   return prisma.agentPeriod.findMany({
     where: { agentName, periodId: { in: periodIds } },
@@ -49,6 +65,8 @@ async function fetchRows(agentName: string, periodIds: string[]) {
 }
 
 export async function getScopedAgentPeriod(periodId: string, agentPeriodId: string, agentName: string) {
+  if (await isNameDismissed(agentName)) return null;
+
   const latest = await latestCalculatedPeriods();
   const latestIds = new Set(latest.map((p) => p.id));
   if (!latestIds.has(periodId)) return null;
@@ -63,6 +81,7 @@ export async function getScopedAgentPeriod(periodId: string, agentPeriodId: stri
 export async function getClientsForAgentPeriod(agentPeriodId: string) {
   const events = await prisma.clientEvent.findMany({
     where: { agentPeriodId },
+    include: { identity: { select: { externalId: true } } },
     orderBy: [{ clientName: "asc" }, { crmId: "asc" }],
   });
 
@@ -119,6 +138,7 @@ export async function getCordobaFlags(crmIds: string[]) {
 export type MergedClawbackRow = {
   id: string;
   crmId: string;
+  externalId: string | null;
   clientName: string | null;
   enrolledDebt: number | string | { toString(): string };
   firstPaymentClearedDate: string | null;
@@ -140,7 +160,18 @@ export type MergedClawbackRow = {
 export async function mergeClawbacksWithCordoba(
   agentName: string,
   periodLabel: string,
-  clawbacks: Awaited<ReturnType<typeof getClientsForAgentPeriod>>["clawbacks"],
+  clawbacks: Array<{
+    id: string;
+    crmId: string;
+    clientName: string | null;
+    enrolledDebt: MergedClawbackRow["enrolledDebt"];
+    firstPaymentClearedDate: string | null;
+    droppedDate: string | null;
+    clawbackAmount: { toString(): string } | number;
+    kind: string;
+    isLowCredit: boolean;
+    identity?: { externalId: string | null } | null;
+  }>,
 ): Promise<MergedClawbackRow[]> {
   const snapshots = await prisma.cordobaChargebackSnapshot.findMany({
     where: { agentName, periodLabel },
@@ -155,6 +186,7 @@ export async function mergeClawbacksWithCordoba(
     merged.push({
       id: c.id,
       crmId: c.crmId,
+      externalId: c.identity?.externalId ?? null,
       clientName: c.clientName,
       enrolledDebt: c.enrolledDebt,
       firstPaymentClearedDate: c.firstPaymentClearedDate,
@@ -178,6 +210,7 @@ export async function mergeClawbacksWithCordoba(
       isLowCredit: boolean;
     }
   >();
+  const externalByCrmId = new Map<string, string | null>();
   if (orphanIds.length) {
     const owns = await prisma.clientEvent.findMany({
       where: { crmId: { in: orphanIds } },
@@ -194,6 +227,13 @@ export async function mergeClawbacksWithCordoba(
     for (const o of owns) {
       if (!ownByCrmId.has(o.crmId)) ownByCrmId.set(o.crmId, o);
     }
+    const ids = await prisma.clientIdentity.findMany({
+      where: { crmId: { in: orphanIds } },
+      select: { crmId: true, externalId: true },
+    });
+    for (const i of ids) {
+      externalByCrmId.set(i.crmId, i.externalId);
+    }
   }
 
   for (const crmId of orphanIds) {
@@ -202,6 +242,7 @@ export async function mergeClawbacksWithCordoba(
     merged.push({
       id: `cordoba-only-${crmId}`,
       crmId,
+      externalId: externalByCrmId.get(crmId) ?? null,
       clientName: own?.clientName || snap.clientName,
       enrolledDebt: own?.enrolledDebt ?? 0,
       firstPaymentClearedDate:

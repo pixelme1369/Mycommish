@@ -24,6 +24,9 @@ export const authConfig = {
         session.user.employmentType =
           (token.employmentType as "employee" | "contractor" | undefined) || "employee";
         session.user.companyName = (token.companyName as string | null | undefined) ?? null;
+        session.user.role =
+          (token.role as "admin" | "manager" | "agent" | undefined) ||
+          (session.user.isAdmin ? "admin" : "agent");
       }
       return session;
     },

@@ -157,6 +157,11 @@ function renderSummary(type: string, summary: Record<string, unknown>) {
           items={asStringList(summary.chargebackUnmatched)}
           warn
         />
+        <SummaryLine
+          label="Paid IDs not in CRM (External ID)"
+          items={asStringList(summary.paidUnmatched)}
+          warn
+        />
         <SummaryLine label="Errors / notes" items={asStringList(summary.errors)} warn />
       </>
     );

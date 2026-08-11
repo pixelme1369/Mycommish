@@ -39,6 +39,8 @@ export type UnitStatus =
 
 export type CrmClient = {
   crmId: string;
+  /** CRM "External ID" column — agents search by this. */
+  externalId: string;
   agentName: string;
   clientName: string;
   email: string;
@@ -58,6 +60,7 @@ export type CrmClient = {
   creditScore: number | null;
   isLowCredit: boolean;
   unitStatus: UnitStatus;
+  enrolledPeriod: string | null;
   clearedPeriod: string | null;
   droppedPeriod: string | null;
   isCleared: boolean;
@@ -90,6 +93,8 @@ export type PeriodOutput = {
   results: PeriodResult[];
   clientRows: CrmClient[];
   errors: string[];
+  /** All CRM rows with an ID (incl. not-yet-cleared) for identity / lookup directory. */
+  directoryClients?: CrmClient[];
 };
 
 export type KnownPeriodTotals = Record<
@@ -345,6 +350,7 @@ export function parseCrmAndCalculate(
     }
     const droppedDateRaw = repaired.droppedRaw;
     const clearedDate = parseDate(get(rawRow, "1st payment cleared date"));
+    const enrolledDate = parseDate(get(rawRow, "enrolled date"));
     const droppedDate = parseDate(droppedDateRaw);
     const status = get(rawRow, "status");
 
@@ -380,6 +386,7 @@ export function parseCrmAndCalculate(
     }
     const safeThreshold = safePaymentThreshold(payFreq);
     const isPendingCancellation = status.trim().toLowerCase() === "pending affiliate cancellation";
+    const enrolledPeriod = periodOf(enrolledDate);
     const clearedPeriod = periodOf(clearedDate);
     const droppedPeriod = periodOf(droppedDate);
     const sameMonth = Boolean(clearedPeriod && droppedPeriod && clearedPeriod === droppedPeriod);
@@ -404,7 +411,9 @@ export function parseCrmAndCalculate(
       unitStatus = "clawback";
     } else {
       unitStatus = "not_yet_cleared";
-      if (!clearedDate) return;
+      // Keep never-cleared rows when Enrolled Date is present — they belong in the
+      // enrollment-month cancel-rate cohort (owner policy). Still skip blank rows.
+      if (!clearedDate && !enrolledPeriod) return;
     }
 
     const creditScoreRaw = get(rawRow, "credit score");
@@ -417,6 +426,7 @@ export function parseCrmAndCalculate(
 
     allClients.push({
       crmId: get(rawRow, "id"),
+      externalId: get(rawRow, "external id"),
       agentName: agent,
       clientName: get(rawRow, "full name"),
       email: get(rawRow, "email"),
@@ -437,6 +447,7 @@ export function parseCrmAndCalculate(
       creditScore,
       isLowCredit,
       unitStatus,
+      enrolledPeriod,
       clearedPeriod,
       droppedPeriod,
       isCleared: unitStatus === "cleared",
@@ -538,8 +549,18 @@ export function parseCrmAndCalculate(
     const totalClearedDebt = tierUnits
       .filter((c) => !c.isLowCredit && c.unitStatus !== "safe_cancel")
       .reduce((s, c) => s + c.enrolledDebt, 0);
-    const totalForRate = cleared.length + cancelled.length;
-    const cancelRatePct = totalForRate > 0 ? (cancelled.length / totalForRate) * 100 : 0;
+    // OWNER POLICY: cancel rate = enrollments in this commission month that have a
+    // Dropped Date / enrollments in this commission month (CRM Enrolled Date).
+    // Cleared / clawback / same-month / safe / pending status does not change the
+    // cohort — only Enrolled Date month and whether Dropped Date is present.
+    const enrolledInPeriod = allClients.filter(
+      (c) => c.agentName === agentName && c.enrolledPeriod === periodLabel,
+    );
+    const droppedAmongEnrolled = enrolledInPeriod.filter((c) => Boolean(c.droppedDate));
+    const cancelRatePct =
+      enrolledInPeriod.length > 0
+        ? (droppedAmongEnrolled.length / enrolledInPeriod.length) * 100
+        : 0;
     const nsfFlagged = [...tierUnits, ...cancelled, ...pending].some(
       (c) => c.nsfCount >= NSF_FLAG_THRESHOLD,
     );
@@ -741,6 +762,12 @@ export function parseCrmAndCalculate(
     });
   }
 
+  // Full CRM directory (incl. enrolled / not-yet-cleared) for identity + agent file lookup.
+  const directoryClients = allClients.filter((c) => Boolean(c.crmId));
+  if (periodsOut.length) {
+    periodsOut[0].directoryClients = directoryClients;
+  }
+
   return periodsOut;
 }
 
@@ -751,6 +778,7 @@ export function crmCsv(
     "ID",
     "Sales Rep",
     "Full Name",
+    "Enrolled Date",
     "1st Payment Cleared Date",
     "Dropped Date",
     "Status",
@@ -775,6 +803,7 @@ export function crmCsv(
 export function clientRow(
   crmId: string,
   opts: Partial<Record<string, string>> & {
+    enrolled?: string;
     cleared?: string;
     dropped?: string;
     status?: string;
@@ -787,10 +816,17 @@ export function clientRow(
     creditScore?: string;
   } = {},
 ): Record<string, string> {
+  // Default Enrolled Date to cleared month (or dropped month) so cancel-rate
+  // tests that omit `enrolled` still exercise the enrollment-month cohort.
+  const enrolled =
+    opts.enrolled ??
+    opts.cleared ??
+    (opts.dropped ? opts.dropped : "");
   return {
     ID: crmId,
     "Sales Rep": opts.rep ?? "Maria",
     "Full Name": opts.name ?? "Client",
+    "Enrolled Date": enrolled,
     "1st Payment Cleared Date": opts.cleared ?? "",
     "Dropped Date": opts.dropped ?? "",
     Status: opts.status ?? "Active",

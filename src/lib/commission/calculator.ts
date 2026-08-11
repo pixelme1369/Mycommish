@@ -17,7 +17,7 @@ export const TIERS: ReadonlyArray<{
   { low: 61, high: null, rate: 0.0225, label: "Tier 6 – Legacy Club" },
 ];
 
-export const CANCELLATION_PENALTY_THRESHOLD = 20;
+export const CANCELLATION_PENALTY_THRESHOLD = 25;
 export const QUALITY_BONUS_THRESHOLD = 10;
 
 export const AGENT_FIXED_RATES: Record<string, number> = {
@@ -149,7 +149,7 @@ export function calculateAgentCommission(opts: {
     notesParts.push(`Tier ${adjustedTier} (${tierLabel}) @ ${(tierRate * 100).toFixed(2)}%`);
     if (penaltyApplied) {
       notesParts.push(
-        `Tier dropped from ${raw.tier} due to cancellation rate ${cancellationRatePct.toFixed(1)}% > 20%`,
+        `Tier dropped from ${raw.tier} due to cancellation rate ${cancellationRatePct.toFixed(1)}% > ${CANCELLATION_PENALTY_THRESHOLD}%`,
       );
     }
   }

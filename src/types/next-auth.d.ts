@@ -6,6 +6,7 @@ declare module "next-auth" {
     user: DefaultSession["user"] & {
       agentId?: string;
       isAdmin: boolean;
+      role: "admin" | "manager" | "agent";
       displayName: string;
       aliasNames: string[];
       employmentType: "employee" | "contractor";
@@ -18,10 +19,12 @@ declare module "next-auth/jwt" {
   interface JWT {
     agentId?: string;
     isAdmin?: boolean;
+    role?: "admin" | "manager" | "agent";
     displayName?: string;
     aliasNames?: string[];
     employmentType?: "employee" | "contractor";
     companyName?: string | null;
+    agentCheckedAt?: number;
   }
 }
 

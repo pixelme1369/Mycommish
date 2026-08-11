@@ -10,8 +10,8 @@ export default function HomeClient() {
   return (
     <div className="relative flex min-h-full flex-col overflow-hidden">
       <div className="pointer-events-none absolute inset-0 surface-grid opacity-50" />
-      <div className="pointer-events-none absolute -left-24 top-10 size-[28rem] rounded-full bg-[oklch(0.85_0.07_195/0.35)] blur-3xl" />
-      <div className="pointer-events-none absolute -right-20 bottom-0 size-[24rem] rounded-full bg-[oklch(0.88_0.05_230/0.4)] blur-3xl" />
+      <div className="pointer-events-none absolute -left-24 top-10 size-[28rem] rounded-full bg-[oklch(0.88_0.08_150/0.3)] blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 bottom-0 size-[24rem] rounded-full bg-[oklch(0.94_0.02_50/0.5)] blur-3xl" />
 
       <main className="relative mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-6 py-20">
         <FadeIn>

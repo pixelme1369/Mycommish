@@ -1,5 +1,10 @@
 /**
  * Cordoba payout ingest — paid evidence + chargebacks onto calculated periods.
+ *
+ * ID mapping (owner): Cordoba file "ID" === ADP CRM "External ID" (what agents
+ * search / claim). Ledger + ClientEvent keys use CRM "ID" (ClientIdentity.crmId).
+ * Resolve Cordoba IDs via ClientIdentity.externalId before any FK write.
+ *
  * Drop placement uses ANY ClientEvent with droppedDate for that crmId (never the file).
  */
 
@@ -25,8 +30,8 @@ function dec(n: number) {
   return new Prisma.Decimal(n);
 }
 
-function label(clientName: string | null | undefined, crmId: string) {
-  return clientName ? `${clientName} (${crmId})` : crmId;
+function label(clientName: string | null | undefined, externalId: string) {
+  return clientName ? `${clientName} (${externalId})` : externalId;
 }
 
 const CHUNK = 500;
@@ -34,6 +39,7 @@ const CHUNK = 500;
 export type SaveCordobaSummary = {
   uploadBatchId: string;
   paidNew: number;
+  paidUnmatched: string[];
   chargebackSeenNew: number;
   chargebackUnmatched: string[];
   clawbacksApplied: number;
@@ -47,24 +53,37 @@ export type SaveCordobaSummary = {
   errors: string[];
 };
 
-async function ensureIdentities(
-  rows: { crmId: string; clientName?: string | null }[],
-) {
-  const byId = new Map<string, string | null>();
-  for (const r of rows) {
-    if (!r.crmId || byId.has(r.crmId)) continue;
-    byId.set(r.crmId, r.clientName || null);
+/**
+ * Map Cordoba ID (CRM External ID) → ClientIdentity.crmId (CRM ID).
+ * Prefer externalId match; fall back to crmId for legacy rows keyed by Cordoba ID.
+ */
+async function resolveCordobaIdToCrmId(
+  cordobaIds: string[],
+): Promise<Map<string, string>> {
+  const ids = [...new Set(cordobaIds.map((id) => id.trim()).filter(Boolean))];
+  const map = new Map<string, string>();
+  if (!ids.length) return map;
+
+  const byExternal = await prisma.clientIdentity.findMany({
+    where: { externalId: { in: ids } },
+    select: { crmId: true, externalId: true },
+  });
+  for (const row of byExternal) {
+    if (row.externalId) map.set(row.externalId, row.crmId);
   }
-  const data = [...byId.entries()].map(([crmId, clientName]) => ({
-    crmId,
-    clientName,
-  }));
-  for (let i = 0; i < data.length; i += CHUNK) {
-    await prisma.clientIdentity.createMany({
-      data: data.slice(i, i + CHUNK),
-      skipDuplicates: true,
+
+  const unresolved = ids.filter((id) => !map.has(id));
+  if (unresolved.length) {
+    const byCrm = await prisma.clientIdentity.findMany({
+      where: { crmId: { in: unresolved } },
+      select: { crmId: true },
     });
+    for (const row of byCrm) {
+      map.set(row.crmId, row.crmId);
+    }
   }
+
+  return map;
 }
 
 function loadClearedWithAgent(chargebackIds: string[]) {
@@ -74,6 +93,18 @@ function loadClearedWithAgent(chargebackIds: string[]) {
     include: { agentPeriod: true, period: true },
   });
 }
+
+type ResolvedPaid = {
+  crmId: string;
+  cordobaId: string;
+  clientName?: string | null;
+  source?: string | null;
+};
+
+type ResolvedChargeback = CordobaChargebackRow & {
+  crmId: string;
+  cordobaId: string;
+};
 
 export async function ingestCordobaUpload(
   fileBytes: Uint8Array | Buffer | ArrayBuffer,
@@ -93,6 +124,7 @@ export async function ingestCordobaUpload(
   const summary: SaveCordobaSummary = {
     uploadBatchId: batch.id,
     paidNew: 0,
+    paidUnmatched: [],
     chargebackSeenNew: 0,
     chargebackUnmatched: [],
     clawbacksApplied: 0,
@@ -106,23 +138,38 @@ export async function ingestCordobaUpload(
     errors: [...parsed.errors],
   };
 
-  // ── Paid flags (batched) ──────────────────────────────────────────────────
-  const paidUnique = new Map<
-    string,
-    { crmId: string; clientName?: string | null; source?: string | null }
-  >();
-  for (const row of parsed.paidIds) {
-    if (!row.crmId || paidUnique.has(row.crmId)) continue;
-    paidUnique.set(row.crmId, row);
-  }
-  await ensureIdentities([...paidUnique.values()]);
+  const allCordobaIds = [
+    ...parsed.paidIds.map((r) => r.crmId),
+    ...parsed.chargebacks.map((r) => r.crmId),
+  ];
+  const cordobaToCrm = await resolveCordobaIdToCrmId(allCordobaIds);
 
-  const paidIds = [...paidUnique.keys()];
+  // ── Paid flags (batched; keys = CRM ID after External ID resolve) ─────────
+  const paidUnique = new Map<string, ResolvedPaid>();
+  for (const row of parsed.paidIds) {
+    if (!row.crmId) continue;
+    const crmId = cordobaToCrm.get(row.crmId);
+    if (!crmId) {
+      if (!summary.paidUnmatched.some((x) => x.includes(row.crmId))) {
+        summary.paidUnmatched.push(label(row.clientName, row.crmId));
+      }
+      continue;
+    }
+    if (paidUnique.has(crmId)) continue;
+    paidUnique.set(crmId, {
+      crmId,
+      cordobaId: row.crmId,
+      clientName: row.clientName,
+      source: row.source,
+    });
+  }
+
+  const paidCrmIds = [...paidUnique.values()].map((r) => r.crmId);
   const alreadyPaid = new Set(
-    paidIds.length
+    paidCrmIds.length
       ? (
           await prisma.cordobaPaid.findMany({
-            where: { crmId: { in: paidIds } },
+            where: { crmId: { in: paidCrmIds } },
             select: { crmId: true },
           })
         ).map((r) => r.crmId)
@@ -145,18 +192,25 @@ export async function ingestCordobaUpload(
   summary.paidNew = newPaid.length;
 
   // ── Chargeback seen (display, batched) ────────────────────────────────────
-  const chargebackUnique = new Map<string, CordobaChargebackRow>();
+  const byCrm = new Map<string, ResolvedChargeback>();
   for (const row of parsed.chargebacks) {
-    if (!row.crmId || chargebackUnique.has(row.crmId)) continue;
-    chargebackUnique.set(row.crmId, row);
+    if (!row.crmId) continue;
+    const crmId = cordobaToCrm.get(row.crmId);
+    if (!crmId) {
+      summary.chargebackUnmatched.push(label(row.clientName, row.crmId));
+      continue;
+    }
+    if (byCrm.has(crmId)) continue;
+    byCrm.set(crmId, { ...row, crmId, cordobaId: row.crmId });
   }
-  const chargebackIds = [...chargebackUnique.keys()];
+
+  const chargebackCrmIds = [...byCrm.keys()];
 
   const knownEventIds = new Set(
-    chargebackIds.length
+    chargebackCrmIds.length
       ? (
           await prisma.clientEvent.findMany({
-            where: { crmId: { in: chargebackIds } },
+            where: { crmId: { in: chargebackCrmIds } },
             select: { crmId: true },
             distinct: ["crmId"],
           })
@@ -164,16 +218,14 @@ export async function ingestCordobaUpload(
       : [],
   );
 
-  const matchedChargebacks: CordobaChargebackRow[] = [];
-  for (const [crmId, row] of chargebackUnique) {
-    if (!knownEventIds.has(crmId)) {
-      summary.chargebackUnmatched.push(label(row.clientName, crmId));
+  const matchedChargebacks: ResolvedChargeback[] = [];
+  for (const row of byCrm.values()) {
+    if (!knownEventIds.has(row.crmId)) {
+      summary.chargebackUnmatched.push(label(row.clientName, row.cordobaId));
       continue;
     }
     matchedChargebacks.push(row);
   }
-
-  await ensureIdentities(matchedChargebacks);
 
   const matchedIds = matchedChargebacks.map((r) => r.crmId);
   const alreadySeen = new Set(
@@ -203,10 +255,10 @@ export async function ingestCordobaUpload(
 
   // ── Money chargebacks ─────────────────────────────────────────────────────
   const alreadyClawed = new Set(
-    chargebackIds.length
+    chargebackCrmIds.length
       ? (
           await prisma.clientEvent.findMany({
-            where: { crmId: { in: chargebackIds }, clawbackApplied: true },
+            where: { crmId: { in: chargebackCrmIds }, clawbackApplied: true },
             select: { crmId: true },
           })
         ).map((r) => r.crmId)
@@ -214,17 +266,16 @@ export async function ingestCordobaUpload(
   );
 
   const confirmedPaid = new Set(
-    chargebackIds.length
+    chargebackCrmIds.length
       ? (
           await prisma.cordobaPaid.findMany({
-            where: { crmId: { in: chargebackIds } },
+            where: { crmId: { in: chargebackCrmIds } },
             select: { crmId: true },
           })
         ).map((r) => r.crmId)
       : [],
   );
 
-  // Prefetch cleared + any-drop events for all chargeback IDs (avoids N+1).
   const clearedByCrm = new Map<
     string,
     Awaited<ReturnType<typeof loadClearedWithAgent>>[number]
@@ -233,14 +284,14 @@ export async function ingestCordobaUpload(
     string,
     { droppedDate: string | null; clientName: string | null }
   >();
-  if (chargebackIds.length) {
-    const clearedRows = await loadClearedWithAgent(chargebackIds);
+  if (chargebackCrmIds.length) {
+    const clearedRows = await loadClearedWithAgent(chargebackCrmIds);
     for (const e of clearedRows) {
       if (!clearedByCrm.has(e.crmId)) clearedByCrm.set(e.crmId, e);
     }
     const dropRows = await prisma.clientEvent.findMany({
       where: {
-        crmId: { in: chargebackIds },
+        crmId: { in: chargebackCrmIds },
         AND: [{ droppedDate: { not: null } }, { droppedDate: { not: "" } }],
       },
       orderBy: { id: "desc" },
@@ -265,31 +316,33 @@ export async function ingestCordobaUpload(
   const moneySeen = new Set<string>();
   const touchedAgentPeriods = new Map<string, string>();
 
-  for (const row of parsed.chargebacks) {
-    const crmId = row.crmId;
+  for (const row of matchedChargebacks) {
+    const { crmId, cordobaId } = row;
     if (!crmId || moneySeen.has(crmId)) continue;
     moneySeen.add(crmId);
 
     if (alreadyClawed.has(crmId)) {
-      summary.skippedAlreadyClawed.push(label(row.clientName, crmId));
+      summary.skippedAlreadyClawed.push(label(row.clientName, cordobaId));
       continue;
     }
 
     const cleared = clearedByCrm.get(crmId);
     if (!cleared) {
-      summary.skippedNotCommissioned.push(label(row.clientName, crmId));
+      summary.skippedNotCommissioned.push(label(row.clientName, cordobaId));
       continue;
     }
 
     if (!confirmedPaid.has(crmId)) {
-      summary.skippedNotConfirmedPaid.push(label(row.clientName, crmId));
+      summary.skippedNotConfirmedPaid.push(label(row.clientName, cordobaId));
       continue;
     }
 
     const withDrop = dropByCrm.get(crmId);
     const droppedPeriod = periodOf(parseDate(withDrop?.droppedDate || ""));
     if (!droppedPeriod) {
-      summary.skippedNoDroppedDate.push(label(row.clientName || cleared.clientName, crmId));
+      summary.skippedNoDroppedDate.push(
+        label(row.clientName || cleared.clientName, cordobaId),
+      );
       continue;
     }
 
@@ -313,7 +366,7 @@ export async function ingestCordobaUpload(
     if (cb <= 0) continue;
 
     const { period, agentPeriod } = await holding(droppedPeriod, agentName);
-    const note = `Cordoba chargeback: -$${cb.toFixed(2)} for ${cleared.clientName || crmId} (ID ${crmId})`;
+    const note = `Cordoba chargeback: -$${cb.toFixed(2)} for ${cleared.clientName || cordobaId} (External ID ${cordobaId})`;
 
     await prisma.clientEvent.create({
       data: {
@@ -362,11 +415,17 @@ export async function ingestCordobaUpload(
   }
 
   // ── Snapshots (display UPSERT, batched reads) ─────────────────────────────
-  const snapCandidates = [...chargebackUnique.values()];
+  const snapCandidates = matchedChargebacks;
   const snapIds = snapCandidates.map((r) => r.crmId);
   const eventsByCrm = new Map<
     string,
-    { isCleared: boolean; clawbackApplied: boolean; droppedDate: string | null; clientName: string | null; agentName: string }[]
+    {
+      isCleared: boolean;
+      clawbackApplied: boolean;
+      droppedDate: string | null;
+      clientName: string | null;
+      agentName: string;
+    }[]
   >();
   if (snapIds.length) {
     const allEvents = await prisma.clientEvent.findMany({
@@ -404,7 +463,6 @@ export async function ingestCordobaUpload(
     crmId: string;
     data: Omit<Prisma.CordobaChargebackSnapshotCreateManyInput, "crmId">;
   }[] = [];
-  const snapIdentities: { crmId: string; clientName?: string | null }[] = [];
 
   for (const row of snapCandidates) {
     const events = eventsByCrm.get(row.crmId) ?? [];
@@ -412,11 +470,6 @@ export async function ingestCordobaUpload(
     const withDrop = events.find((e) => e.droppedDate && e.droppedDate.trim());
     const droppedPeriod = periodOf(parseDate(withDrop?.droppedDate || ""));
     if (!droppedPeriod || !wasPaid || !withDrop) continue;
-
-    snapIdentities.push({
-      crmId: row.crmId,
-      clientName: row.clientName || withDrop.clientName,
-    });
 
     const data = {
       agentName: withDrop.agentName,
@@ -443,8 +496,6 @@ export async function ingestCordobaUpload(
     }
   }
 
-  await ensureIdentities(snapIdentities);
-
   for (let i = 0; i < toCreate.length; i += CHUNK) {
     await prisma.cordobaChargebackSnapshot.createMany({
       data: toCreate.slice(i, i + CHUNK),
@@ -453,7 +504,6 @@ export async function ingestCordobaUpload(
   }
   summary.snapshotsListed = toCreate.length;
 
-  // Updates are fewer (re-uploads); still sequential but tiny vs paid-tab N+1.
   for (const u of toUpdate) {
     await prisma.cordobaChargebackSnapshot.update({
       where: { crmId: u.crmId },
