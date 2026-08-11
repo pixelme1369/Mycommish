@@ -367,6 +367,7 @@ function AgentDetailPanel({
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
         <form
+          key={`role-${agent.id}-${agent.role}`}
           action={updateRoleAction}
           className="flex min-w-0 flex-col gap-2 rounded-lg bg-background p-3 ring-1 ring-border/60"
         >
@@ -389,6 +390,7 @@ function AgentDetailPanel({
         </form>
 
         <form
+          key={`employment-${agent.id}-${agent.employmentType}-${agent.companyName || ""}`}
           action={updateEmploymentAction}
           className="flex min-w-0 flex-col gap-2 rounded-lg bg-background p-3 ring-1 ring-border/60"
         >
