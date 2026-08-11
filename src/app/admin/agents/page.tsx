@@ -63,7 +63,7 @@ export default async function ManageAgentsPage() {
       />
 
       <div className="mt-6 flex flex-wrap items-start justify-between gap-3">
-        <AddUserPanel />
+        <AddUserPanel salesReps={salesReps} />
       </div>
 
       <Card className="glass-panel mt-4 overflow-hidden p-4">

@@ -26,14 +26,27 @@ export async function createAgentAction(formData: FormData) {
   const companyName = String(formData.get("companyName") || "").trim() || null;
   if (!email || !displayName) return;
 
-  const knownCompany = contractorCompanyFor(displayName);
+  const aliasNames = [
+    ...new Map(
+      formData
+        .getAll("alias")
+        .map((v) => String(v || "").trim())
+        .filter(Boolean)
+        .map((name) => [name.toLowerCase(), name] as const),
+    ).values(),
+  ];
+
+  const knownCompany =
+    contractorCompanyFor(displayName) ||
+    aliasNames.map((n) => contractorCompanyFor(n)).find(Boolean) ||
+    null;
   const employmentType =
     isContractor || knownCompany ? EmploymentType.contractor : EmploymentType.employee;
 
   const passwordHash =
     password.trim().length >= 6 ? await bcrypt.hash(password.trim(), 10) : undefined;
 
-  await prisma.agent.create({
+  const agent = await prisma.agent.create({
     data: {
       email,
       displayName,
@@ -45,6 +58,14 @@ export async function createAgentAction(formData: FormData) {
       ...(passwordHash ? { passwordHash } : {}),
     },
   });
+
+  if (aliasNames.length > 0) {
+    await prisma.agentAlias.createMany({
+      data: aliasNames.map((agentName) => ({ agentId: agent.id, agentName })),
+      skipDuplicates: true,
+    });
+  }
+
   revalidatePath("/admin/agents");
 }
 
