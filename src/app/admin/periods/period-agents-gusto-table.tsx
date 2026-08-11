@@ -86,6 +86,7 @@ function SortTh({
   dir,
   onSort,
   align = "left",
+  className,
 }: {
   label: string;
   sortKey: SortKey;
@@ -93,14 +94,16 @@ function SortTh({
   dir: SortDir;
   onSort: (key: SortKey) => void;
   align?: "left" | "right";
+  className?: string;
 }) {
   const active = activeKey === sortKey;
   return (
     <th
       className={cn(
-        "px-2 py-2.5 font-medium",
+        "whitespace-nowrap px-2 py-2.5 font-medium",
         align === "right" ? "text-right" : "text-left",
         sortKey === "agentName" && "px-3",
+        className,
       )}
     >
       <button
@@ -279,22 +282,9 @@ export function PeriodAgentsGustoTable({
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <Card className="glass-panel overflow-visible py-0">
-        <div className="overflow-x-auto rounded-[inherit]">
-        <table className="w-full table-fixed text-left text-[13px]">
-          <colgroup>
-            <col className="w-[3%]" />
-            <col className="w-[20%]" />
-            <col className="w-[6%]" />
-            <col className="w-[7%]" />
-            <col className="w-[6%]" />
-            <col className="w-[7%]" />
-            <col className="w-[12%]" />
-            <col className="w-[11%]" />
-            <col className="w-[12%]" />
-            <col className="w-[7%]" />
-            <col className="w-[9%]" />
-          </colgroup>
+      <Card className="glass-panel overflow-hidden py-0">
+        <div className="-mx-px overflow-x-auto overscroll-x-contain rounded-[inherit]">
+        <table className="w-full min-w-[56rem] border-collapse text-left text-[13px]">
           <thead className="border-b border-border bg-muted/40 text-muted-foreground">
             <tr>
               <th className="px-2 py-2.5">
@@ -312,6 +302,7 @@ export function PeriodAgentsGustoTable({
                 activeKey={sortKey}
                 dir={sortDir}
                 onSort={onSort}
+                className="min-w-[11rem]"
               />
               <SortTh
                 label="Units"
@@ -412,8 +403,8 @@ export function PeriodAgentsGustoTable({
                       className="rounded border-border"
                     />
                   </td>
-                  <td className="px-3 py-2 align-middle">
-                    <div className="flex min-w-0 items-center gap-1.5">
+                  <td className="px-3 py-2 align-middle whitespace-nowrap">
+                    <div className="flex max-w-[14rem] items-center gap-1.5">
                       <span className="truncate font-medium" title={r.agentName}>
                         {r.agentName}
                       </span>
@@ -433,17 +424,17 @@ export function PeriodAgentsGustoTable({
                     </div>
                     {isContractor && employment.companyName ? (
                       <p
-                        className="truncate text-[11px] leading-tight text-muted-foreground"
+                        className="max-w-[14rem] truncate text-[11px] leading-tight text-muted-foreground"
                         title={employment.companyName}
                       >
                         {employment.companyName}
                       </p>
                     ) : null}
                   </td>
-                  <td className="px-2 py-2 text-right align-middle tabular-nums">
+                  <td className="whitespace-nowrap px-2 py-2 text-right align-middle tabular-nums">
                     {r.unitsCleared}
                   </td>
-                  <td className="px-2 py-2 text-right align-middle">
+                  <td className="whitespace-nowrap px-2 py-2 text-right align-middle">
                     {toNext == null ? (
                       <span className="text-muted-foreground">
                         {fixed ? "Fixed" : r.adjustedTier >= 6 ? "Top" : "—"}
@@ -461,28 +452,28 @@ export function PeriodAgentsGustoTable({
                       </Badge>
                     )}
                   </td>
-                  <td className="px-2 py-2 text-right align-middle tabular-nums">
+                  <td className="whitespace-nowrap px-2 py-2 text-right align-middle tabular-nums">
                     {r.cancellationPenaltyApplied
                       ? `${r.rawTier}→${r.adjustedTier}`
                       : r.adjustedTier || "—"}
                   </td>
-                  <td className="px-2 py-2 text-right align-middle tabular-nums">
+                  <td className="whitespace-nowrap px-2 py-2 text-right align-middle tabular-nums">
                     {ratePercent(r.tierRate)}
                   </td>
-                  <td className="px-2 py-2 text-right align-middle tabular-nums">
+                  <td className="whitespace-nowrap px-2 py-2 text-right align-middle tabular-nums">
                     {money(r.grossCommission)}
                   </td>
-                  <td className="px-2 py-2 text-right align-middle tabular-nums">
+                  <td className="whitespace-nowrap px-2 py-2 text-right align-middle tabular-nums">
                     {Number(r.clawbackAmount) > 0 ? (
                       <span className="text-destructive">-{money(r.clawbackAmount)}</span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="px-2 py-2 text-right align-middle font-semibold tabular-nums">
+                  <td className="whitespace-nowrap px-2 py-2 text-right align-middle font-semibold tabular-nums">
                     {money(r.netCommission)}
                   </td>
-                  <td className="px-2 py-2 text-right align-middle tabular-nums">
+                  <td className="whitespace-nowrap px-2 py-2 text-right align-middle tabular-nums">
                     {cancelRatePercent(r.cancellationRate)}
                   </td>
                   <td className="px-3 py-2 align-middle">
