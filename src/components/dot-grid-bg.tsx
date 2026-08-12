@@ -40,10 +40,10 @@ export function DotGridBg({
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const el = canvasRef.current;
+    if (!el) return;
+    const context = el.getContext("2d");
+    if (!context) return;
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const coarse = window.matchMedia("(pointer: coarse)").matches;
@@ -81,21 +81,21 @@ export function DotGridBg({
     }
 
     function resize() {
-      const rect = canvas.getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
       W = rect.width;
       H = rect.height;
-      canvas.width = W * dpr;
-      canvas.height = H * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      el.width = W * dpr;
+      el.height = H * dpr;
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
       buildDots();
     }
 
     const ro = new ResizeObserver(resize);
-    ro.observe(canvas);
+    ro.observe(el);
     resize();
 
     function onMove(e: MouseEvent) {
-      const rect = canvas.getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
       mouse.x = e.clientX - rect.left;
       mouse.y = e.clientY - rect.top;
     }
@@ -111,9 +111,9 @@ export function DotGridBg({
     }
 
     if (!coarse) {
-      canvas.addEventListener("mousemove", onMove);
-      canvas.addEventListener("mouseenter", onEnter);
-      canvas.addEventListener("mouseleave", onLeave);
+      el.addEventListener("mousemove", onMove);
+      el.addEventListener("mouseenter", onEnter);
+      el.addEventListener("mouseleave", onLeave);
     }
 
     function loop(ts: number) {
@@ -122,7 +122,7 @@ export function DotGridBg({
       prevTs = ts;
       if (revolve) globalAngle += orbitSpeed * dt;
 
-      ctx.clearRect(0, 0, W, H);
+      context.clearRect(0, 0, W, H);
 
       const mx = mouse.x;
       const my = mouse.y;
@@ -167,10 +167,10 @@ export function DotGridBg({
         }
 
         const r = (dotSize / 2) * scale;
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
-        ctx.fill();
+        context.beginPath();
+        context.arc(x, y, r, 0, Math.PI * 2);
+        context.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`;
+        context.fill();
       }
     }
 
@@ -179,9 +179,9 @@ export function DotGridBg({
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
-      canvas.removeEventListener("mousemove", onMove);
-      canvas.removeEventListener("mouseenter", onEnter);
-      canvas.removeEventListener("mouseleave", onLeave);
+      el.removeEventListener("mousemove", onMove);
+      el.removeEventListener("mouseenter", onEnter);
+      el.removeEventListener("mouseleave", onLeave);
     };
   }, [dotSize, dotSpacing, orbitSpeed, impactRadius, scaleOnHover, enableRevolve]);
 
