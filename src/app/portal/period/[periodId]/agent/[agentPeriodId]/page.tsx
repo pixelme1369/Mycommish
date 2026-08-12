@@ -277,7 +277,7 @@ function ClearedSection({
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-border bg-muted/40 text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">External ID</th>
+                <th className="px-3 py-2 font-medium">AMOD</th>
                 <th className="px-3 py-2 font-medium">Name</th>
                 <th className="px-3 py-2 font-medium">Enrolled debt</th>
                 <th className="px-3 py-2 font-medium">Commission</th>
@@ -349,7 +349,7 @@ function ClawbackSection({ rows }: { rows: MergedClawbackRow[] }) {
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-border bg-muted/40 text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">External ID</th>
+                <th className="px-3 py-2 font-medium">AMOD</th>
                 <th className="px-3 py-2 font-medium">Name</th>
                 <th className="px-3 py-2 font-medium">Enrolled debt</th>
                 <th className="px-3 py-2 font-medium">Cleared</th>
@@ -413,7 +413,7 @@ function ClientSection({
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-border bg-muted/40 text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">External ID</th>
+                <th className="px-3 py-2 font-medium">AMOD</th>
                 <th className="px-3 py-2 font-medium">Name</th>
                 <th className="px-3 py-2 font-medium">Enrolled debt</th>
                 <th className="px-3 py-2 font-medium">Cleared</th>
