@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { AdminCalculatedPeriods } from "./admin-calculated-periods";
 import { AdminImportSection } from "./admin-import-section";
 import { AdminSecondarySections } from "./admin-secondary-sections";
+import { StatementsAwaitingManager } from "@/components/statements-awaiting-manager";
+import { listStatementsAwaitingManager } from "@/lib/statements";
 import { prisma } from "@/lib/db";
 import { FileClaimStatus } from "@/generated/prisma/client";
 
@@ -76,14 +78,16 @@ function lastOfType(
 
 export default async function AdminHome() {
   const session = await requireAdmin();
-  const [periodsRaw, historyPeriodsRaw, uploads, pendingClaims] = await Promise.all([
-    listCalculatedPeriods().catch(() => []),
-    listHistoryPeriods().catch(() => []),
-    listRecentUploads().catch(() => []),
-    prisma.fileClaim
-      .count({ where: { status: FileClaimStatus.pending } })
-      .catch(() => 0),
-  ]);
+  const [periodsRaw, historyPeriodsRaw, uploads, pendingClaims, awaitingManager] =
+    await Promise.all([
+      listCalculatedPeriods().catch(() => []),
+      listHistoryPeriods().catch(() => []),
+      listRecentUploads().catch(() => []),
+      prisma.fileClaim
+        .count({ where: { status: FileClaimStatus.pending } })
+        .catch(() => 0),
+      listStatementsAwaitingManager().catch(() => []),
+    ]);
 
   const periods = sortPeriodsForDashboard(periodsRaw);
   const openPeriods = periods.filter((p) => p.status === "open").map(toDashboardRow);
@@ -113,6 +117,9 @@ export default async function AdminHome() {
     `${closedPeriods.length} closed`,
     newestOpen ? `current ${newestOpen}` : null,
     pendingClaims > 0 ? `${pendingClaims} file claim${pendingClaims === 1 ? "" : "s"}` : null,
+    awaitingManager.length > 0
+      ? `${awaitingManager.length} statement${awaitingManager.length === 1 ? "" : "s"} awaiting manager`
+      : null,
     lastCrm ? `CRM ${formatUploadDay(lastCrm.createdAt)}` : null,
     lastCordoba ? `Cordoba ${formatUploadDay(lastCordoba.createdAt)}` : null,
     lastHistory ? `History ${formatUploadDay(lastHistory.createdAt)}` : null,
@@ -167,6 +174,10 @@ export default async function AdminHome() {
           {statusParts.join(" · ")}
         </p>
       </Card>
+
+      <div className="mt-8">
+        <StatementsAwaitingManager rows={awaitingManager} viewBase="/admin" />
+      </div>
 
       <div className="mt-8">
         <AdminCalculatedPeriods

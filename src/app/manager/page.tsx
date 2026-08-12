@@ -10,13 +10,18 @@ import { cn } from "@/lib/utils";
 import { prisma } from "@/lib/db";
 import { PeriodSource, PeriodStatus } from "@/generated/prisma/client";
 import { latestCalculatedPeriods } from "@/lib/portal/queries";
+import { listStatementsAwaitingManager } from "@/lib/statements";
+import { StatementsAwaitingManager } from "@/components/statements-awaiting-manager";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManagerHome() {
   const session = await requireManagerOrAdmin();
   const role = sessionRole(session);
-  const windowPeriods = await latestCalculatedPeriods();
+  const [windowPeriods, awaitingManager] = await Promise.all([
+    latestCalculatedPeriods(),
+    listStatementsAwaitingManager().catch(() => []),
+  ]);
   const periodIds = windowPeriods.map((p) => p.id);
 
   const agentCounts =
@@ -86,6 +91,10 @@ export default async function ManagerHome() {
           </>
         }
       />
+
+      <div className="mt-8">
+        <StatementsAwaitingManager rows={awaitingManager} viewBase="/manager" />
+      </div>
 
       <section className="mt-8">
         <h2 className="font-heading text-xl tracking-tight">Upcoming periods</h2>

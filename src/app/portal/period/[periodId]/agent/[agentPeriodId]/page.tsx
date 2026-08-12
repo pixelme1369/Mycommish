@@ -28,6 +28,8 @@ import {
   unitsToNextTier,
 } from "@/lib/commission/calculator";
 import { NextTierCard } from "@/components/next-tier-card";
+import { StatementSignPanel } from "./statement-sign-panel";
+import { getStatementForAgentPeriod } from "@/lib/statements";
 import type { ClientEvent } from "@/generated/prisma/client";
 
 type PortalClientEvent = ClientEvent & {
@@ -103,6 +105,22 @@ export default async function PeriodDetailPage({
         : "/portal";
   const backLabel =
     staffView ? `← ${row.period.periodLabel} agents` : "← My commissions";
+
+  const statement = await getStatementForAgentPeriod(row.id);
+  const ownsAsAgent = aliases.has(row.agentName);
+  const signRole =
+    ownsAsAgent && !statement?.agentSignedAt
+      ? "agent"
+      : staffView && statement?.status === "agent_signed"
+        ? "manager"
+        : ownsAsAgent
+          ? "agent"
+          : staffView
+            ? "manager"
+            : "agent";
+  const canReset =
+    staffView ||
+    (ownsAsAgent && statement?.status === "agent_signed");
 
   return (
     <AppShell wide className={isAgentView ? "py-8 sm:py-9" : undefined}>
@@ -189,6 +207,20 @@ export default async function PeriodDetailPage({
       {notesForDisplay ? (
         <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{notesForDisplay}</p>
       ) : null}
+
+      <StatementSignPanel
+        className="mt-6"
+        periodId={periodId}
+        agentPeriodId={row.id}
+        role={signRole}
+        defaultName={session.user.displayName || ""}
+        status={statement?.status ?? "unsigned"}
+        agentSignedAt={statement?.agentSignedAt?.toISOString() ?? null}
+        agentTypedName={statement?.agentTypedName ?? null}
+        managerSignedAt={statement?.managerSignedAt?.toISOString() ?? null}
+        managerTypedName={statement?.managerTypedName ?? null}
+        canReset={canReset}
+      />
 
       <ClearedSection
         clients={cleared}

@@ -53,9 +53,22 @@ function collectBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
   });
 }
 
+export type StatementSignatureDraw = {
+  typedName: string;
+  signedAt: Date;
+  /** PNG bytes from signature pad (optional if typed-only). */
+  png?: Buffer | null;
+};
+
+export type StatementSignatures = {
+  agent?: StatementSignatureDraw | null;
+  manager?: StatementSignatureDraw | null;
+};
+
 export async function buildAgentCommissionStatementPdf(
   periodId: string,
   agentPeriodId: string,
+  signatures?: StatementSignatures,
 ) {
   const row = await prisma.agentPeriod.findFirst({
     where: {
@@ -259,7 +272,7 @@ export async function buildAgentCommissionStatementPdf(
   y += 28;
 
   // Signature block
-  ensureSpace(footerNeed);
+  ensureSpace(footerNeed + 40);
   doc
     .fillColor("#374151")
     .font("Helvetica-Oblique")
@@ -270,29 +283,68 @@ export async function buildAgentCommissionStatementPdf(
       y,
       { width: usable },
     );
-  y = doc.y + 18;
+  y = doc.y + 14;
 
   const sigW = usable * 0.55;
   const dateW = usable * 0.28;
   const gap = usable * 0.05;
 
-  const drawSig = (label: string, top: number) => {
+  const formatSignedDate = (d: Date) =>
+    d.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+  const drawSig = (
+    label: string,
+    top: number,
+    sig: StatementSignatureDraw | null | undefined,
+  ) => {
     doc.fillColor("#111827").font("Helvetica").fontSize(8).text(label, left, top);
+    const lineY = top + 22;
     doc
-      .moveTo(left + 90, top + 10)
-      .lineTo(left + sigW, top + 10)
+      .moveTo(left + 90, lineY)
+      .lineTo(left + sigW, lineY)
       .strokeColor("#9ca3af")
       .stroke();
-    doc.text("Date:", left + sigW + gap, top);
+    doc.text("Date:", left + sigW + gap, top + 12);
     doc
-      .moveTo(left + sigW + gap + 32, top + 10)
-      .lineTo(left + sigW + gap + dateW, top + 10)
+      .moveTo(left + sigW + gap + 32, lineY)
+      .lineTo(left + sigW + gap + dateW, lineY)
       .stroke();
+
+    if (sig?.png?.length) {
+      try {
+        doc.image(sig.png, left + 95, top - 2, { height: 22, fit: [sigW - 100, 22] });
+      } catch {
+        // fall through to typed name
+      }
+    }
+    if (sig?.typedName) {
+      const nameY = sig?.png?.length ? top + 24 : top + 8;
+      doc
+        .fillColor("#111827")
+        .font("Helvetica-Oblique")
+        .fontSize(9)
+        .text(sig.typedName, left + 95, nameY, { width: sigW - 100 });
+    }
+    if (sig?.signedAt) {
+      doc
+        .fillColor("#111827")
+        .font("Helvetica")
+        .fontSize(8)
+        .text(formatSignedDate(sig.signedAt), left + sigW + gap + 34, top + 8, {
+          width: dateW - 6,
+        });
+    }
   };
 
-  drawSig("Agent Signature", y);
-  y += 28;
-  drawSig("Manager Signature", y);
+  drawSig("Agent Signature", y, signatures?.agent);
+  y += 44;
+  drawSig("Manager Signature", y, signatures?.manager);
 
   doc.end();
   const buffer = await done;

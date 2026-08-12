@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { buildAgentCommissionStatementPdf } from "@/lib/export/agent-pdf";
+import { buildSignedStatementPdf } from "@/lib/statements";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export async function GET(
   }
 
   const { periodId, agentPeriodId } = await ctx.params;
-  const built = await buildAgentCommissionStatementPdf(periodId, agentPeriodId);
+  const built = await buildSignedStatementPdf(periodId, agentPeriodId);
   if (!built) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

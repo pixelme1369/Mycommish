@@ -48,6 +48,8 @@ model Agent {
   uploads UploadBatch[]
   fileClaims FileClaim[]
   reviewedClaims FileClaim[] @relation("FileClaimReviewer")
+  agentSignedStatements CommissionStatement[] @relation("StatementAgentSigner")
+  managerSignedStatements CommissionStatement[] @relation("StatementManagerSigner")
 
   @@index([suspendedAt])
   @@index([lastLoginAt])
@@ -160,9 +162,43 @@ model AgentPeriod {
   period        CommissionPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
   clientEvents  ClientEvent[]
   ledgerEntries LedgerEntry[]
+  statement     CommissionStatement?
 
   @@unique([periodId, agentName])
   @@index([agentName])
+}
+
+/// E-signed commission statement: agent signs first, then manager/admin.
+enum StatementSignStatus {
+  unsigned
+  agent_signed
+  fully_signed
+}
+
+model CommissionStatement {
+  id            String              @id @default(cuid())
+  agentPeriodId String              @unique
+  status        StatementSignStatus @default(unsigned)
+
+  agentTypedName      String?
+  agentSignaturePng   Bytes?
+  agentSignedAt       DateTime?
+  agentSignedById     String?
+  netAtAgentSign      Decimal?  @db.Decimal(14, 2)
+
+  managerTypedName    String?
+  managerSignaturePng Bytes?
+  managerSignedAt     DateTime?
+  managerSignedById   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agentPeriod   AgentPeriod @relation(fields: [agentPeriodId], references: [id], onDelete: Cascade)
+  agentSigner   Agent?      @relation("StatementAgentSigner", fields: [agentSignedById], references: [id], onDelete: SetNull)
+  managerSigner Agent?      @relation("StatementManagerSigner", fields: [managerSignedById], references: [id], onDelete: SetNull)
+
+  @@index([status])
 }
 
 // ─── Clients ──────────────────────────────────────────────────────────────────

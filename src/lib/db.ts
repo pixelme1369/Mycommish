@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 /** Must match schema additions that need a fresh PrismaClient in `next dev`. */
-const PRISMA_SCHEMA_EPOCH = 7;
+const PRISMA_SCHEMA_EPOCH = 8;
 
 /** Quiet pg's sslmode deprecation warning against Neon URLs. */
 function neonCompatibleUrl(url: string): string {
@@ -39,10 +39,14 @@ function createPrismaClient() {
 }
 
 function getPrismaClient() {
+  const client = globalForPrisma.prisma as
+    | (PrismaClient & { commissionStatement?: unknown; fileClaim?: unknown })
+    | undefined;
   const stale =
-    !globalForPrisma.prisma ||
+    !client ||
     globalForPrisma.prismaSchemaEpoch !== PRISMA_SCHEMA_EPOCH ||
-    typeof (globalForPrisma.prisma as { fileClaim?: unknown }).fileClaim === "undefined";
+    typeof client.fileClaim === "undefined" ||
+    typeof client.commissionStatement === "undefined";
 
   if (stale) {
     globalForPrisma.prisma = createPrismaClient();
