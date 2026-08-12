@@ -40,10 +40,13 @@ export function DotGridBg({
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const el = canvasRef.current;
-    if (!el) return;
-    const context = el.getContext("2d");
-    if (!context) return;
+    const node = canvasRef.current;
+    const ctx = node?.getContext("2d") ?? null;
+    if (!node || !ctx) return;
+
+    // Local non-null aliases so nested closures type-check under strictNullChecks.
+    const canvas: HTMLCanvasElement = node;
+    const context: CanvasRenderingContext2D = ctx;
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const coarse = window.matchMedia("(pointer: coarse)").matches;
@@ -81,21 +84,21 @@ export function DotGridBg({
     }
 
     function resize() {
-      const rect = el.getBoundingClientRect();
+      const rect = canvas.getBoundingClientRect();
       W = rect.width;
       H = rect.height;
-      el.width = W * dpr;
-      el.height = H * dpr;
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
       context.setTransform(dpr, 0, 0, dpr, 0, 0);
       buildDots();
     }
 
     const ro = new ResizeObserver(resize);
-    ro.observe(el);
+    ro.observe(canvas);
     resize();
 
     function onMove(e: MouseEvent) {
-      const rect = el.getBoundingClientRect();
+      const rect = canvas.getBoundingClientRect();
       mouse.x = e.clientX - rect.left;
       mouse.y = e.clientY - rect.top;
     }
@@ -111,9 +114,9 @@ export function DotGridBg({
     }
 
     if (!coarse) {
-      el.addEventListener("mousemove", onMove);
-      el.addEventListener("mouseenter", onEnter);
-      el.addEventListener("mouseleave", onLeave);
+      canvas.addEventListener("mousemove", onMove);
+      canvas.addEventListener("mouseenter", onEnter);
+      canvas.addEventListener("mouseleave", onLeave);
     }
 
     function loop(ts: number) {
@@ -179,9 +182,9 @@ export function DotGridBg({
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
-      el.removeEventListener("mousemove", onMove);
-      el.removeEventListener("mouseenter", onEnter);
-      el.removeEventListener("mouseleave", onLeave);
+      canvas.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("mouseenter", onEnter);
+      canvas.removeEventListener("mouseleave", onLeave);
     };
   }, [dotSize, dotSpacing, orbitSpeed, impactRadius, scaleOnHover, enableRevolve]);
 
