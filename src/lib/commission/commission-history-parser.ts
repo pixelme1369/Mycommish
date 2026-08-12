@@ -486,6 +486,7 @@ export function applyCrmCreditScoresToHistoryResults(
         0,
         Math.round((grossFromPaid - r.clawbackAmount) * 100) / 100,
       ),
+      source: "history_import" as const,
       _clearedClients: cleared,
     } satisfies HistoryAgentResult;
   });
