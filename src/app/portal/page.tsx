@@ -89,6 +89,13 @@ export default async function PortalHome() {
               >
                 Admin →
               </Link>
+            ) : session.user.role === "manager" ? (
+              <Link
+                href="/manager"
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              >
+                Manager →
+              </Link>
             ) : null}
             <SignOutButton />
           </>

@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireSession } from "@/lib/auth-guards";
+import {
+  canViewAllCommissions,
+  isAdminUser,
+  requireSession,
+  sessionRole,
+} from "@/lib/auth-guards";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -43,9 +48,12 @@ export default async function PeriodDetailPage({
   const session = await requireSession();
   const { periodId, agentPeriodId } = await params;
   const aliases = new Set(session.user.aliasNames || []);
+  const staffView = canViewAllCommissions(session);
+  const admin = isAdminUser(session);
+  const role = sessionRole(session);
 
   let row = null;
-  if (session.user.isAdmin) {
+  if (staffView) {
     const { prisma } = await import("@/lib/db");
     const { PeriodSource } = await import("@/generated/prisma/client");
     row = await prisma.agentPeriod.findFirst({
@@ -73,8 +81,8 @@ export default async function PeriodDetailPage({
     row.period.periodLabel,
     clawbacks,
   );
-  const showAdminCordobaClawback = session.user.isAdmin;
-  const isAgentView = !session.user.isAdmin;
+  const showAdminCordobaClawback = staffView;
+  const isAgentView = !staffView;
   const notesForDisplay = row.notes
     ? isAgentView
       ? row.notes
@@ -87,32 +95,32 @@ export default async function PeriodDetailPage({
       : row.notes
     : null;
 
+  const backHref =
+    admin
+      ? `/admin/periods/${periodId}`
+      : role === "manager"
+        ? `/manager/periods/${periodId}`
+        : "/portal";
+  const backLabel =
+    staffView ? `← ${row.period.periodLabel} agents` : "← My commissions";
+
   return (
     <AppShell wide className={isAgentView ? "py-8 sm:py-9" : undefined}>
       <PageHeader
         compact={isAgentView}
         eyebrow={
-          session.user.isAdmin ? (
-            <Link
-              href={`/admin/periods/${periodId}`}
-              className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2")}
-            >
-              ← {row.period.periodLabel} agents
-            </Link>
-          ) : (
-            <Link
-              href="/portal"
-              className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2")}
-            >
-              ← My commissions
-            </Link>
-          )
+          <Link
+            href={backHref}
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2")}
+          >
+            {backLabel}
+          </Link>
         }
         title={`${row.agentName} · ${row.period.periodLabel}`}
         description={`Status: ${row.period.status} · source: calculated`}
         actions={
           <>
-            {session.user.isAdmin ? (
+            {admin ? (
               <>
                 <a
                   href={`/api/admin/periods/${periodId}/agents/${agentPeriodId}/statement`}
@@ -127,6 +135,13 @@ export default async function PeriodDetailPage({
                   Excel
                 </a>
               </>
+            ) : role === "manager" ? (
+              <Link
+                href="/manager/files"
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              >
+                Claim a file
+              </Link>
             ) : null}
             <SignOutButton />
           </>

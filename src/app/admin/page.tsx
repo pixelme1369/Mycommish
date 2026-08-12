@@ -149,6 +149,12 @@ export default async function AdminHome() {
             >
               Portal
             </Link>
+            <Link
+              href="/manager"
+              className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+            >
+              Manager view
+            </Link>
             <SignOutButton />
           </>
         }

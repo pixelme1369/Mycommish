@@ -128,10 +128,13 @@ export function PeriodAgentsGustoTable({
   periodId,
   agents,
   dismissedCount = 0,
+  readOnly = false,
 }: {
   periodId: string;
   agents: PeriodAgentRow[];
   dismissedCount?: number;
+  /** Managers: view + navigate only — no Gusto, select, or dismiss. */
+  readOnly?: boolean;
 }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [pending, startTransition] = useTransition();
@@ -142,7 +145,8 @@ export function PeriodAgentsGustoTable({
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const visibleAgents = useMemo(() => {
-    const filtered = showDismissed ? agents : agents.filter((a) => !a.dismissed);
+    const filtered =
+      readOnly || !showDismissed ? agents.filter((a) => !a.dismissed) : agents;
     const sorted = [...filtered].sort((a, b) => {
       const av = sortValue(a, sortKey);
       const bv = sortValue(b, sortKey);
@@ -156,7 +160,7 @@ export function PeriodAgentsGustoTable({
       return sortDir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [agents, showDismissed, sortKey, sortDir]);
+  }, [agents, showDismissed, sortKey, sortDir, readOnly]);
 
   const onSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -249,53 +253,61 @@ export function PeriodAgentsGustoTable({
     <div className="mt-8 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          Select people for Gusto · employees and 1099s export as separate tabs
+          {readOnly
+            ? "Team commissions · view only · open an agent for file detail and claims"
+            : "Select people for Gusto · employees and 1099s export as separate tabs"}
         </p>
-        <div className="flex flex-wrap items-center gap-2">
-          {dismissedCount > 0 ? (
+        {!readOnly ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {dismissedCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => setShowDismissed((v) => !v)}
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+              >
+                {showDismissed ? "Hide dismissed" : `Dismissed (${dismissedCount})`}
+              </button>
+            ) : null}
             <button
               type="button"
-              onClick={() => setShowDismissed((v) => !v)}
-              className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+              onClick={toggleAll}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
-              {showDismissed ? "Hide dismissed" : `Dismissed (${dismissedCount})`}
+              {allSelected ? "Clear" : "Select all"}
             </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={toggleAll}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-          >
-            {allSelected ? "Clear" : "Select all"}
-          </button>
-          <button
-            type="button"
-            disabled={!someSelected || pending}
-            onClick={exportGusto}
-            className={cn(buttonVariants({ variant: "default", size: "sm" }))}
-          >
-            {pending ? "Exporting…" : `Export Gusto${someSelected ? ` (${selected.size})` : ""}`}
-          </button>
-        </div>
+            <button
+              type="button"
+              disabled={!someSelected || pending}
+              onClick={exportGusto}
+              className={cn(buttonVariants({ variant: "default", size: "sm" }))}
+            >
+              {pending ? "Exporting…" : `Export Gusto${someSelected ? ` (${selected.size})` : ""}`}
+            </button>
+          </div>
+        ) : null}
       </div>
 
-      {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {!readOnly && message ? (
+        <p className="text-sm text-muted-foreground">{message}</p>
+      ) : null}
+      {!readOnly && error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       <Card className="glass-panel overflow-hidden py-0">
         <div className="-mx-px overflow-x-auto overscroll-x-contain rounded-[inherit]">
         <table className="w-full min-w-[56rem] border-collapse text-left text-[13px]">
           <thead className="border-b border-border bg-muted/40 text-muted-foreground">
             <tr>
-              <th className="px-2 py-2.5">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={toggleAll}
-                  aria-label="Select all agents"
-                  className="rounded border-border"
-                />
-              </th>
+              {!readOnly ? (
+                <th className="px-2 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    aria-label="Select all agents"
+                    className="rounded border-border"
+                  />
+                </th>
+              ) : null}
               <SortTh
                 label="Agent"
                 sortKey="agentName"
@@ -389,20 +401,22 @@ export function PeriodAgentsGustoTable({
                   key={r.id}
                   className={cn(
                     "hover:bg-muted/30",
-                    checked && "bg-muted/40",
+                    !readOnly && checked && "bg-muted/40",
                     r.dismissed && "opacity-60",
                   )}
                 >
-                  <td className="px-2 py-2 align-middle">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={Boolean(r.dismissed)}
-                      onChange={() => toggle(r.id)}
-                      aria-label={`Select ${r.agentName}`}
-                      className="rounded border-border"
-                    />
-                  </td>
+                  {!readOnly ? (
+                    <td className="px-2 py-2 align-middle">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={Boolean(r.dismissed)}
+                        onChange={() => toggle(r.id)}
+                        aria-label={`Select ${r.agentName}`}
+                        className="rounded border-border"
+                      />
+                    </td>
+                  ) : null}
                   <td className="px-3 py-2 align-middle whitespace-nowrap">
                     <div className="flex max-w-[14rem] items-center gap-1.5">
                       <span className="truncate font-medium" title={r.agentName}>
@@ -482,6 +496,7 @@ export function PeriodAgentsGustoTable({
                       agentPeriodId={r.id}
                       agentName={r.agentName}
                       dismissed={r.dismissed}
+                      readOnly={readOnly}
                     />
                   </td>
                 </tr>

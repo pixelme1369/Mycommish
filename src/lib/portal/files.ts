@@ -26,19 +26,14 @@ function aliasKeySet(aliasNames: string[]) {
   return new Set(aliasNames.map((n) => agentIdentityKey(n)));
 }
 
-/** Deduped CRM files for this agent in the latest calculated window. */
-export async function listAgentFiles(aliasNames: string[]): Promise<AgentFileRow[]> {
-  const dismissed = await listDismissedKeys();
-  const names = activeAliases(aliasNames, dismissed);
-  if (!names.length) return [];
-
+async function listWindowFiles(agentNames?: string[]): Promise<AgentFileRow[]> {
   const periods = await latestCalculatedPeriods();
   if (!periods.length) return [];
 
   const periodById = new Map(periods.map((p) => [p.id, p]));
   const events = await prisma.clientEvent.findMany({
     where: {
-      agentName: { in: names },
+      ...(agentNames?.length ? { agentName: { in: agentNames } } : {}),
       periodId: { in: periods.map((p) => p.id) },
       period: { source: PeriodSource.calculated },
     },
@@ -70,6 +65,19 @@ export async function listAgentFiles(aliasNames: string[]): Promise<AgentFileRow
   return [...byCrm.values()].sort((a, b) =>
     (a.clientName || a.crmId).localeCompare(b.clientName || b.crmId),
   );
+}
+
+/** Deduped CRM files for this agent in the latest calculated window. */
+export async function listAgentFiles(aliasNames: string[]): Promise<AgentFileRow[]> {
+  const dismissed = await listDismissedKeys();
+  const names = activeAliases(aliasNames, dismissed);
+  if (!names.length) return [];
+  return listWindowFiles(names);
+}
+
+/** All CRM files in the latest calculated window (manager / admin). */
+export async function listAllWindowFiles(): Promise<AgentFileRow[]> {
+  return listWindowFiles();
 }
 
 export type FileLookupHit = {
@@ -196,6 +204,100 @@ export async function lookupAgentFiles(
   });
 
   return classifyHits(hits, mine, mode);
+}
+
+/**
+ * Staff lookup — see any file assignment (not alias-scoped).
+ * Still returns claimable hits so managers can flag issues.
+ */
+export async function lookupAnyFile(query: string): Promise<FileLookupResult> {
+  const q = query.trim();
+  if (!q) return { mode: "name", outcome: "not_found", hits: [] };
+
+  const looksLikeId = /^[\d]{5,}$/.test(q.replace(/\s/g, ""));
+  const mode: "id" | "name" = looksLikeId ? "id" : "name";
+  const idQ = q.replace(/\s/g, "");
+
+  const identities = await prisma.clientIdentity.findMany({
+    where:
+      mode === "id"
+        ? { OR: [{ crmId: idQ }, { externalId: idQ }] }
+        : { clientName: { contains: q, mode: "insensitive" } },
+    take: 25,
+    orderBy: { clientName: "asc" },
+  });
+
+  if (!identities.length) {
+    const events = await prisma.clientEvent.findMany({
+      where: {
+        period: { source: PeriodSource.calculated },
+        ...(mode === "id"
+          ? { crmId: idQ }
+          : { clientName: { contains: q, mode: "insensitive" } }),
+      },
+      include: {
+        period: { select: { periodLabel: true } },
+        identity: { select: { externalId: true, crmStatus: true } },
+      },
+      orderBy: [{ period: { periodLabel: "desc" } }],
+      take: 25,
+    });
+    if (!events.length) return { mode, outcome: "not_found", hits: [] };
+
+    const byCrm = new Map<string, FileLookupHit>();
+    for (const e of events) {
+      if (byCrm.has(e.crmId)) continue;
+      byCrm.set(e.crmId, {
+        crmId: e.crmId,
+        externalId: e.identity?.externalId ?? null,
+        clientName: e.clientName,
+        kind: e.kind,
+        enrolledDate: e.enrolledDate,
+        firstPaymentClearedDate: e.firstPaymentClearedDate,
+        droppedDate: e.droppedDate,
+        periodLabel: e.period.periodLabel,
+        agentName: e.agentName,
+        crmStatus: e.identity?.crmStatus ?? null,
+      });
+    }
+    const hits = [...byCrm.values()];
+    if (hits.length === 1) return { mode, outcome: "assigned", hits };
+    return { mode, outcome: "ambiguous", hits: hits.slice(0, 8) };
+  }
+
+  const crmIds = identities.map((i) => i.crmId);
+  const events = await prisma.clientEvent.findMany({
+    where: {
+      crmId: { in: crmIds },
+      period: { source: PeriodSource.calculated },
+    },
+    include: { period: { select: { periodLabel: true } } },
+    orderBy: [{ period: { periodLabel: "desc" } }],
+  });
+  const latestEventByCrm = new Map<string, (typeof events)[number]>();
+  for (const e of events) {
+    if (!latestEventByCrm.has(e.crmId)) latestEventByCrm.set(e.crmId, e);
+  }
+
+  const hits: FileLookupHit[] = identities.map((i) => {
+    const ev = latestEventByCrm.get(i.crmId);
+    return {
+      crmId: i.crmId,
+      externalId: i.externalId,
+      clientName: i.clientName,
+      kind: ev?.kind ?? (i.firstPaymentClearedDate ? "directory" : "not_yet_cleared"),
+      enrolledDate: ev?.enrolledDate ?? i.enrolledDate,
+      firstPaymentClearedDate: ev?.firstPaymentClearedDate ?? i.firstPaymentClearedDate,
+      droppedDate: ev?.droppedDate ?? i.droppedDate,
+      periodLabel: ev?.period.periodLabel ?? null,
+      agentName: ev?.agentName ?? i.salesRep ?? "",
+      crmStatus: i.crmStatus,
+    };
+  });
+
+  if (hits.length === 1) return { mode, outcome: "assigned", hits };
+  if (hits.length > 1) return { mode, outcome: "ambiguous", hits: hits.slice(0, 8) };
+  return { mode, outcome: "not_found", hits: [] };
 }
 
 function classifyHits(

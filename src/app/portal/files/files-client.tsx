@@ -35,8 +35,17 @@ export type AgentFileRowView = {
   agentName: string;
 };
 
-export function AgentFilesTable({ files }: { files: AgentFileRowView[] }) {
+export function AgentFilesTable({
+  files,
+  showAgent = false,
+  allowClaim = false,
+}: {
+  files: AgentFileRowView[];
+  showAgent?: boolean;
+  allowClaim?: boolean;
+}) {
   const [q, setQ] = useState("");
+  const [claimMsg, setClaimMsg] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -45,18 +54,24 @@ export function AgentFilesTable({ files }: { files: AgentFileRowView[] }) {
       (f) =>
         f.crmId.toLowerCase().includes(needle) ||
         (f.externalId || "").toLowerCase().includes(needle) ||
-        (f.clientName || "").toLowerCase().includes(needle),
+        (f.clientName || "").toLowerCase().includes(needle) ||
+        (showAgent && f.agentName.toLowerCase().includes(needle)),
     );
-  }, [files, q]);
+  }, [files, q, showAgent]);
 
   return (
     <div className="space-y-3">
       <Input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Filter by External ID or name…"
+        placeholder={
+          showAgent
+            ? "Filter by External ID, name, or sales rep…"
+            : "Filter by External ID or name…"
+        }
         className="max-w-sm"
       />
+      {claimMsg ? <p className="text-sm text-muted-foreground">{claimMsg}</p> : null}
       {filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground">No files match.</p>
       ) : (
@@ -66,11 +81,13 @@ export function AgentFilesTable({ files }: { files: AgentFileRowView[] }) {
               <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead>External ID</TableHead>
                 <TableHead>Name</TableHead>
+                {showAgent ? <TableHead>Sales rep</TableHead> : null}
                 <TableHead>Status</TableHead>
                 <TableHead>Enrolled</TableHead>
                 <TableHead>1st payment cleared</TableHead>
                 <TableHead>Dropped</TableHead>
                 <TableHead>Period</TableHead>
+                {allowClaim ? <TableHead className="text-right"> </TableHead> : null}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -80,6 +97,9 @@ export function AgentFilesTable({ files }: { files: AgentFileRowView[] }) {
                     {f.externalId || f.crmId}
                   </TableCell>
                   <TableCell className="font-medium">{f.clientName || "—"}</TableCell>
+                  {showAgent ? (
+                    <TableCell className="text-muted-foreground">{f.agentName || "—"}</TableCell>
+                  ) : null}
                   <TableCell>
                     <Badge variant="outline" className="font-normal">
                       {fileKindLabel(f.kind)}
@@ -100,6 +120,21 @@ export function AgentFilesTable({ files }: { files: AgentFileRowView[] }) {
                       f.periodLabel
                     )}
                   </TableCell>
+                  {allowClaim ? (
+                    <TableCell className="text-right">
+                      <ClaimButton
+                        externalId={f.externalId || f.crmId}
+                        clientName={f.clientName || "Unknown"}
+                        onDone={(res) => {
+                          setClaimMsg(
+                            res?.ok
+                              ? `Claimed ${f.externalId || f.crmId} — in My claims for admin review.`
+                              : res?.error || "Could not claim",
+                          );
+                        }}
+                      />
+                    </TableCell>
+                  ) : null}
                 </TableRow>
               ))}
             </TableBody>
