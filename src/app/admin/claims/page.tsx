@@ -49,6 +49,16 @@ function DateLines({
   );
 }
 
+function formatClaimRequestedAt(d: Date) {
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export default async function AdminClaimsPage() {
   await requireAdmin();
   const [claims, totalClaimCount] = await Promise.all([
@@ -188,6 +198,10 @@ export default async function AdminClaimsPage() {
                       </div>
                       <div className="mt-0.5 break-all leading-snug text-muted-foreground">
                         {c.agent.email}
+                      </div>
+                      <div className="mt-1 leading-snug text-muted-foreground">
+                        <span className="text-foreground/50">Requested </span>
+                        {formatClaimRequestedAt(c.createdAt)}
                       </div>
                     </TableCell>
                     <TableCell className="max-w-[8rem] whitespace-normal text-xs leading-snug">
