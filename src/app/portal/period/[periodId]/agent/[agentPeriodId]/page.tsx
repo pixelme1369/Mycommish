@@ -136,7 +136,6 @@ export default async function PeriodDetailPage({
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-stretch">
         <NextTierCard
           className="sm:w-44 sm:shrink-0"
-          periodLabel={row.period.periodLabel}
           unitsNeeded={unitsToNextTier(row.unitsCleared, row.agentName)}
           gain={commissionGainAtNextTier(
             row.adjustedTier,

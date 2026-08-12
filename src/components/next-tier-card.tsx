@@ -25,7 +25,7 @@ export function NextTierCard({
   compact,
   className,
 }: NextTierCardProps) {
-  const hot = unitsNeeded != null && unitsNeeded <= 3;
+  const actionable = unitsNeeded != null;
 
   let value: string;
   if (unitsNeeded == null) {
@@ -43,19 +43,19 @@ export function NextTierCard({
     detail = "Negotiated rate";
   }
 
+  const title = actionable
+    ? "Illustrative: same cleared debt at the next tier rate. Extra units also add debt."
+    : undefined;
+
   if (compact) {
     return (
       <div
         className={cn(
           "bg-background px-3 py-2.5",
-          hot && "bg-primary/10",
+          actionable && "bg-primary/10",
           className,
         )}
-        title={
-          unitsNeeded != null
-            ? "Illustrative: same cleared debt at the next tier rate. Extra units also add debt."
-            : undefined
-        }
+        title={title}
       >
         <p className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
           To next tier
@@ -63,7 +63,7 @@ export function NextTierCard({
         <p
           className={cn(
             "mt-0.5 text-sm font-semibold tabular-nums text-foreground",
-            hot && "text-money",
+            actionable && "text-money",
           )}
         >
           {value}
@@ -78,15 +78,11 @@ export function NextTierCard({
   return (
     <div
       className={cn(
-        "glass-panel rounded-lg border border-border/80 px-3 py-2.5",
-        hot && "ring-1 ring-primary/30",
+        "rounded-lg border bg-background px-3 py-2.5",
+        actionable ? "border-primary/50" : "border-border/80",
         className,
       )}
-      title={
-        unitsNeeded != null
-          ? "Illustrative: same cleared debt at the next tier rate. Extra units also add debt."
-          : undefined
-      }
+      title={title}
     >
       {(agentName || periodLabel) && (
         <p className="mb-1 truncate text-[11px] text-muted-foreground">
@@ -98,8 +94,8 @@ export function NextTierCard({
       </p>
       <p
         className={cn(
-          "mt-0.5 text-sm font-semibold tabular-nums",
-          hot && "text-money",
+          "mt-0.5 text-2xl font-semibold tracking-tight tabular-nums",
+          actionable ? "text-money" : "text-foreground",
         )}
       >
         {value}
