@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MoreActionsMenu } from "@/components/more-actions-menu";
+import { LoginAsUserButton, useLoginAsUser } from "@/components/impersonation";
 import { cn } from "@/lib/utils";
 import { AliasAutocomplete } from "./alias-autocomplete";
 import { DeleteAgentButton, DeleteAliasButton } from "./delete-buttons";
@@ -85,6 +86,7 @@ export function AgentsUsersTable({
   );
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [busy, start] = useTransition();
+  const { loginAs, pending: loginAsPending } = useLoginAsUser();
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -242,7 +244,7 @@ export function AgentsUsersTable({
                         {a.hasPassword ? "Google · Password" : "Google"}
                       </TableCell>
                       <TableCell>
-                        <MoreActionsMenu estimatedHeight={160} menuWidth={180}>
+                        <MoreActionsMenu estimatedHeight={200} menuWidth={180}>
                           {(close) => (
                             <div className="py-1 text-sm">
                               <button
@@ -255,6 +257,19 @@ export function AgentsUsersTable({
                               >
                                 {expanded ? "Hide details" : "Edit details"}
                               </button>
+                              {!isSelf && !suspended ? (
+                                <button
+                                  type="button"
+                                  disabled={busy || loginAsPending}
+                                  className="block w-full px-3 py-1.5 text-left hover:bg-muted disabled:opacity-50"
+                                  onClick={() => {
+                                    close();
+                                    loginAs(a.id);
+                                  }}
+                                >
+                                  Login as user
+                                </button>
+                              ) : null}
                               {!isSelf ? (
                                 <button
                                   type="button"
@@ -478,7 +493,12 @@ function AgentDetailPanel({
         />
       </div>
 
-      <div className="flex justify-end border-t border-border/50 pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-3">
+        {!isSelf && !suspended ? (
+          <LoginAsUserButton agentId={agent.id} displayName={agent.displayName} />
+        ) : (
+          <span />
+        )}
         <DeleteAgentButton agentId={agent.id} displayName={agent.displayName} />
       </div>
     </div>

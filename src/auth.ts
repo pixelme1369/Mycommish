@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import type { Provider } from "next-auth/providers";
+import type { JWT } from "next-auth/jwt";
 import bcrypt from "bcryptjs";
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/lib/db";
@@ -51,6 +52,45 @@ export const googleAuthEnabled = Boolean(
   process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET,
 );
 
+type AgentClaims = {
+  id: string;
+  email: string;
+  displayName: string;
+  isAdmin: boolean;
+  role: "admin" | "manager" | "agent";
+  employmentType: "employee" | "contractor";
+  companyName: string | null;
+  aliases: Array<{ agentName: string }>;
+};
+
+function clearAgentClaims(token: JWT) {
+  token.agentId = undefined;
+  token.isAdmin = false;
+  token.role = undefined;
+  token.aliasNames = [];
+  token.displayName = undefined;
+  token.employmentType = undefined;
+  token.companyName = undefined;
+}
+
+function applyAgentClaims(token: JWT, agent: AgentClaims) {
+  token.email = agent.email;
+  token.agentId = agent.id;
+  token.isAdmin = agent.isAdmin || agent.role === "admin";
+  token.role = agent.role;
+  token.displayName = agent.displayName;
+  token.aliasNames = agent.aliases.map((a) => a.agentName);
+  token.employmentType = agent.employmentType;
+  token.companyName = agent.companyName;
+  token.name = agent.displayName;
+}
+
+function clearImpersonation(token: JWT) {
+  token.impersonatorAgentId = undefined;
+  token.impersonatorEmail = undefined;
+  token.impersonatorDisplayName = undefined;
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   session: { strategy: "jwt" },
@@ -71,8 +111,45 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return true;
     },
 
-    async jwt({ token, user, trigger }) {
-      if (user?.email) token.email = user.email;
+    async jwt({ token, user, trigger, session }) {
+      if (user?.email) {
+        token.email = user.email;
+        clearImpersonation(token);
+      }
+
+      // Admin "login as user" — only when the current token is a real admin
+      // (not already impersonating). Client can call session.update({…}).
+      if (trigger === "update" && session && typeof session === "object") {
+        const payload = session as {
+          impersonateAgentId?: string;
+          stopImpersonation?: boolean;
+        };
+
+        if (payload.stopImpersonation && token.impersonatorEmail) {
+          token.email = token.impersonatorEmail;
+          clearImpersonation(token);
+          token.agentCheckedAt = 0;
+        } else if (
+          payload.impersonateAgentId &&
+          token.isAdmin &&
+          !token.impersonatorAgentId &&
+          token.agentId &&
+          payload.impersonateAgentId !== token.agentId
+        ) {
+          const target = await prisma.agent.findUnique({
+            where: { id: payload.impersonateAgentId },
+            include: { aliases: true },
+          });
+          if (target && !target.suspendedAt) {
+            token.impersonatorAgentId = token.agentId;
+            token.impersonatorEmail = String(token.email || "");
+            token.impersonatorDisplayName = token.displayName;
+            applyAgentClaims(token, target);
+            token.agentCheckedAt = Date.now();
+            return token;
+          }
+        }
+      }
 
       // Neon round-trips are ~100ms+. Refresh claims on sign-in / update /
       // missing agentId; also re-check every ~2m so suspend takes effect.
@@ -96,24 +173,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         include: { aliases: true },
       });
       token.agentCheckedAt = Date.now();
+
       if (!agent || agent.suspendedAt) {
-        token.agentId = undefined;
-        token.isAdmin = false;
-        token.role = undefined;
-        token.aliasNames = [];
-        token.displayName = undefined;
-        token.employmentType = undefined;
-        token.companyName = undefined;
+        // If the impersonated user is suspended/missing, bounce back to admin.
+        if (token.impersonatorEmail) {
+          const adminEmail = token.impersonatorEmail;
+          clearImpersonation(token);
+          const admin = await prisma.agent.findUnique({
+            where: { email: adminEmail },
+            include: { aliases: true },
+          });
+          if (admin && !admin.suspendedAt) {
+            applyAgentClaims(token, admin);
+            return token;
+          }
+        }
+        clearAgentClaims(token);
         return token;
       }
 
-      token.agentId = agent.id;
-      token.isAdmin = agent.isAdmin || agent.role === "admin";
-      token.role = agent.role;
-      token.displayName = agent.displayName;
-      token.aliasNames = agent.aliases.map((a) => a.agentName);
-      token.employmentType = agent.employmentType;
-      token.companyName = agent.companyName;
+      applyAgentClaims(token, agent);
       return token;
     },
   },

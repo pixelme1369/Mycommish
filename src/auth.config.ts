@@ -27,6 +27,14 @@ export const authConfig = {
         session.user.role =
           (token.role as "admin" | "manager" | "agent" | undefined) ||
           (session.user.isAdmin ? "admin" : "agent");
+        session.user.impersonatorAgentId = token.impersonatorAgentId as
+          | string
+          | undefined;
+        session.user.impersonatorDisplayName = token.impersonatorDisplayName as
+          | string
+          | undefined;
+        if (token.email) session.user.email = String(token.email);
+        if (token.displayName) session.user.name = String(token.displayName);
       }
       return session;
     },

@@ -11,6 +11,9 @@ declare module "next-auth" {
       aliasNames: string[];
       employmentType: "employee" | "contractor";
       companyName: string | null;
+      /** Set while an admin is viewing the portal as another user. */
+      impersonatorAgentId?: string;
+      impersonatorDisplayName?: string;
     };
   }
 }
@@ -25,6 +28,9 @@ declare module "next-auth/jwt" {
     employmentType?: "employee" | "contractor";
     companyName?: string | null;
     agentCheckedAt?: number;
+    impersonatorAgentId?: string;
+    impersonatorEmail?: string;
+    impersonatorDisplayName?: string;
   }
 }
 

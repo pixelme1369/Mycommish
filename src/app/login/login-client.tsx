@@ -33,7 +33,7 @@ export function LoginClient({
         <div className="relative flex w-full max-w-md flex-col justify-between gap-10">
           <FadeIn y={16}>
             <p className="text-xs font-medium tracking-[0.2em] text-[oklch(0.82_0.08_150)] uppercase">
-              American Debt Relief
+              American Debt Protection
             </p>
             <BrandMark
               size="hero"
@@ -79,8 +79,8 @@ export function LoginClient({
             </h1>
             <p className="mt-2 text-muted-foreground">
               {googleEnabled
-                ? "Sign in with Google or your password. Your admin must add your email first."
-                : "Sign in with the email and password your admin set up."}
+                ? "Sign in with Google or your password."
+                : "Sign in with your email and password."}
             </p>
           </FadeIn>
 

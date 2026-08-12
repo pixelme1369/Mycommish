@@ -53,7 +53,7 @@ export default function HomeClient() {
       <main className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-6 pb-24 pt-10 sm:pb-28 sm:pt-6">
         <FadeIn delay={0.04}>
           <p className="text-xs font-medium tracking-[0.22em] text-primary uppercase">
-            American Debt Relief
+            American Debt Protection
           </p>
         </FadeIn>
 

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { StopImpersonationBanner } from "@/components/impersonation";
 
 export function AppShell({
   children,
@@ -10,18 +11,21 @@ export function AppShell({
   wide?: boolean;
 }) {
   return (
-    <div className="relative min-h-full">
-      <div className="pointer-events-none absolute inset-0 surface-grid opacity-60" />
-      <main
-        className={cn(
-          "relative mx-auto w-full px-6 py-10 sm:py-12",
-          wide ? "max-w-7xl" : "max-w-3xl",
-          className,
-        )}
-      >
-        {children}
-      </main>
-    </div>
+    <>
+      <StopImpersonationBanner />
+      <div className="relative min-h-full">
+        <div className="pointer-events-none absolute inset-0 surface-grid opacity-60" />
+        <main
+          className={cn(
+            "relative mx-auto w-full px-6 py-10 sm:py-12",
+            wide ? "max-w-7xl" : "max-w-3xl",
+            className,
+          )}
+        >
+          {children}
+        </main>
+      </div>
+    </>
   );
 }
 
