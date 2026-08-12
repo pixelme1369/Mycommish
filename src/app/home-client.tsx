@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 export default function HomeClient() {
   return (
-    <div className="relative flex min-h-full flex-col overflow-hidden bg-[oklch(0.99_0.005_150)]">
+    <div className="relative flex min-h-dvh flex-col overflow-hidden bg-[oklch(0.99_0.005_150)]">
       {/* Soft brand wash */}
       <div
         className="pointer-events-none absolute inset-0"
