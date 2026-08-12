@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyCrmCreditScoresToHistoryResults,
   parseCommissionHistory,
   parseHistoryRate,
+  type HistoryAgentResult,
 } from "./commission-history-parser";
 
 function historyCsv(rows: string[]) {
@@ -68,5 +70,73 @@ describe("parseCommissionHistory", () => {
     const csv = historyCsv([',,,,"100",,,,,']);
     const parsed = await parseCommissionHistory(Buffer.from(csv), "hist.csv", 2025);
     expect(parsed.errors.some((e) => e.includes("missing Month/ID/Sales Rep"))).toBe(true);
+  });
+});
+
+describe("applyCrmCreditScoresToHistoryResults", () => {
+  it("zeros commission debt for CRM credit score <= 500 but keeps the unit", async () => {
+    const csv = historyCsv([
+      'June,1223852031,Al Valipour,Kandi M. Collins,"$47,367.00",,3,,Active,1.25%',
+      'June,999,Al Valipour,Other Client,"$10,000.00",,1,,Active,1.25%',
+    ]);
+    const parsed = await parseCommissionHistory(Buffer.from(csv), "hist.csv", 2026);
+    const before = parsed.periods[0].results[0];
+    expect(before.unitsCleared).toBe(2);
+    expect(before.totalClearedDebt).toBeCloseTo(57367, 2);
+
+    const { results, lowCreditCount, missingScoreCount } = applyCrmCreditScoresToHistoryResults(
+      parsed.periods[0].results,
+      {
+        "1223852031": 480,
+        "999": 620,
+      },
+    );
+    expect(lowCreditCount).toBe(1);
+    expect(missingScoreCount).toBe(0);
+
+    const r = results[0] as HistoryAgentResult;
+    expect(r.unitsCleared).toBe(2);
+    expect(r.totalClearedDebt).toBeCloseTo(10000, 2);
+    expect(r._clearedClients.find((c) => c.crmId === "1223852031")?.isLowCredit).toBe(true);
+    expect(r._clearedClients.find((c) => c.crmId === "999")?.isLowCredit).toBe(false);
+    expect(r.notes).toMatch(/Credit Score <= 500/);
+    // Gross uses only the non-low-credit debt
+    expect(r.grossCommission).toBeLessThan(before.grossCommission);
+  });
+
+  it("counts missing CRM scores so ops can re-import after CRM upload", async () => {
+    const csv = historyCsv([
+      'June,1223852031,Al Valipour,Kandi,"$47,367.00",,3,,Active,1.25%',
+    ]);
+    const parsed = await parseCommissionHistory(Buffer.from(csv), "hist.csv", 2026);
+    const { results, lowCreditCount, missingScoreCount } = applyCrmCreditScoresToHistoryResults(
+      parsed.periods[0].results,
+      {},
+    );
+    expect(lowCreditCount).toBe(0);
+    expect(missingScoreCount).toBe(1);
+    expect(results[0].totalClearedDebt).toBeCloseTo(47367, 2);
+  });
+
+  it("uses sheet Commission on Client as paid amount instead of calculating", async () => {
+    const csv = [
+      "Month,ID,Sales Rep,Full Name,Enrolled Debt,To subtract,Payments Made,Units,Status,Rate,Commission on Client",
+      'June,1223852031,Al Valipour,Kandi,"$47,367.00",,3,,Active,1.25%,0',
+      'June,999,Al Valipour,Other,"$10,000.00",,1,,Active,1.25%,125.00',
+    ].join("\n");
+    const parsed = await parseCommissionHistory(Buffer.from(csv), "hist.csv", 2026);
+    expect(parsed.periods[0].results[0]._clearedClients[0].sheetCommissionOnClient).toBe(0);
+    expect(parsed.periods[0].results[0]._clearedClients[1].sheetCommissionOnClient).toBe(125);
+
+    const { results, sheetCommissionCount } = applyCrmCreditScoresToHistoryResults(
+      parsed.periods[0].results,
+      { "1223852031": 480, "999": 700 },
+    );
+    expect(sheetCommissionCount).toBe(2);
+    const r = results[0];
+    expect(r._clearedClients.find((c) => c.crmId === "1223852031")?.commissionOnClient).toBe(0);
+    expect(r._clearedClients.find((c) => c.crmId === "999")?.commissionOnClient).toBe(125);
+    expect(r.grossCommission).toBe(125);
+    expect(r.unitsCleared).toBe(2);
   });
 });

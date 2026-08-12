@@ -3,6 +3,8 @@
  * Port of agent_portal/commission_core/commission_history_parser.py
  *
  * Rate (optional): stored as paidRate for later CRM clawbacks (debt × rate).
+ * Commission on Client (optional): authoritative paid $ per file — stored as
+ * commissionOnClient on history_paid (not recalculated from debt × rate).
  * To-subtract dollars are taken as-is (never recomputed from Rate).
  */
 
@@ -58,6 +60,16 @@ export type HistoryClearedClient = {
   paymentsMade: number;
   enrolledDebt: number;
   paidRate: number | null;
+  /**
+   * Optional sheet "Commission on Client" — what was actually paid.
+   * When set, we store this on history_paid and do not invent debt × rate.
+   */
+  sheetCommissionOnClient?: number | null;
+  /** Resolved paid amount after sheet / low-credit / tier fallback. */
+  commissionOnClient?: number;
+  /** From CRM ClientIdentity / prior events — unit counts, $0 commission when true (if sheet amount absent). */
+  isLowCredit?: boolean;
+  creditScore?: number | null;
 };
 
 export type HistoryClawbackClient = {
@@ -218,6 +230,15 @@ function cellAt(row: RawRow, cols: Map<string, number>, name: string): unknown {
   return row[idx];
 }
 
+/** Header variants like "Commission on Client" / "Commission on Client ($)". */
+function commissionOnClientHeader(cols: Map<string, number>): string | null {
+  if (cols.has("commission on client")) return "commission on client";
+  for (const key of cols.keys()) {
+    if (key.startsWith("commission on client")) return key;
+  }
+  return null;
+}
+
 function rowIsBlank(row: RawRow): boolean {
   return !row.length || row.every((v) => v == null || (typeof v === "string" && !v.trim()));
 }
@@ -251,6 +272,7 @@ export async function parseCommissionHistory(
   const canonicalByKey = buildCanonicalAgentNameMap(rawNames);
 
   const keyOf = (periodLabel: string, agentName: string) => `${periodLabel}|||${agentName}`;
+  const commissionHeader = commissionOnClientHeader(cols);
 
   for (let i = 0; i < dataRows.length; i++) {
     const row = dataRows[i];
@@ -274,6 +296,8 @@ export async function parseCommissionHistory(
     const periodLabel = `${year}-${String(monthNum).padStart(2, "0")}`;
     const enrolledDebt = parseNumber(cellAt(row, cols, "enrolled debt"));
     const toSubtract = parseNumber(cellAt(row, cols, "to subtract"));
+    const sheetCommission =
+      commissionHeader != null ? parseNumber(cellAt(row, cols, commissionHeader)) : null;
 
     const base = {
       crmId,
@@ -293,6 +317,8 @@ export async function parseCommissionHistory(
         ...base,
         enrolledDebt,
         paidRate: parseHistoryRate(cellAt(row, cols, "rate")),
+        sheetCommissionOnClient:
+          sheetCommission != null ? Math.round(sheetCommission * 100) / 100 : null,
       });
     } else if (toSubtract != null) {
       bucket.clawback.push({
@@ -360,4 +386,109 @@ export async function parseCommissionHistory(
     })),
     errors: rowErrors,
   };
+}
+
+/**
+ * Apply CRM credit scores to history cleared rows.
+ * Score <= 500 → still a unit, $0 toward debt (same as live CRM) when sheet
+ * did not provide Commission on Client.
+ *
+ * Paid amount per client:
+ * 1) sheet "Commission on Client" if present (authoritative — what you paid)
+ * 2) else $0 when CRM credit score <= 500
+ * 3) else debt × tier rate (legacy)
+ *
+ * Agent period gross = sum of paid amounts (not inventing a second formula).
+ */
+export function applyCrmCreditScoresToHistoryResults(
+  results: HistoryAgentResult[],
+  creditScoreByCrmId: Record<string, number | null | undefined>,
+): {
+  results: HistoryAgentResult[];
+  lowCreditCount: number;
+  missingScoreCount: number;
+  sheetCommissionCount: number;
+} {
+  let lowCreditCount = 0;
+  let missingScoreCount = 0;
+  let sheetCommissionCount = 0;
+
+  const next = results.map((r) => {
+    const clearedMarked = r._clearedClients.map((c) => {
+      const score = creditScoreByCrmId[c.crmId];
+      if (score == null || !Number.isFinite(score)) {
+        if (c.sheetCommissionOnClient == null) missingScoreCount += 1;
+        return { ...c, isLowCredit: false, creditScore: score ?? null };
+      }
+      const isLowCredit = score <= 500;
+      if (isLowCredit) lowCreditCount += 1;
+      return { ...c, isLowCredit, creditScore: score };
+    });
+
+    const unitsCleared = clearedMarked.length;
+    const totalClearedDebt =
+      Math.round(
+        clearedMarked
+          .filter((c) => !c.isLowCredit)
+          .reduce((s, c) => s + c.enrolledDebt, 0) * 100,
+      ) / 100;
+    const totalForRate = unitsCleared + r._clawbackClients.length;
+    const cancelRatePct = totalForRate > 0 ? (r._clawbackClients.length / totalForRate) * 100 : 0;
+
+    const baseResult =
+      unitsCleared > 0
+        ? calculateAgentCommission({
+            agentName: r.agentName,
+            unitsCleared,
+            totalClearedDebt,
+            cancellationRatePct: cancelRatePct,
+            hourlyDraw: 0,
+          })
+        : zeroUnitResult(r.agentName);
+
+    const cleared = clearedMarked.map((c) => {
+      let commissionOnClient: number;
+      if (c.sheetCommissionOnClient != null) {
+        sheetCommissionCount += 1;
+        commissionOnClient = Math.round(c.sheetCommissionOnClient * 100) / 100;
+      } else if (c.isLowCredit) {
+        commissionOnClient = 0;
+      } else {
+        commissionOnClient =
+          Math.round(c.enrolledDebt * baseResult.tierRate * 100) / 100;
+      }
+      return { ...c, commissionOnClient };
+    });
+
+    const grossFromPaid =
+      Math.round(cleared.reduce((s, c) => s + (c.commissionOnClient ?? 0), 0) * 100) / 100;
+
+    const lowInAgent = cleared.filter((c) => c.isLowCredit).length;
+    const sheetInAgent = cleared.filter((c) => c.sheetCommissionOnClient != null).length;
+    let notes = baseResult.notes || "";
+    if (sheetInAgent > 0) {
+      const bit = `${sheetInAgent} unit(s) used sheet Commission on Client (not recalculated)`;
+      notes = notes ? `${notes} | ${bit}` : bit;
+    }
+    if (lowInAgent > 0) {
+      const bit = `${lowInAgent} unit(s) counted at $0 commission (CRM Credit Score <= 500)`;
+      notes = notes ? `${notes} | ${bit}` : bit;
+    }
+
+    return {
+      ...r,
+      ...baseResult,
+      grossCommission: grossFromPaid,
+      payout: grossFromPaid,
+      notes,
+      clawbackAmount: r.clawbackAmount,
+      netCommission: Math.max(
+        0,
+        Math.round((grossFromPaid - r.clawbackAmount) * 100) / 100,
+      ),
+      _clearedClients: cleared,
+    } satisfies HistoryAgentResult;
+  });
+
+  return { results: next, lowCreditCount, missingScoreCount, sheetCommissionCount };
 }

@@ -4,7 +4,10 @@
  */
 
 import { prisma } from "@/lib/db";
-import { parseCommissionHistory } from "@/lib/commission/commission-history-parser";
+import {
+  applyCrmCreditScoresToHistoryResults,
+  parseCommissionHistory,
+} from "@/lib/commission/commission-history-parser";
 import {
   ClientEventKind,
   LedgerType,
@@ -23,7 +26,38 @@ export type SaveHistorySummary = {
   periodsCreated: string[];
   periodsSkipped: string[];
   errors: string[];
+  lowCreditZeroPayCount?: number;
+  missingCreditScoreCount?: number;
 };
+
+/** Prefer ClientIdentity.creditScore; fall back to any prior event with a score. */
+async function loadCreditScoresByCrmId(crmIds: string[]): Promise<Record<string, number | null>> {
+  const out: Record<string, number | null> = {};
+  if (!crmIds.length) return out;
+
+  const identities = await prisma.clientIdentity.findMany({
+    where: { crmId: { in: crmIds } },
+    select: { crmId: true, creditScore: true },
+  });
+  for (const id of identities) {
+    out[id.crmId] = id.creditScore;
+  }
+
+  const missing = crmIds.filter((id) => out[id] == null);
+  if (missing.length) {
+    const events = await prisma.clientEvent.findMany({
+      where: { crmId: { in: missing }, creditScore: { not: null } },
+      select: { crmId: true, creditScore: true },
+    });
+    for (const e of events) {
+      if (out[e.crmId] == null && e.creditScore != null) {
+        out[e.crmId] = e.creditScore;
+      }
+    }
+  }
+
+  return out;
+}
 
 export async function ingestHistoryUpload(
   fileBytes: Uint8Array | Buffer | ArrayBuffer,
@@ -36,6 +70,26 @@ export async function ingestHistoryUpload(
   }
 
   const parsed = await parseCommissionHistory(fileBytes, filename, year);
+
+  const allClearedIds = [
+    ...new Set(
+      parsed.periods.flatMap((p) =>
+        p.results.flatMap((r) => r._clearedClients.map((c) => c.crmId).filter(Boolean)),
+      ),
+    ),
+  ];
+  const creditScoreByCrmId = await loadCreditScoresByCrmId(allClearedIds);
+
+  let lowCreditZeroPayCount = 0;
+  let missingCreditScoreCount = 0;
+  let sheetCommissionCount = 0;
+  const periodsWithScores = parsed.periods.map((p) => {
+    const applied = applyCrmCreditScoresToHistoryResults(p.results, creditScoreByCrmId);
+    lowCreditZeroPayCount += applied.lowCreditCount;
+    missingCreditScoreCount += applied.missingScoreCount;
+    sheetCommissionCount += applied.sheetCommissionCount;
+    return { ...p, results: applied.results };
+  });
 
   const batch = await prisma.uploadBatch.create({
     data: {
@@ -50,9 +104,27 @@ export async function ingestHistoryUpload(
     periodsCreated: [],
     periodsSkipped: [],
     errors: [...parsed.errors],
+    lowCreditZeroPayCount,
+    missingCreditScoreCount,
   };
 
-  for (const period of parsed.periods) {
+  if (sheetCommissionCount > 0) {
+    summary.errors.push(
+      `${sheetCommissionCount} history unit(s) used sheet Commission on Client as paid amount (not recalculated).`,
+    );
+  }
+  if (lowCreditZeroPayCount > 0) {
+    summary.errors.push(
+      `${lowCreditZeroPayCount} history unit(s) matched CRM Credit Score ≤ 500 — counted as units at $0 commission when Commission on Client was blank (anti-double-pay still applied).`,
+    );
+  }
+  if (missingCreditScoreCount > 0) {
+    summary.errors.push(
+      `${missingCreditScoreCount} history unit(s) had no CRM credit score and no Commission on Client — paid via debt × tier. Upload CRM first or fill Commission on Client.`,
+    );
+  }
+
+  for (const period of periodsWithScores) {
     const existing = await prisma.commissionPeriod.findFirst({
       where: { periodLabel: period.periodLabel, source: PeriodSource.history },
     });
@@ -92,10 +164,15 @@ async function saveHistoryPeriod(
     },
   });
 
-  // Identities first
+  // Identities first (carry CRM credit score when we resolved one for low-credit zeroing)
   const identities = new Map<
     string,
-    { crmId: string; clientName?: string; enrolledDebt?: number }
+    {
+      crmId: string;
+      clientName?: string;
+      enrolledDebt?: number;
+      creditScore?: number | null;
+    }
   >();
   for (const r of results) {
     for (const c of [...r._clearedClients, ...r._clawbackClients]) {
@@ -104,6 +181,7 @@ async function saveHistoryPeriod(
         crmId: c.crmId,
         clientName: c.clientName,
         enrolledDebt: c.enrolledDebt,
+        creditScore: "creditScore" in c ? (c.creditScore ?? null) : null,
       });
     }
   }
@@ -113,6 +191,7 @@ async function saveHistoryPeriod(
         crmId: c.crmId,
         clientName: c.clientName || null,
         enrolledDebt: c.enrolledDebt != null ? dec(c.enrolledDebt) : null,
+        creditScore: c.creditScore ?? null,
       })),
       skipDuplicates: true,
     });
@@ -160,8 +239,13 @@ async function saveHistoryPeriod(
 
     for (const c of r._clearedClients) {
       if (!c.crmId) continue;
+      const isLowCredit = Boolean(c.isLowCredit);
       const commissionOnClient =
-        Math.round(c.enrolledDebt * r.tierRate * 100) / 100;
+        c.commissionOnClient != null
+          ? c.commissionOnClient
+          : isLowCredit
+            ? 0
+            : Math.round(c.enrolledDebt * r.tierRate * 100) / 100;
       eventRows.push({
         crmId: c.crmId,
         periodId: periodRow.id,
@@ -171,9 +255,12 @@ async function saveHistoryPeriod(
         clientName: c.clientName || null,
         paymentsMade: c.paymentsMade,
         enrolledDebt: dec(c.enrolledDebt),
+        creditScore: c.creditScore ?? null,
+        isLowCredit,
         isCleared: true,
         clawbackApplied: false,
         commissionOnClient: dec(commissionOnClient),
+        // Low-credit: keep sheet Rate for audit; clawback path skips via isLowCredit.
         paidRate: c.paidRate != null ? dec(c.paidRate) : null,
         uploadBatchId,
       });
