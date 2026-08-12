@@ -3,7 +3,6 @@ import { requireSession } from "@/lib/auth-guards";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
-import { NextTierCard } from "@/components/next-tier-card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,11 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import {
-  commissionGainAtNextTier,
-  getFixedRate,
-  unitsToNextTier,
-} from "@/lib/commission/calculator";
+import { paymentDateForPeriod } from "@/lib/commission/calculator";
 import {
   agentRowsForLatestPeriods,
   cancelRatePercent,
@@ -31,12 +26,20 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function formatPayDate(periodLabel: string): string {
+  const d = paymentDateForPeriod(periodLabel);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export default async function PortalHome() {
   const session = await requireSession();
   const aliasNames = session.user.aliasNames || [];
   const windowPeriods = await latestCalculatedPeriods();
   const windowLabels = windowPeriods.map((p) => p.periodLabel);
-  const latestLabel = windowPeriods[0]?.periodLabel;
 
   const rowSets = await Promise.all(aliasNames.map((n) => agentRowsForLatestPeriods(n)));
   const rows = rowSets.flatMap((s) => s.rows);
@@ -48,10 +51,6 @@ export default async function PortalHome() {
       return true;
     })
     .sort((a, b) => b.period.periodLabel.localeCompare(a.period.periodLabel));
-
-  const latestRows = latestLabel
-    ? unique.filter((r) => r.period.periodLabel === latestLabel)
-    : [];
 
   return (
     <AppShell wide>
@@ -108,43 +107,12 @@ export default async function PortalHome() {
         </Card>
       ) : (
         <>
-          {latestRows.length > 0 ? (
-            <div
-              className={cn(
-                "mt-8 grid gap-3",
-                latestRows.length === 1
-                  ? "sm:grid-cols-2 lg:grid-cols-4"
-                  : "sm:grid-cols-2 lg:grid-cols-3",
-              )}
-            >
-              {latestRows.map((r) => {
-                const unitsNeeded = unitsToNextTier(r.unitsCleared, r.agentName);
-                const gain = commissionGainAtNextTier(
-                  r.adjustedTier,
-                  Number(r.totalClearedDebt),
-                  Number(r.grossCommission),
-                  r.agentName,
-                );
-                return (
-                  <NextTierCard
-                    key={`tier-${r.id}`}
-                    agentName={latestRows.length > 1 ? r.agentName : undefined}
-                    periodLabel={r.period.periodLabel}
-                    unitsNeeded={unitsNeeded}
-                    gain={gain}
-                    atTopTier={r.adjustedTier >= 6}
-                    fixedRate={getFixedRate(r.agentName) !== null}
-                  />
-                );
-              })}
-            </div>
-          ) : null}
-
           <Card className="glass-panel mt-8 overflow-hidden py-0">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
                   <TableHead>Period</TableHead>
+                  <TableHead>Pay date</TableHead>
                   <TableHead>Agent</TableHead>
                   <TableHead>Units</TableHead>
                   <TableHead>Tier</TableHead>
@@ -160,6 +128,7 @@ export default async function PortalHome() {
                 {unique.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.period.periodLabel}</TableCell>
+                    <TableCell>{formatPayDate(r.period.periodLabel)}</TableCell>
                     <TableCell>{r.agentName}</TableCell>
                     <TableCell>{r.unitsCleared}</TableCell>
                     <TableCell>

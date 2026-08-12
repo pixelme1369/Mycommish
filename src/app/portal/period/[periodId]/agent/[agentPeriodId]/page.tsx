@@ -133,39 +133,42 @@ export default async function PeriodDetailPage({
         }
       />
 
-      <div className="mt-6 overflow-hidden rounded-xl ring-1 ring-border/70">
-        <div className="grid grid-cols-2 gap-px bg-border/50 sm:grid-cols-3 lg:grid-cols-5">
-          <Metric label="Units" value={String(row.unitsCleared)} />
-          <Metric
-            label="Tier / rate"
-            value={
-              row.cancellationPenaltyApplied
-                ? `${row.rawTier}→${row.adjustedTier} · ${ratePercent(row.tierRate)}`
-                : `${row.adjustedTier || "—"} · ${ratePercent(row.tierRate)}`
-            }
-          />
-          <Metric label="Gross" value={money(row.grossCommission)} />
-          <Metric label="Net" value={money(row.netCommission)} accent />
-          <Metric
-            label="Clawback"
-            value={Number(row.clawbackAmount) > 0 ? `-${money(row.clawbackAmount)}` : "—"}
-            danger={Number(row.clawbackAmount) > 0}
-          />
-          <Metric label="Cancel rate" value={cancelRatePercent(row.cancellationRate)} />
-          <Metric label="Pending cancellations" value={String(row.pendingUnits)} />
-          <Metric label="Cleared debt" value={money(row.totalClearedDebt)} />
-          <NextTierCard
-            compact
-            unitsNeeded={unitsToNextTier(row.unitsCleared, row.agentName)}
-            gain={commissionGainAtNextTier(
-              row.adjustedTier,
-              Number(row.totalClearedDebt),
-              Number(row.grossCommission),
-              row.agentName,
-            )}
-            atTopTier={row.adjustedTier >= 6}
-            fixedRate={getFixedRate(row.agentName) !== null}
-          />
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+        <NextTierCard
+          className="sm:w-44 sm:shrink-0"
+          periodLabel={row.period.periodLabel}
+          unitsNeeded={unitsToNextTier(row.unitsCleared, row.agentName)}
+          gain={commissionGainAtNextTier(
+            row.adjustedTier,
+            Number(row.totalClearedDebt),
+            Number(row.grossCommission),
+            row.agentName,
+          )}
+          atTopTier={row.adjustedTier >= 6}
+          fixedRate={getFixedRate(row.agentName) !== null}
+        />
+        <div className="min-w-0 flex-1 overflow-hidden rounded-xl ring-1 ring-border/70">
+          <div className="grid grid-cols-2 gap-px bg-border/50 sm:grid-cols-3 lg:grid-cols-4">
+            <Metric label="Units" value={String(row.unitsCleared)} />
+            <Metric
+              label="Tier / rate"
+              value={
+                row.cancellationPenaltyApplied
+                  ? `${row.rawTier}→${row.adjustedTier} · ${ratePercent(row.tierRate)}`
+                  : `${row.adjustedTier || "—"} · ${ratePercent(row.tierRate)}`
+              }
+            />
+            <Metric label="Gross" value={money(row.grossCommission)} />
+            <Metric label="Net" value={money(row.netCommission)} accent />
+            <Metric
+              label="Clawback"
+              value={Number(row.clawbackAmount) > 0 ? `-${money(row.clawbackAmount)}` : "—"}
+              danger={Number(row.clawbackAmount) > 0}
+            />
+            <Metric label="Cancel rate" value={cancelRatePercent(row.cancellationRate)} />
+            <Metric label="Pending cancellations" value={String(row.pendingUnits)} />
+            <Metric label="Cleared debt" value={money(row.totalClearedDebt)} />
+          </div>
         </div>
       </div>
 
