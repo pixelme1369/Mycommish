@@ -40,6 +40,7 @@ export default async function ManagerPeriodPage({
     id: a.id,
     agentName: a.agentName,
     unitsCleared: a.unitsCleared,
+    pendingUnits: a.pendingUnits,
     adjustedTier: a.adjustedTier,
     rawTier: a.rawTier,
     cancellationPenaltyApplied: a.cancellationPenaltyApplied,

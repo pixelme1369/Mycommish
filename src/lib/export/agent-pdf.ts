@@ -137,13 +137,23 @@ export async function buildAgentCommissionStatementPdf(
   const right = pageW - 36;
   const usable = right - left;
 
-  // Title
+  // Brand mark (top-right) + title
+  try {
+    const { readFileSync } = await import("fs");
+    const { join } = await import("path");
+    const markPath = join(process.cwd(), "public/brand/mycommish-mark.png");
+    const mark = readFileSync(markPath);
+    doc.image(mark, right - 36, 28, { width: 36, height: 36 });
+  } catch {
+    // mark optional if asset missing in some deploy shapes
+  }
+
   doc
-    .fillColor("#1d4ed8")
+    .fillColor("#047857")
     .font("Helvetica-Bold")
     .fontSize(14)
     .text(`${periodName} Commission Statement — ${row.agentName}`, left, 36, {
-      width: usable,
+      width: usable - 48,
     });
 
   doc.moveDown(0.6);

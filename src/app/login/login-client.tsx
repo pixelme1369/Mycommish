@@ -27,27 +27,28 @@ export function LoginClient({
             backgroundSize: "40px 40px",
           }}
         />
-        <div className="pointer-events-none absolute -left-24 top-1/4 size-[28rem] rounded-full bg-[oklch(0.53_0.15_150/0.35)] blur-3xl" />
+        <div className="pointer-events-none absolute left-1/2 top-1/3 size-[28rem] -translate-x-1/2 rounded-full bg-[oklch(0.53_0.15_150/0.35)] blur-3xl" />
         <div className="pointer-events-none absolute -bottom-32 right-0 size-[22rem] rounded-full bg-[oklch(0.35_0.05_50/0.35)] blur-3xl" />
 
-        <div className="relative flex w-full max-w-md flex-col justify-between gap-10">
-          <FadeIn y={16}>
+        <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-between gap-10 text-center">
+          <FadeIn y={16} className="flex w-full flex-col items-center pt-2 lg:pt-8">
             <p className="text-xs font-medium tracking-[0.2em] text-[oklch(0.82_0.08_150)] uppercase">
               American Debt Protection
             </p>
             <BrandMark
               size="hero"
+              variant="full"
               href="/"
-              className="mt-3 block text-[oklch(0.98_0.02_155)] hover:opacity-90"
+              className="mt-6 mx-auto w-full max-w-[16rem] sm:max-w-[18rem]"
             />
-            <p className="mt-4 max-w-sm text-base text-[oklch(0.82_0.02_150)]">
+            <p className="mt-5 max-w-sm text-base text-[oklch(0.82_0.02_150)]">
               Agent commission portal
             </p>
           </FadeIn>
 
-          <FadeIn delay={0.15} y={20} className="hidden lg:block">
+          <FadeIn delay={0.15} y={20} className="hidden w-full lg:block">
             <div
-              className="rounded-lg border border-[oklch(0.85_0.05_150/0.22)] bg-[oklch(0.18_0.035_150/0.5)] p-4 backdrop-blur-sm"
+              className="rounded-lg border border-[oklch(0.85_0.05_150/0.22)] bg-[oklch(0.18_0.035_150/0.5)] p-4 text-left backdrop-blur-sm"
               aria-hidden
             >
               <div className="grid grid-cols-4 gap-2 border-b border-[oklch(0.85_0.05_150/0.18)] pb-2 text-[10px] font-medium tracking-[0.14em] text-[oklch(0.75_0.06_150)] uppercase">

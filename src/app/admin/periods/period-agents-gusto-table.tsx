@@ -14,6 +14,7 @@ export type PeriodAgentRow = {
   id: string;
   agentName: string;
   unitsCleared: number;
+  pendingUnits: number;
   adjustedTier: number;
   rawTier: number;
   cancellationPenaltyApplied: boolean;
@@ -28,6 +29,7 @@ export type PeriodAgentRow = {
 type SortKey =
   | "agentName"
   | "unitsCleared"
+  | "pendingUnits"
   | "next"
   | "adjustedTier"
   | "tierRate"
@@ -48,6 +50,8 @@ function sortValue(row: PeriodAgentRow, key: SortKey): string | number {
       return row.agentName.toLowerCase();
     case "unitsCleared":
       return row.unitsCleared;
+    case "pendingUnits":
+      return row.pendingUnits;
     case "next": {
       const n = unitsToNextTier(row.unitsCleared, row.agentName);
       // Fixed / top tier sort after everyone when ascending
@@ -294,7 +298,7 @@ export function PeriodAgentsGustoTable({
 
       <Card className="glass-panel overflow-hidden py-0">
         <div className="-mx-px overflow-x-auto overscroll-x-contain rounded-[inherit]">
-        <table className="w-full min-w-[56rem] border-collapse text-left text-[13px]">
+        <table className="w-full min-w-[62rem] border-collapse text-left text-[13px]">
           <thead className="border-b border-border bg-muted/40 text-muted-foreground">
             <tr>
               {!readOnly ? (
@@ -319,6 +323,14 @@ export function PeriodAgentsGustoTable({
               <SortTh
                 label="Units"
                 sortKey="unitsCleared"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
+                align="right"
+              />
+              <SortTh
+                label="Pending"
+                sortKey="pendingUnits"
                 activeKey={sortKey}
                 dir={sortDir}
                 onSort={onSort}
@@ -447,6 +459,16 @@ export function PeriodAgentsGustoTable({
                   </td>
                   <td className="whitespace-nowrap px-2 py-2 text-right align-middle tabular-nums">
                     {r.unitsCleared}
+                  </td>
+                  <td
+                    className="whitespace-nowrap px-2 py-2 text-right align-middle tabular-nums"
+                    title="Pending cancellations"
+                  >
+                    {r.pendingUnits > 0 ? (
+                      <span className="font-medium text-amber-800">{r.pendingUnits}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-2 py-2 text-right align-middle">
                     {toNext == null ? (

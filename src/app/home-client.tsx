@@ -38,7 +38,7 @@ export default function HomeClient() {
 
       <header className="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
         <FadeIn y={8}>
-          <BrandMark size="md" href="/" />
+          <BrandMark size="sm" variant="mark" href="/" />
         </FadeIn>
         <FadeIn delay={0.06} y={8}>
           <Link
@@ -57,15 +57,11 @@ export default function HomeClient() {
           </p>
         </FadeIn>
 
-        <FadeIn delay={0.1} className="mt-4">
-          <BrandMark
-            size="hero"
-            href="/login"
-            className="block text-[clamp(2.75rem,8vw,4.75rem)] leading-[0.95]"
-          />
+        <FadeIn delay={0.1} className="mt-5">
+          <BrandMark size="hero" variant="full" href="/login" className="max-w-[16rem] sm:max-w-[20rem]" />
         </FadeIn>
 
-        <FadeIn delay={0.18} className="mt-6 max-w-xl">
+        <FadeIn delay={0.18} className="mt-8 max-w-xl">
           <p className="text-xl font-medium tracking-tight text-foreground sm:text-2xl">
             Your commissions. Clear, accurate, always accessible.
           </p>

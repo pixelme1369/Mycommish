@@ -16,7 +16,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "mycommish",
-  description: "ADP agent commission portal",
+  description: "ADP agent commission portal — Track · Calculate · Pay",
+  icons: {
+    icon: [{ url: "/brand/mycommish-mark-v4.png", type: "image/png" }],
+    apple: [{ url: "/apple-icon.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
