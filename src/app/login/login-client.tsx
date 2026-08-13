@@ -30,8 +30,8 @@ export function LoginClient({
         <div className="pointer-events-none absolute left-1/2 top-1/3 size-[28rem] -translate-x-1/2 rounded-full bg-[oklch(0.53_0.15_150/0.35)] blur-3xl" />
         <div className="pointer-events-none absolute -bottom-32 right-0 size-[22rem] rounded-full bg-[oklch(0.35_0.05_50/0.35)] blur-3xl" />
 
-        <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-between gap-10 text-center">
-          <FadeIn y={16} className="flex w-full flex-col items-center pt-2 lg:pt-8">
+        <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-10 text-center">
+          <FadeIn y={16} className="flex w-full flex-col items-center">
             <p className="text-xs font-medium tracking-[0.2em] text-[oklch(0.82_0.08_150)] uppercase">
               American Debt Protection
             </p>
@@ -46,7 +46,7 @@ export function LoginClient({
             </p>
           </FadeIn>
 
-          <FadeIn delay={0.15} y={20} className="hidden w-full lg:block">
+          <FadeIn delay={0.15} y={20} className="absolute inset-x-0 bottom-0 hidden w-full lg:block">
             <div
               className="rounded-lg border border-[oklch(0.85_0.05_150/0.22)] bg-[oklch(0.18_0.035_150/0.5)] p-4 text-left backdrop-blur-sm"
               aria-hidden
