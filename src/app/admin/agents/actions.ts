@@ -111,6 +111,19 @@ export async function updateRoleAction(formData: FormData) {
   revalidatePath("/admin/agents");
 }
 
+export async function updateDisplayNameAction(formData: FormData) {
+  await requireAdmin();
+  const agentId = String(formData.get("agentId") || "");
+  const displayName = String(formData.get("displayName") || "").trim();
+  if (!agentId || !displayName) return;
+
+  await prisma.agent.update({
+    where: { id: agentId },
+    data: { displayName },
+  });
+  revalidatePath("/admin/agents");
+}
+
 export async function updateEmploymentAction(formData: FormData) {
   await requireAdmin();
   const agentId = String(formData.get("agentId") || "");

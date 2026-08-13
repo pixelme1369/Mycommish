@@ -24,6 +24,7 @@ import {
   clearPasswordAction,
   setPasswordAction,
   suspendAgentAction,
+  updateDisplayNameAction,
   updateEmploymentAction,
   updateRoleAction,
 } from "./actions";
@@ -382,6 +383,27 @@ function AgentDetailPanel({
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
         <form
+          key={`name-${agent.id}-${agent.displayName}`}
+          action={updateDisplayNameAction}
+          className="flex min-w-0 flex-col gap-2 rounded-lg bg-background p-3 ring-1 ring-border/60"
+        >
+          <input type="hidden" name="agentId" value={agent.id} />
+          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+            Display name
+          </p>
+          <Input
+            name="displayName"
+            required
+            defaultValue={agent.displayName}
+            placeholder="Display name"
+            className="h-9 min-w-0"
+          />
+          <Button type="submit" size="sm" variant="outline" className="mt-auto h-8 w-fit">
+            Save name
+          </Button>
+        </form>
+
+        <form
           key={`role-${agent.id}-${agent.role}`}
           action={updateRoleAction}
           className="flex min-w-0 flex-col gap-2 rounded-lg bg-background p-3 ring-1 ring-border/60"
@@ -401,35 +423,6 @@ function AgentDetailPanel({
           </select>
           <Button type="submit" size="sm" variant="outline" className="mt-auto h-8 w-fit">
             Save role
-          </Button>
-        </form>
-
-        <form
-          key={`employment-${agent.id}-${agent.employmentType}-${agent.companyName || ""}`}
-          action={updateEmploymentAction}
-          className="flex min-w-0 flex-col gap-2 rounded-lg bg-background p-3 ring-1 ring-border/60"
-        >
-          <input type="hidden" name="agentId" value={agent.id} />
-          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            Employment
-          </p>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              name="isContractor"
-              type="checkbox"
-              defaultChecked={isContractor}
-              className="rounded border-input"
-            />
-            1099 contractor
-          </label>
-          <Input
-            name="companyName"
-            defaultValue={agent.companyName || ""}
-            placeholder="Company name"
-            className="h-9 min-w-0"
-          />
-          <Button type="submit" size="sm" variant="outline" className="mt-auto h-8 w-fit">
-            Save employment
           </Button>
         </form>
 
@@ -469,6 +462,49 @@ function AgentDetailPanel({
           </div>
         </form>
       </div>
+
+      <details className="rounded-lg bg-background px-3 py-2 ring-1 ring-border/60">
+        <summary className="cursor-pointer list-none text-[11px] font-medium tracking-wide text-muted-foreground uppercase marker:content-none [&::-webkit-details-marker]:hidden">
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <span>Employment</span>
+            <span className="font-normal normal-case tracking-normal text-foreground/70">
+              {isContractor
+                ? agent.companyName
+                  ? `1099 · ${agent.companyName}`
+                  : "1099 contractor"
+                : "Employee"}
+            </span>
+            <span className="font-normal normal-case tracking-normal text-muted-foreground">
+              · edit
+            </span>
+          </span>
+        </summary>
+        <form
+          key={`employment-${agent.id}-${agent.employmentType}-${agent.companyName || ""}`}
+          action={updateEmploymentAction}
+          className="mt-2 flex flex-wrap items-end gap-2 border-t border-border/50 pt-2"
+        >
+          <input type="hidden" name="agentId" value={agent.id} />
+          <label className="flex h-9 items-center gap-2 text-sm">
+            <input
+              name="isContractor"
+              type="checkbox"
+              defaultChecked={isContractor}
+              className="rounded border-input"
+            />
+            1099
+          </label>
+          <Input
+            name="companyName"
+            defaultValue={agent.companyName || ""}
+            placeholder="Company (optional)"
+            className="h-9 min-w-[12rem] flex-1"
+          />
+          <Button type="submit" size="sm" variant="outline" className="h-8">
+            Save
+          </Button>
+        </form>
+      </details>
 
       <div className="rounded-lg bg-background p-3 ring-1 ring-border/60">
         <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
