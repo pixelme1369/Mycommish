@@ -390,12 +390,12 @@ export async function parseCommissionHistory(
 
 /**
  * Apply CRM credit scores to history cleared rows.
- * Score <= 500 → still a unit, $0 toward debt (same as live CRM) when sheet
+ * Score < 500 → still a unit, $0 toward debt (same as live CRM) when sheet
  * did not provide Commission on Client.
  *
  * Paid amount per client:
  * 1) sheet "Commission on Client" if present (authoritative — what you paid)
- * 2) else $0 when CRM credit score <= 500
+ * 2) else $0 when CRM credit score < 500
  * 3) else debt × tier rate (legacy)
  *
  * Agent period gross = sum of paid amounts (not inventing a second formula).
@@ -420,7 +420,7 @@ export function applyCrmCreditScoresToHistoryResults(
         if (c.sheetCommissionOnClient == null) missingScoreCount += 1;
         return { ...c, isLowCredit: false, creditScore: score ?? null };
       }
-      const isLowCredit = score <= 500;
+      const isLowCredit = score < 500;
       if (isLowCredit) lowCreditCount += 1;
       return { ...c, isLowCredit, creditScore: score };
     });
@@ -471,7 +471,7 @@ export function applyCrmCreditScoresToHistoryResults(
       notes = notes ? `${notes} | ${bit}` : bit;
     }
     if (lowInAgent > 0) {
-      const bit = `${lowInAgent} unit(s) counted at $0 commission (CRM Credit Score <= 500)`;
+      const bit = `${lowInAgent} unit(s) counted at $0 commission (CRM Credit Score < 500)`;
       notes = notes ? `${notes} | ${bit}` : bit;
     }
 

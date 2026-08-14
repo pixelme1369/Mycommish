@@ -185,21 +185,26 @@ describe("late activation OFF", () => {
 });
 
 describe("credit score", () => {
-  it("<=500 counts as unit at $0", () => {
+  it("<500 counts as unit at $0; 500 is normal pay", () => {
     const rows = [];
     for (let i = 1; i <= 20; i++) {
       rows.push(clientRow(`A${i}`, { cleared: "06/05/26", debt: "5000" }));
     }
-    rows.push(clientRow("LC1", { cleared: "06/05/26", debt: "5000", creditScore: "500" }));
+    rows.push(clientRow("LC1", { cleared: "06/05/26", debt: "5000", creditScore: "499" }));
+    rows.push(clientRow("OK500", { cleared: "06/05/26", debt: "5000", creditScore: "500" }));
     const june = byPeriod(parse(rows))["2026-06"];
-    expect(june.results[0].unitsCleared).toBe(21);
-    expect(june.results[0].totalClearedDebt).toBe(100000);
+    expect(june.results[0].unitsCleared).toBe(22);
+    // Low-credit debt excluded; score 500 included
+    expect(june.results[0].totalClearedDebt).toBe(105000);
     expect(june.results[0].rawTier).toBe(2);
     expect(june.results[0].tierRate).toBe(0.0125);
-    expect(june.results[0].grossCommission).toBe(1250);
+    expect(june.results[0].grossCommission).toBe(1312.5);
     const lc = june.clientRows.find((c) => c.crmId === "LC1");
     expect(lc?.isLowCredit).toBe(true);
     expect(lc?.commissionOnClient).toBe(0);
+    const ok = june.clientRows.find((c) => c.crmId === "OK500");
+    expect(ok?.isLowCredit).toBe(false);
+    expect(ok?.commissionOnClient).toBe(62.5);
   });
 });
 

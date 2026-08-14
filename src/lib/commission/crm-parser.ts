@@ -422,7 +422,7 @@ export function parseCrmAndCalculate(
       const n = Number.parseFloat(creditScoreRaw);
       creditScore = Number.isFinite(n) ? Math.trunc(n) : null;
     }
-    const isLowCredit = creditScore !== null && creditScore <= 500;
+    const isLowCredit = creditScore !== null && creditScore < 500;
 
     allClients.push({
       crmId: get(rawRow, "id"),
@@ -592,7 +592,7 @@ export function parseCrmAndCalculate(
       result.notes += ` | NSF flag: client(s) with ${NSF_FLAG_THRESHOLD}+ NSF events`;
     }
     if (lowCreditClients.length) {
-      result.notes += ` | ${lowCreditClients.length} unit(s) counted at $0 commission (Credit Score <= 500)`;
+      result.notes += ` | ${lowCreditClients.length} unit(s) counted at $0 commission (Credit Score < 500)`;
     }
     if (safeCancels.length) {
       result.notes += ` | ${safeCancels.length} unit(s) counted at $0 commission (safe cancel — payment threshold met before drop)`;

@@ -115,7 +115,7 @@ export async function ingestHistoryUpload(
   }
   if (lowCreditZeroPayCount > 0) {
     summary.errors.push(
-      `${lowCreditZeroPayCount} history unit(s) matched CRM Credit Score ≤ 500 — counted as units at $0 commission when Commission on Client was blank (anti-double-pay still applied).`,
+      `${lowCreditZeroPayCount} history unit(s) matched CRM Credit Score < 500 — counted as units at $0 commission when Commission on Client was blank (anti-double-pay still applied).`,
     );
   }
   if (missingCreditScoreCount > 0) {

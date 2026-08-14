@@ -74,32 +74,35 @@ describe("parseCommissionHistory", () => {
 });
 
 describe("applyCrmCreditScoresToHistoryResults", () => {
-  it("zeros commission debt for CRM credit score <= 500 but keeps the unit", async () => {
+  it("zeros commission debt for CRM credit score < 500 but keeps the unit", async () => {
     const csv = historyCsv([
       'June,1223852031,Al Valipour,Kandi M. Collins,"$47,367.00",,3,,Active,1.25%',
       'June,999,Al Valipour,Other Client,"$10,000.00",,1,,Active,1.25%',
+      'June,500id,Al Valipour,Boundary,"$8,000.00",,1,,Active,1.25%',
     ]);
     const parsed = await parseCommissionHistory(Buffer.from(csv), "hist.csv", 2026);
     const before = parsed.periods[0].results[0];
-    expect(before.unitsCleared).toBe(2);
-    expect(before.totalClearedDebt).toBeCloseTo(57367, 2);
+    expect(before.unitsCleared).toBe(3);
+    expect(before.totalClearedDebt).toBeCloseTo(65367, 2);
 
     const { results, lowCreditCount, missingScoreCount } = applyCrmCreditScoresToHistoryResults(
       parsed.periods[0].results,
       {
         "1223852031": 480,
         "999": 620,
+        "500id": 500,
       },
     );
     expect(lowCreditCount).toBe(1);
     expect(missingScoreCount).toBe(0);
 
     const r = results[0] as HistoryAgentResult;
-    expect(r.unitsCleared).toBe(2);
-    expect(r.totalClearedDebt).toBeCloseTo(10000, 2);
+    expect(r.unitsCleared).toBe(3);
+    expect(r.totalClearedDebt).toBeCloseTo(18000, 2);
     expect(r._clearedClients.find((c) => c.crmId === "1223852031")?.isLowCredit).toBe(true);
     expect(r._clearedClients.find((c) => c.crmId === "999")?.isLowCredit).toBe(false);
-    expect(r.notes).toMatch(/Credit Score <= 500/);
+    expect(r._clearedClients.find((c) => c.crmId === "500id")?.isLowCredit).toBe(false);
+    expect(r.notes).toMatch(/Credit Score < 500/);
     // Gross uses only the non-low-credit debt
     expect(r.grossCommission).toBeLessThan(before.grossCommission);
   });
