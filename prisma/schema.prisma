@@ -219,6 +219,8 @@ model ClientIdentity {
   /// CRM Status string when last seen (e.g. Pending Affiliate Cancellation).
   crmStatus    String?
   enrolledDate String?
+  /// CRM "1st Payment Date" (scheduled) — used for Waiting For First Payment watchlist.
+  firstPaymentDate String?
   firstPaymentClearedDate String?
   droppedDate  String?
   updatedAt    DateTime @updatedAt

@@ -270,6 +270,7 @@ async function createFullPeriod(
         payFreq: c.payFreq ?? null,
         crmStatus: c.status ?? null,
         enrolledDate: c.enrolledDate || null,
+        firstPaymentDate: c.firstPaymentDate || null,
         firstPaymentClearedDate: c.firstPaymentClearedDate || null,
         droppedDate: c.droppedDate || null,
       })),
@@ -538,6 +539,7 @@ async function upsertDirectoryIdentities(clients: CrmClient[]) {
         ${c.payFreq || null},
         ${c.status || null},
         ${c.enrolledDate || null},
+        ${c.firstPaymentDate || null},
         ${c.firstPaymentClearedDate || null},
         ${c.droppedDate || null},
         NOW()
@@ -557,6 +559,7 @@ async function upsertDirectoryIdentities(clients: CrmClient[]) {
         "payFreq",
         "crmStatus",
         "enrolledDate",
+        "firstPaymentDate",
         "firstPaymentClearedDate",
         "droppedDate",
         "updatedAt"
@@ -573,6 +576,7 @@ async function upsertDirectoryIdentities(clients: CrmClient[]) {
         "payFreq" = COALESCE(EXCLUDED."payFreq", "ClientIdentity"."payFreq"),
         "crmStatus" = COALESCE(EXCLUDED."crmStatus", "ClientIdentity"."crmStatus"),
         "enrolledDate" = COALESCE(EXCLUDED."enrolledDate", "ClientIdentity"."enrolledDate"),
+        "firstPaymentDate" = COALESCE(EXCLUDED."firstPaymentDate", "ClientIdentity"."firstPaymentDate"),
         "firstPaymentClearedDate" = COALESCE(EXCLUDED."firstPaymentClearedDate", "ClientIdentity"."firstPaymentClearedDate"),
         "droppedDate" = COALESCE(EXCLUDED."droppedDate", "ClientIdentity"."droppedDate"),
         "updatedAt" = NOW()

@@ -259,4 +259,64 @@ export async function mergeClawbacksWithCordoba(
   return merged;
 }
 
+export type WaitingFirstPaymentRow = {
+  crmId: string;
+  externalId: string | null;
+  clientName: string | null;
+  enrolledDebt: number | null;
+  firstPaymentDate: string | null;
+  crmStatus: string | null;
+};
+
+/**
+ * CRM watchlist: 1st payment scheduled in this period, not cleared, not dropped,
+ * status Waiting For First Payment. Not commissionable.
+ */
+export async function getWaitingFirstPaymentForAgent(
+  agentNames: string[],
+  periodLabel: string,
+): Promise<WaitingFirstPaymentRow[]> {
+  const { parseDate, periodOf } = await import("@/lib/commission/crm-parser");
+  const names = [...new Set(agentNames.map((n) => n.trim()).filter(Boolean))];
+  if (!names.length || !periodLabel) return [];
+
+  const rows = await prisma.clientIdentity.findMany({
+    where: {
+      salesRep: { in: names },
+      firstPaymentDate: { not: null },
+    },
+    select: {
+      crmId: true,
+      externalId: true,
+      clientName: true,
+      enrolledDebt: true,
+      firstPaymentDate: true,
+      firstPaymentClearedDate: true,
+      droppedDate: true,
+      crmStatus: true,
+    },
+    orderBy: [{ clientName: "asc" }, { crmId: "asc" }],
+  });
+
+  const out: WaitingFirstPaymentRow[] = [];
+  for (const r of rows) {
+    const status = (r.crmStatus || "").trim().toLowerCase();
+    if (status !== "waiting for first payment") continue;
+    if ((r.firstPaymentClearedDate || "").trim()) continue;
+    if ((r.droppedDate || "").trim()) continue;
+    const fp = (r.firstPaymentDate || "").trim();
+    if (!fp) continue;
+    if (periodOf(parseDate(fp)) !== periodLabel) continue;
+    out.push({
+      crmId: r.crmId,
+      externalId: r.externalId,
+      clientName: r.clientName,
+      enrolledDebt: r.enrolledDebt != null ? Number(r.enrolledDebt) : null,
+      firstPaymentDate: r.firstPaymentDate,
+      crmStatus: r.crmStatus,
+    });
+  }
+  return out;
+}
+
 export { money, ratePercent, cancelRatePercent } from "@/lib/format";
