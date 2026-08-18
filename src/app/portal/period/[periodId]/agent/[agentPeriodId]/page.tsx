@@ -22,7 +22,6 @@ import {
   money,
   ratePercent,
   type MergedClawbackRow,
-  type WaitingFirstPaymentRow,
 } from "@/lib/portal/queries";
 import {
   commissionGainAtNextTier,
@@ -31,6 +30,7 @@ import {
 } from "@/lib/commission/calculator";
 import { NextTierCard } from "@/components/next-tier-card";
 import { StatementSignPanel } from "./statement-sign-panel";
+import { WaitingFirstPaymentSection } from "./waiting-first-payment-section";
 import { getStatementForAgentPeriod } from "@/lib/statements";
 import type { ClientEvent } from "@/generated/prisma/client";
 
@@ -302,55 +302,6 @@ function YesNo({ yes, tone }: { yes: boolean; tone: "green" | "red" | "amber" })
     >
       Yes
     </Badge>
-  );
-}
-
-function WaitingFirstPaymentSection({ rows }: { rows: WaitingFirstPaymentRow[] }) {
-  return (
-    <section className="mt-8">
-      <h2 className="font-heading text-base tracking-tight">
-        Waiting For First Payment{" "}
-        <span className="text-sm font-sans font-normal text-muted-foreground">
-          ({rows.length})
-        </span>
-      </h2>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Not in commission yet — 1st payment is scheduled this period but not cleared. Follow up so
-        they clear and count toward your units.
-      </p>
-      {rows.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">No files waiting for first payment.</p>
-      ) : (
-        <Card className="glass-panel mt-3 overflow-x-auto py-0">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-border bg-muted/40 text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">AMOD</th>
-                <th className="px-3 py-2 font-medium">Name</th>
-                <th className="px-3 py-2 font-medium">Enrolled debt</th>
-                <th className="px-3 py-2 font-medium">1st payment date</th>
-                <th className="px-3 py-2 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/70">
-              {rows.map((c) => (
-                <tr key={c.crmId}>
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {c.externalId || c.crmId}
-                  </td>
-                  <td className="px-3 py-2">{c.clientName || "—"}</td>
-                  <td className="px-3 py-2">
-                    {c.enrolledDebt != null ? money(c.enrolledDebt) : "—"}
-                  </td>
-                  <td className="px-3 py-2">{c.firstPaymentDate || "—"}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{c.crmStatus || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
-    </section>
   );
 }
 
