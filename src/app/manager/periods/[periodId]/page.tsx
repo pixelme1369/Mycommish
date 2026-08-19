@@ -11,6 +11,8 @@ import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PeriodAgentsGustoTable } from "@/app/admin/periods/period-agents-gusto-table";
+import { listBonusesForPeriod } from "@/lib/manager-bonuses";
+import { ManagerReimbursementsSection } from "@/components/manager-reimbursements-section";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +30,19 @@ export default async function ManagerPeriodPage({
   });
   if (!period) notFound();
 
-  const [agents, dismissedKeys] = await Promise.all([
+  const ownOnly = role !== "admin";
+  const paidById = session.user.agentId || undefined;
+
+  const [agents, dismissedKeys, bonusRows] = await Promise.all([
     prisma.agentPeriod.findMany({
       where: { periodId },
       orderBy: [{ netCommission: "desc" }, { agentName: "asc" }],
     }),
     listDismissedKeys(),
+    listBonusesForPeriod(
+      period.periodLabel,
+      ownOnly && paidById ? { paidById } : undefined,
+    ),
   ]);
 
   const tableRows = agents.map((a) => ({
@@ -113,6 +122,12 @@ export default async function ManagerPeriodPage({
         <Stat label="Gross" value={money(activeTotals.gross)} />
         <Stat label="Net" value={money(activeTotals.net)} accent />
       </div>
+
+      <ManagerReimbursementsSection
+        periodLabel={period.periodLabel}
+        rows={bonusRows}
+        adminControls={false}
+      />
 
       {agents.length === 0 ? (
         <p className="mt-10 text-sm text-muted-foreground">No agent rows for this period.</p>

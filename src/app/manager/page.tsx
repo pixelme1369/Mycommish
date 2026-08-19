@@ -12,15 +12,19 @@ import { PeriodSource, PeriodStatus } from "@/generated/prisma/client";
 import { latestCalculatedPeriods } from "@/lib/portal/queries";
 import { listStatementsAwaitingManager } from "@/lib/statements";
 import { StatementsAwaitingManager } from "@/components/statements-awaiting-manager";
+import { sumMyOwedBonuses } from "@/lib/manager-bonuses";
+import { money } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManagerHome() {
   const session = await requireManagerOrAdmin();
   const role = sessionRole(session);
-  const [windowPeriods, awaitingManager] = await Promise.all([
+  const agentId = session.user.agentId;
+  const [windowPeriods, awaitingManager, owedTotal] = await Promise.all([
     latestCalculatedPeriods(),
     listStatementsAwaitingManager().catch(() => []),
+    agentId ? sumMyOwedBonuses(agentId) : Promise.resolve(0),
   ]);
   const periodIds = windowPeriods.map((p) => p.id);
 
@@ -74,6 +78,12 @@ export default async function ManagerHome() {
         actions={
           <>
             <Link
+              href="/manager/bonuses"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Bonus payouts
+            </Link>
+            <Link
               href="/manager/files"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
@@ -82,7 +92,7 @@ export default async function ManagerHome() {
             {role === "admin" ? (
               <Link
                 href="/admin"
-                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
               >
                 Admin
               </Link>
@@ -91,6 +101,23 @@ export default async function ManagerHome() {
           </>
         }
       />
+
+      {owedTotal > 0 ? (
+        <Card className="glass-panel mt-8 px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Owed to you</span>
+            <span className="mx-2 text-border">·</span>
+            <span className="font-semibold text-money tabular-nums">{money(owedTotal)}</span>
+            <span className="text-muted-foreground">
+              {" "}
+              unpaid ·{" "}
+              <Link href="/manager/bonuses" className="underline-offset-2 hover:underline">
+                view bonus payouts
+              </Link>
+            </span>
+          </p>
+        </Card>
+      ) : null}
 
       <div className="mt-8">
         <StatementsAwaitingManager rows={awaitingManager} viewBase="/manager" />

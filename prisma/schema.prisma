@@ -50,6 +50,9 @@ model Agent {
   reviewedClaims FileClaim[] @relation("FileClaimReviewer")
   agentSignedStatements CommissionStatement[] @relation("StatementAgentSigner")
   managerSignedStatements CommissionStatement[] @relation("StatementManagerSigner")
+  bonusesPaid           ManagerBonusPayout[] @relation("ManagerBonusPaidBy")
+  bonusesReceived       ManagerBonusPayout[] @relation("ManagerBonusRecipient")
+  bonusesReimbursed     ManagerBonusPayout[] @relation("ManagerBonusReimbursedBy")
 
   @@index([suspendedAt])
   @@index([lastLoginAt])
@@ -94,6 +97,36 @@ model FileClaim {
   @@index([agentId, status])
   @@index([status, createdAt])
   @@index([crmId])
+}
+
+enum ManagerBonusStatus {
+  owed
+  reimbursed
+}
+
+/// Manager paid an agent bonus from their own account; company reimburses on commission pay date.
+model ManagerBonusPayout {
+  id               String             @id @default(cuid())
+  paidById         String
+  recipientAgentId String
+  amount           Decimal            @db.Decimal(12, 2)
+  reason           String
+  paidOn           DateTime
+  /// Commission month (YYYY-MM) whose pay date (25th next month) reimburses this.
+  periodLabel      String
+  status           ManagerBonusStatus @default(owed)
+  reimbursedAt     DateTime?
+  reimbursedById   String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  paidBy         Agent  @relation("ManagerBonusPaidBy", fields: [paidById], references: [id], onDelete: Cascade)
+  recipientAgent Agent  @relation("ManagerBonusRecipient", fields: [recipientAgentId], references: [id], onDelete: Restrict)
+  reimbursedBy   Agent? @relation("ManagerBonusReimbursedBy", fields: [reimbursedById], references: [id], onDelete: SetNull)
+
+  @@index([paidById, status])
+  @@index([periodLabel, status])
+  @@index([recipientAgentId])
 }
 
 /// Soft-dismiss a CRM Sales Rep from active commission views / Gusto.
