@@ -15,9 +15,13 @@ import { AdminCalculatedPeriods } from "./admin-calculated-periods";
 import { AdminImportSection } from "./admin-import-section";
 import { AdminSecondarySections } from "./admin-secondary-sections";
 import { StatementsAwaitingManager } from "@/components/statements-awaiting-manager";
-import { listStatementsAwaitingManager } from "@/lib/statements";
+import {
+  listFullySignedStatements,
+  listStatementsAwaitingManager,
+} from "@/lib/statements";
 import { prisma } from "@/lib/db";
 import { FileClaimStatus } from "@/generated/prisma/client";
+import { money } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +82,7 @@ function lastOfType(
 
 export default async function AdminHome() {
   const session = await requireAdmin();
-  const [periodsRaw, historyPeriodsRaw, uploads, pendingClaims, awaitingManager] =
+  const [periodsRaw, historyPeriodsRaw, uploads, pendingClaims, awaitingManager, fullySigned, fullySignedCount] =
     await Promise.all([
       listCalculatedPeriods().catch(() => []),
       listHistoryPeriods().catch(() => []),
@@ -87,6 +91,10 @@ export default async function AdminHome() {
         .count({ where: { status: FileClaimStatus.pending } })
         .catch(() => 0),
       listStatementsAwaitingManager().catch(() => []),
+      listFullySignedStatements({ limit: 8 }).catch(() => []),
+      prisma.commissionStatement
+        .count({ where: { status: "fully_signed" } })
+        .catch(() => 0),
     ]);
 
   const periods = sortPeriodsForDashboard(periodsRaw);
@@ -120,6 +128,9 @@ export default async function AdminHome() {
     awaitingManager.length > 0
       ? `${awaitingManager.length} statement${awaitingManager.length === 1 ? "" : "s"} awaiting manager`
       : null,
+    fullySignedCount > 0
+      ? `${fullySignedCount} signed PDF${fullySignedCount === 1 ? "" : "s"}`
+      : null,
     lastCrm ? `CRM ${formatUploadDay(lastCrm.createdAt)}` : null,
     lastCordoba ? `Cordoba ${formatUploadDay(lastCordoba.createdAt)}` : null,
     lastHistory ? `History ${formatUploadDay(lastHistory.createdAt)}` : null,
@@ -145,6 +156,12 @@ export default async function AdminHome() {
               File claims
             </Link>
             <Link
+              href="/admin/statements"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Signed PDFs
+            </Link>
+            <Link
               href="/admin/agents"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
@@ -152,13 +169,13 @@ export default async function AdminHome() {
             </Link>
             <Link
               href="/portal"
-              className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
               Portal
             </Link>
             <Link
               href="/manager"
-              className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
               Manager view
             </Link>
@@ -178,6 +195,77 @@ export default async function AdminHome() {
       <div className="mt-8">
         <StatementsAwaitingManager rows={awaitingManager} viewBase="/admin" />
       </div>
+
+      <section className="mt-8">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="font-heading text-xl tracking-tight">Signed statements</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Fully signed by agent and manager — archive and bulk download.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {fullySigned.length > 0 ? (
+              <a
+                href="/api/admin/statements/bulk"
+                className={cn(buttonVariants({ variant: "default", size: "sm" }))}
+              >
+                Bulk download ZIP
+              </a>
+            ) : null}
+            <Link
+              href="/admin/statements"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              View all →
+            </Link>
+          </div>
+        </div>
+
+        {fullySigned.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            No fully signed statements yet.
+          </p>
+        ) : (
+          <Card className="glass-panel mt-4 overflow-hidden py-0">
+            <table className="min-w-full text-left text-sm">
+              <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2.5 font-medium">Period</th>
+                  <th className="px-4 py-2.5 font-medium">Agent</th>
+                  <th className="px-4 py-2.5 font-medium">Net</th>
+                  <th className="px-4 py-2.5 font-medium">Manager signed</th>
+                  <th className="px-4 py-2.5 font-medium" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/70">
+                {fullySigned.map((r) => (
+                  <tr key={r.statementId}>
+                    <td className="px-4 py-2.5 font-medium">{r.periodLabel}</td>
+                    <td className="px-4 py-2.5">{r.agentName}</td>
+                    <td className="px-4 py-2.5 tabular-nums">{money(r.netCommission)}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                      {r.managerSignedAt.toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <a
+                        href={`/api/admin/periods/${r.periodId}/agents/${r.agentPeriodId}/statement`}
+                        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+                      >
+                        PDF
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        )}
+      </section>
 
       <div className="mt-8">
         <AdminCalculatedPeriods

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Allura, Dancing_Script, Great_Vibes, Satisfy } from "next/font/google";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +13,54 @@ import {
   signStatementAsManagerAction,
 } from "./statement-actions";
 
+const fontVibes = Great_Vibes({ weight: "400", subsets: ["latin"] });
+const fontDance = Dancing_Script({ weight: "500", subsets: ["latin"] });
+const fontAllura = Allura({ weight: "400", subsets: ["latin"] });
+const fontSatisfy = Satisfy({ weight: "400", subsets: ["latin"] });
+
+const SIGNATURE_STYLES = [
+  { id: "vibes", label: "Style 1", className: fontVibes.className, family: fontVibes.style.fontFamily, size: 44 },
+  { id: "dance", label: "Style 2", className: fontDance.className, family: fontDance.style.fontFamily, size: 36 },
+  { id: "allura", label: "Style 3", className: fontAllura.className, family: fontAllura.style.fontFamily, size: 42 },
+  { id: "satisfy", label: "Style 4", className: fontSatisfy.className, family: fontSatisfy.style.fontFamily, size: 36 },
+] as const;
+
+type SignMode = "style" | "draw";
 type Role = "agent" | "manager";
+
+async function renderTypedSignaturePng(
+  name: string,
+  family: string,
+  size: number,
+): Promise<string | null> {
+  const text = name.trim();
+  if (!text) return null;
+  try {
+    await document.fonts.load(`${size}px ${family}`);
+  } catch {
+    // continue with fallback metrics
+  }
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.font = `${size}px ${family}`;
+  const metrics = ctx.measureText(text);
+  const padX = 16;
+  const padY = 12;
+  const width = Math.ceil(metrics.width + padX * 2);
+  const height = Math.ceil(size * 1.6 + padY * 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.max(1, Math.floor(width * dpr));
+  canvas.height = Math.max(1, Math.floor(height * dpr));
+  ctx.scale(dpr, dpr);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#111827";
+  ctx.font = `${size}px ${family}`;
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, padX, height / 2);
+  return canvas.toDataURL("image/png");
+}
 
 export function StatementSignPanel({
   periodId,
@@ -42,6 +90,8 @@ export function StatementSignPanel({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [typedName, setTypedName] = useState(defaultName);
+  const [mode, setMode] = useState<SignMode>("style");
+  const [selectedStyle, setSelectedStyle] = useState<string>(SIGNATURE_STYLES[0].id);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -52,9 +102,10 @@ export function StatementSignPanel({
   const canManagerSign = role === "manager" && status === "agent_signed";
   const canSign = canAgentSign || canManagerSign;
   const showReset = canReset && status !== "unsigned";
+  const previewName = typedName.trim() || "Your name";
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || mode !== "draw") return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -72,7 +123,7 @@ export function StatementSignPanel({
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     hasStroke.current = false;
-  }, [open]);
+  }, [open, mode]);
 
   function pos(e: React.PointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current!;
@@ -117,9 +168,37 @@ export function StatementSignPanel({
   function submit() {
     setError(null);
     start(async () => {
-      const canvas = canvasRef.current;
-      const signatureDataUrl =
-        canvas && hasStroke.current ? canvas.toDataURL("image/png") : null;
+      if (typedName.trim().length < 2) {
+        setError("Type your full name to sign.");
+        return;
+      }
+
+      let signatureDataUrl: string | null = null;
+      if (mode === "draw") {
+        const canvas = canvasRef.current;
+        signatureDataUrl =
+          canvas && hasStroke.current ? canvas.toDataURL("image/png") : null;
+        if (!signatureDataUrl) {
+          setError("Draw your signature, or switch to Choose style.");
+          return;
+        }
+      } else {
+        const style = SIGNATURE_STYLES.find((s) => s.id === selectedStyle);
+        if (!style) {
+          setError("Pick a signature style.");
+          return;
+        }
+        signatureDataUrl = await renderTypedSignaturePng(
+          typedName,
+          style.family,
+          style.size,
+        );
+        if (!signatureDataUrl) {
+          setError("Could not create that signature style. Try another or draw.");
+          return;
+        }
+      }
+
       const action =
         role === "agent" ? signStatementAsAgentAction : signStatementAsManagerAction;
       const res = await action({
@@ -195,7 +274,7 @@ export function StatementSignPanel({
               })}
             </p>
           ) : null}
-          {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+          {error && !open ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <a
@@ -231,13 +310,13 @@ export function StatementSignPanel({
           <div
             role="dialog"
             aria-modal="true"
-            className="w-full max-w-lg rounded-xl bg-background p-4 shadow-lg ring-1 ring-border"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-background p-4 shadow-lg ring-1 ring-border"
           >
             <h2 className="font-heading text-lg tracking-tight">
               {role === "agent" ? "Sign your commission statement" : "Manager countersignature"}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Type your name and optionally draw a signature. A timestamp is stored with the PDF.
+              Type your name, then click a style — like DocuSign — or draw instead.
             </p>
 
             <div className="mt-4 space-y-1.5">
@@ -251,26 +330,85 @@ export function StatementSignPanel({
               />
             </div>
 
-            <div className="mt-3 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label>Draw signature (optional)</Label>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                  onClick={clearPad}
-                >
-                  Clear
-                </button>
-              </div>
-              <canvas
-                ref={canvasRef}
-                className="h-28 w-full touch-none rounded-lg border border-border bg-white"
-                onPointerDown={onPointerDown}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
-                onPointerCancel={onPointerUp}
-              />
+            <div className="mt-4 flex gap-1 rounded-lg bg-muted/50 p-1">
+              <button
+                type="button"
+                className={cn(
+                  "flex-1 rounded-md px-3 py-1.5 text-sm font-medium",
+                  mode === "style" ? "bg-background shadow-sm" : "text-muted-foreground",
+                )}
+                onClick={() => setMode("style")}
+              >
+                Choose style
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "flex-1 rounded-md px-3 py-1.5 text-sm font-medium",
+                  mode === "draw" ? "bg-background shadow-sm" : "text-muted-foreground",
+                )}
+                onClick={() => setMode("draw")}
+              >
+                Draw
+              </button>
             </div>
+
+            {mode === "style" ? (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-muted-foreground">Click the signature you want to use</p>
+                <div className="grid gap-2">
+                  {SIGNATURE_STYLES.map((style) => {
+                    const selected = selectedStyle === style.id;
+                    return (
+                      <button
+                        key={style.id}
+                        type="button"
+                        onClick={() => setSelectedStyle(style.id)}
+                        className={cn(
+                          "rounded-lg border bg-white px-3 py-3 text-left transition-colors",
+                          selected
+                            ? "border-primary ring-2 ring-primary/25"
+                            : "border-border hover:border-primary/40",
+                        )}
+                      >
+                        <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                          {style.label}
+                        </span>
+                        <p
+                          className={cn(
+                            "mt-1 truncate text-[1.65rem] leading-tight text-foreground",
+                            style.className,
+                          )}
+                        >
+                          {previewName}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label>Draw signature</Label>
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                    onClick={clearPad}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <canvas
+                  ref={canvasRef}
+                  className="h-28 w-full touch-none rounded-lg border border-border bg-white"
+                  onPointerDown={onPointerDown}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={onPointerUp}
+                  onPointerCancel={onPointerUp}
+                />
+              </div>
+            )}
 
             {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
 
@@ -280,12 +418,15 @@ export function StatementSignPanel({
                 variant="outline"
                 size="sm"
                 disabled={pending}
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setOpen(false);
+                  setError(null);
+                }}
               >
                 Cancel
               </Button>
               <Button type="button" size="sm" disabled={pending} onClick={submit}>
-                {pending ? "Signing…" : "Confirm signature"}
+                {pending ? "Signing…" : "Adopt & sign"}
               </Button>
             </div>
           </div>

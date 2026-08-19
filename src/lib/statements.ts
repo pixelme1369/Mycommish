@@ -111,3 +111,56 @@ export async function listStatementsAwaitingManager(
       agentSignedAt: r.agentSignedAt!,
     }));
 }
+
+export type FullySignedStatementRow = {
+  statementId: string;
+  agentPeriodId: string;
+  periodId: string;
+  periodLabel: string;
+  agentName: string;
+  netCommission: number;
+  agentTypedName: string | null;
+  managerTypedName: string | null;
+  agentSignedAt: Date;
+  managerSignedAt: Date;
+};
+
+/** Fully signed statements (agent + manager) for the admin archive. */
+export async function listFullySignedStatements(
+  opts?: { periodLabel?: string; limit?: number },
+): Promise<FullySignedStatementRow[]> {
+  const limit = opts?.limit ?? 200;
+  const rows = await prisma.commissionStatement.findMany({
+    where: {
+      status: StatementSignStatus.fully_signed,
+      agentPeriod: {
+        period: {
+          source: PeriodSource.calculated,
+          ...(opts?.periodLabel ? { periodLabel: opts.periodLabel } : {}),
+        },
+      },
+    },
+    include: {
+      agentPeriod: {
+        include: { period: { select: { id: true, periodLabel: true } } },
+      },
+    },
+    orderBy: [{ managerSignedAt: "desc" }, { agentSignedAt: "desc" }],
+    take: limit,
+  });
+
+  return rows
+    .filter((r) => r.agentSignedAt && r.managerSignedAt)
+    .map((r) => ({
+      statementId: r.id,
+      agentPeriodId: r.agentPeriodId,
+      periodId: r.agentPeriod.period.id,
+      periodLabel: r.agentPeriod.period.periodLabel,
+      agentName: r.agentPeriod.agentName,
+      netCommission: Number(r.netAtAgentSign ?? r.agentPeriod.netCommission),
+      agentTypedName: r.agentTypedName,
+      managerTypedName: r.managerTypedName,
+      agentSignedAt: r.agentSignedAt!,
+      managerSignedAt: r.managerSignedAt!,
+    }));
+}
