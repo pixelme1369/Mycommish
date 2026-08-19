@@ -39,7 +39,10 @@ export default async function AdminPeriodPage({
       orderBy: [{ netCommission: "desc" }, { agentName: "asc" }],
     }),
     listDismissedKeys(),
-    listBonusesForPeriod(period.periodLabel),
+    listBonusesForPeriod(period.periodLabel).catch((err) => {
+      console.error("listBonusesForPeriod failed", err);
+      return [];
+    }),
   ]);
 
   const tableRows = agents.map((a) => ({

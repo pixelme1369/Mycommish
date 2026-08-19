@@ -42,7 +42,10 @@ export default async function ManagerPeriodPage({
     listBonusesForPeriod(
       period.periodLabel,
       ownOnly && paidById ? { paidById } : undefined,
-    ),
+    ).catch((err) => {
+      console.error("listBonusesForPeriod failed", err);
+      return [];
+    }),
   ]);
 
   const tableRows = agents.map((a) => ({
