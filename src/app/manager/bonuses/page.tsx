@@ -14,6 +14,7 @@ import {
 } from "@/lib/manager-bonuses";
 import { LogBonusForm } from "./log-bonus-form";
 import { deleteManagerBonusAction } from "./actions";
+import { PaidOnDate } from "@/components/paid-on-date";
 
 export const dynamic = "force-dynamic";
 
@@ -75,13 +76,7 @@ export default async function ManagerBonusesPage() {
       <section className="mt-8">
         <h2 className="font-heading text-base tracking-tight">Log a payout</h2>
         <Card className="glass-panel mt-3 px-4 py-4">
-          {agents.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No active agents to select. Ask an admin to add users first.
-            </p>
-          ) : (
-            <LogBonusForm agents={agents} />
-          )}
+          <LogBonusForm agents={agents} />
         </Card>
       </section>
 
@@ -111,15 +106,10 @@ export default async function ManagerBonusesPage() {
               <tbody className="divide-y divide-border/70">
                 {rows.map((r) => (
                   <tr key={r.id}>
-                    <td className="px-3 py-2 tabular-nums">
-                      {r.paidOn.toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                        timeZone: "UTC",
-                      })}
+                    <td className="px-3 py-2">
+                      <PaidOnDate date={r.paidOn} />
                     </td>
-                    <td className="px-3 py-2">{r.recipientAgent.displayName}</td>
+                    <td className="px-3 py-2">{r.recipientName}</td>
                     <td className="px-3 py-2">{r.reason}</td>
                     <td className="px-3 py-2 font-mono text-xs">{r.periodLabel}</td>
                     <td className="px-3 py-2 tabular-nums">{money(r.amount)}</td>

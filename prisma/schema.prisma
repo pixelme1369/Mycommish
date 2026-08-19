@@ -108,7 +108,10 @@ enum ManagerBonusStatus {
 model ManagerBonusPayout {
   id               String             @id @default(cuid())
   paidById         String
-  recipientAgentId String
+  /// Linked portal user when chosen from the dropdown; null if typed freehand.
+  recipientAgentId String?
+  /// Display name at log time (always set — dropdown or typed).
+  recipientName    String
   amount           Decimal            @db.Decimal(12, 2)
   reason           String
   paidOn           DateTime
@@ -121,7 +124,7 @@ model ManagerBonusPayout {
   updatedAt        DateTime           @updatedAt
 
   paidBy         Agent  @relation("ManagerBonusPaidBy", fields: [paidById], references: [id], onDelete: Cascade)
-  recipientAgent Agent  @relation("ManagerBonusRecipient", fields: [recipientAgentId], references: [id], onDelete: Restrict)
+  recipientAgent Agent? @relation("ManagerBonusRecipient", fields: [recipientAgentId], references: [id], onDelete: SetNull)
   reimbursedBy   Agent? @relation("ManagerBonusReimbursedBy", fields: [reimbursedById], references: [id], onDelete: SetNull)
 
   @@index([paidById, status])

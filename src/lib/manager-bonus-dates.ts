@@ -29,3 +29,24 @@ export function parsePaidOnDate(raw: string): Date | null {
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12));
   return Number.isNaN(d.getTime()) ? null : d;
 }
+
+/** Sat/Sun (UTC) — matches how we store paidOn. */
+export function isWeekendPaidOn(d: Date): boolean {
+  const day = d.getUTCDay();
+  return day === 0 || day === 6;
+}
+
+/** e.g. "Aug 8, 2026 wk" when the paid-on date falls on a weekend. */
+export function formatPaidOnDisplay(
+  d: Date,
+  opts?: { includeYear?: boolean },
+): string {
+  const includeYear = opts?.includeYear !== false;
+  const label = d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(includeYear ? { year: "numeric" as const } : {}),
+    timeZone: "UTC",
+  });
+  return isWeekendPaidOn(d) ? `${label} wk` : label;
+}

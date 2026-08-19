@@ -6,7 +6,7 @@ import {
   PeriodStatus,
   Prisma,
 } from "@/generated/prisma/client";
-import { paymentDateForPeriod } from "@/lib/commission/calculator";
+import type { ManagerBonusRow } from "@/lib/manager-bonus-view";
 
 export {
   parsePaidOnDate,
@@ -21,10 +21,11 @@ function dec(n: number) {
 export async function listBonusRecipientAgents() {
   return prisma.agent.findMany({
     where: {
-      role: AgentRole.agent,
+      // Agents and managers (e.g. Kiwi) — not admins.
+      role: { in: [AgentRole.agent, AgentRole.manager] },
       suspendedAt: null,
     },
-    select: { id: true, displayName: true },
+    select: { id: true, displayName: true, role: true },
     orderBy: { displayName: "asc" },
   });
 }
@@ -38,20 +39,8 @@ export async function listOpenPeriodLabels(): Promise<string[]> {
   return [...new Set(rows.map((r) => r.periodLabel))];
 }
 
-export type ManagerBonusRow = {
-  id: string;
-  amount: number;
-  reason: string;
-  paidOn: Date;
-  periodLabel: string;
-  status: ManagerBonusStatus;
-  reimbursedAt: Date | null;
-  paidBy: { id: string; displayName: string };
-  recipientAgent: { id: string; displayName: string };
-};
-
 const bonusInclude = {
-  paidBy: { select: { id: true, displayName: true } },
+  paidBy: { select: { id: true, displayName: true, role: true } },
   recipientAgent: { select: { id: true, displayName: true } },
 } as const;
 
@@ -63,8 +52,10 @@ function mapBonus(row: {
   periodLabel: string;
   status: ManagerBonusStatus;
   reimbursedAt: Date | null;
-  paidBy: { id: string; displayName: string };
-  recipientAgent: { id: string; displayName: string };
+  recipientName: string;
+  recipientAgentId: string | null;
+  paidBy: { id: string; displayName: string; role: AgentRole };
+  recipientAgent: { id: string; displayName: string } | null;
 }): ManagerBonusRow {
   return {
     id: row.id,
@@ -74,8 +65,13 @@ function mapBonus(row: {
     periodLabel: row.periodLabel,
     status: row.status,
     reimbursedAt: row.reimbursedAt,
-    paidBy: row.paidBy,
-    recipientAgent: row.recipientAgent,
+    paidBy: {
+      id: row.paidBy.id,
+      displayName: row.paidBy.displayName,
+      role: row.paidBy.role,
+    },
+    recipientName: row.recipientName || row.recipientAgent?.displayName || "—",
+    recipientAgentId: row.recipientAgentId,
   };
 }
 
@@ -111,84 +107,51 @@ export async function listBonusesForPeriod(
   return rows.map(mapBonus);
 }
 
-export type ManagerBonusGroup = {
-  paidById: string;
-  paidByName: string;
-  owed: ManagerBonusRow[];
-  reimbursed: ManagerBonusRow[];
-  owedTotal: number;
-  reimbursedTotal: number;
-};
-
-export function groupBonusesByManager(rows: ManagerBonusRow[]): ManagerBonusGroup[] {
-  const by = new Map<string, ManagerBonusGroup>();
-  for (const r of rows) {
-    let g = by.get(r.paidBy.id);
-    if (!g) {
-      g = {
-        paidById: r.paidBy.id,
-        paidByName: r.paidBy.displayName,
-        owed: [],
-        reimbursed: [],
-        owedTotal: 0,
-        reimbursedTotal: 0,
-      };
-      by.set(r.paidBy.id, g);
-    }
-    if (r.status === ManagerBonusStatus.owed) {
-      g.owed.push(r);
-      g.owedTotal += r.amount;
-    } else {
-      g.reimbursed.push(r);
-      g.reimbursedTotal += r.amount;
-    }
-  }
-  return [...by.values()].sort((a, b) => a.paidByName.localeCompare(b.paidByName));
-}
-
-export function payDateLabel(periodLabel: string): string {
-  const d = paymentDateForPeriod(periodLabel);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
-
 export type BonusActionResult =
   | { ok: true; message: string }
   | { ok: false; error: string };
 
 export async function createManagerBonus(opts: {
   paidById: string;
-  recipientAgentId: string;
+  recipientAgentId?: string | null;
+  recipientName: string;
   amount: number;
   reason: string;
   paidOn: Date;
   periodLabel: string;
 }): Promise<BonusActionResult> {
   const reason = opts.reason.trim();
+  const recipientName = opts.recipientName.trim();
   if (!reason) return { ok: false, error: "Reason is required." };
+  if (!recipientName) return { ok: false, error: "Agent name is required." };
   if (!(opts.amount > 0)) return { ok: false, error: "Amount must be greater than zero." };
   if (!/^\d{4}-\d{2}$/.test(opts.periodLabel)) {
     return { ok: false, error: "Invalid commission period." };
   }
 
-  const recipient = await prisma.agent.findFirst({
-    where: {
-      id: opts.recipientAgentId,
-      role: AgentRole.agent,
-      suspendedAt: null,
-    },
-    select: { id: true },
-  });
-  if (!recipient) return { ok: false, error: "Choose a valid agent." };
+  let recipientAgentId: string | null = opts.recipientAgentId?.trim() || null;
+  if (recipientAgentId) {
+    const recipient = await prisma.agent.findFirst({
+      where: {
+        id: recipientAgentId,
+        role: { in: [AgentRole.agent, AgentRole.manager] },
+        suspendedAt: null,
+      },
+      select: { id: true, displayName: true },
+    });
+    if (!recipient) {
+      // Typed name that no longer matches — keep freehand name only.
+      recipientAgentId = null;
+    }
+  }
 
   await prisma.managerBonusPayout.create({
     data: {
-      paidById: opts.paidById,
-      recipientAgentId: opts.recipientAgentId,
+      paidBy: { connect: { id: opts.paidById } },
+      ...(recipientAgentId
+        ? { recipientAgent: { connect: { id: recipientAgentId } } }
+        : {}),
+      recipientName,
       amount: dec(Math.round(opts.amount * 100) / 100),
       reason,
       paidOn: opts.paidOn,

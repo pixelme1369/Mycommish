@@ -7,11 +7,10 @@ import {
   deleteOwedBonus,
   markBonusReimbursed,
   markManagerBonusesReimbursed,
-  parsePaidOnDate,
-  periodLabelForNextPayDate,
   undoBonusReimbursed,
   type BonusActionResult,
 } from "@/lib/manager-bonuses";
+import { parsePaidOnDate, periodLabelForNextPayDate } from "@/lib/manager-bonus-dates";
 
 export type BonusFormState = BonusActionResult | null;
 
@@ -23,7 +22,8 @@ export async function createManagerBonusAction(
   const paidById = session.user.agentId;
   if (!paidById) return { ok: false, error: "Not signed in." };
 
-  const recipientAgentId = String(formData.get("recipientAgentId") || "").trim();
+  const recipientAgentId = String(formData.get("recipientAgentId") || "").trim() || null;
+  const recipientName = String(formData.get("recipientName") || "").trim();
   const reason = String(formData.get("reason") || "");
   const amountRaw = String(formData.get("amount") || "").replace(/[$,]/g, "").trim();
   const amount = Number.parseFloat(amountRaw);
@@ -37,6 +37,7 @@ export async function createManagerBonusAction(
   const result = await createManagerBonus({
     paidById,
     recipientAgentId,
+    recipientName,
     amount,
     reason,
     paidOn,

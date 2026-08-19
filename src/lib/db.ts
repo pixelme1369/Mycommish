@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 /** Must match schema additions that need a fresh PrismaClient in `next dev`. */
-const PRISMA_SCHEMA_EPOCH = 12;
+const PRISMA_SCHEMA_EPOCH = 14;
 
 /** Quiet pg's sslmode deprecation warning against Neon URLs. */
 function neonCompatibleUrl(url: string): string {
