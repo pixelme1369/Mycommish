@@ -299,6 +299,8 @@ export async function buildAgentCommissionStatementPdf(
   const dateW = usable * 0.28;
   const gap = usable * 0.05;
 
+  // PDF is built on the server (often UTC). Show Pacific wall time so the
+  // Date line matches what the agent saw when they signed in the browser.
   const formatSignedDate = (d: Date) =>
     d.toLocaleString("en-US", {
       month: "short",
@@ -306,6 +308,7 @@ export async function buildAgentCommissionStatementPdf(
       year: "numeric",
       hour: "numeric",
       minute: "2-digit",
+      timeZone: "America/Los_Angeles",
     });
 
   const drawSig = (
