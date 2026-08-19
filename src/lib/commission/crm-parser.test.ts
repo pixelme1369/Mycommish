@@ -258,6 +258,26 @@ describe("CSV quoting", () => {
   });
 });
 
+describe("accepted claim salesRep overrides", () => {
+  it("rebuckets commission under the locked Sales Rep", () => {
+    const periods = parse(
+      [
+        clientRow("A1", {
+          rep: "Peter Godwin",
+          cleared: "07/10/26",
+          debt: "20000",
+        }),
+      ],
+      { salesRepOverrides: new Map([["A1", "Alex Tambouly"]]) },
+    );
+    const july = byPeriod(periods)["2026-07"];
+    expect(july.results).toHaveLength(1);
+    expect(july.results[0].agentName).toBe("Alex Tambouly");
+    expect(july.results[0].unitsCleared).toBe(1);
+    expect(july.directoryClients?.[0].agentName).toBe("Alex Tambouly");
+  });
+});
+
 describe("validation", () => {
   it("missing columns", () => {
     const out = parseCrmAndCalculate("Sales Rep,Status\nMaria,Active\n", "bad.csv");

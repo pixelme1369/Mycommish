@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { isPeriodClosedByPayday } from "@/lib/commission/calculator";
 import type { CrmClient, PeriodOutput } from "@/lib/commission/crm-parser";
 import { isPoisonedDebtDroppedDate, parseCrmAndCalculate } from "@/lib/commission/crm-parser";
+import { loadAcceptedSalesRepOverrides } from "@/lib/claims/sales-rep-overrides";
 import {
   ClientEventKind,
   LedgerType,
@@ -129,9 +130,13 @@ export async function ingestCrmUpload(
   filename: string,
   uploadedById?: string,
 ): Promise<SaveCrmSummary> {
-  const ctx = await loadCrmContextFromDb();
+  const [ctx, salesRepOverrides] = await Promise.all([
+    loadCrmContextFromDb(),
+    loadAcceptedSalesRepOverrides(),
+  ]);
   const periods = parseCrmAndCalculate(fileBytes, filename, {
     ...ctx,
+    salesRepOverrides,
     persistSameMonthCancel: true,
     requirePriorPaymentEvidence: false,
     requireClawbackPaymentEvidence: true,

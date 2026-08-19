@@ -163,6 +163,7 @@ export async function acceptFileClaimReassign(opts: {
         where: { id: claim.id },
         data: {
           status: FileClaimStatus.accepted,
+          assignedSalesRep: claimerAlias,
           adminNote: opts.adminNote,
           reviewedById: opts.reviewerId,
           reviewedAt: new Date(),

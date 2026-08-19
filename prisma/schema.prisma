@@ -75,11 +75,14 @@ enum FileClaimStatus {
 model FileClaim {
   id           String          @id @default(cuid())
   agentId      String
+  /// External ID (or CRM ID) the agent claimed with.
   crmId        String
   clientName   String
   note         String?
   status       FileClaimStatus @default(pending)
   adminNote    String?
+  /// Sales Rep spelling locked on accept — CRM re-uploads keep this assignment.
+  assignedSalesRep String?
   reviewedById String?
   reviewedAt   DateTime?
   createdAt    DateTime        @default(now())

@@ -17,6 +17,7 @@ import {
   paymentDateForPeriod,
   type AgentCommissionResult,
 } from "./calculator";
+import { applySalesRepOverrides } from "@/lib/claims/apply-sales-rep-overrides";
 
 export const NSF_FLAG_THRESHOLD = 3;
 
@@ -118,6 +119,8 @@ export type ParseCrmOptions = {
   knownPeriodTotals?: KnownPeriodTotals;
   knownEnrolledDebtByCrmId?: Record<string, number>;
   knownRateByCrmId?: Record<string, number>;
+  /** Accepted file-claim assignments: External ID / CRM ID → Sales Rep. */
+  salesRepOverrides?: Map<string, string> | Record<string, string>;
 };
 
 export function safePaymentThreshold(payFreq: string | null | undefined): number {
@@ -459,6 +462,9 @@ export function parseCrmAndCalculate(
   });
 
   canonicalizeAgentNames(allClients);
+
+  // Manager/admin accepted claims stick across CRM re-uploads.
+  applySalesRepOverrides(allClients, options.salesRepOverrides);
 
   const allClearedPeriods = allClients.map((c) => c.clearedPeriod).filter(Boolean) as string[];
   const latestPeriodInFile = allClearedPeriods.length ? allClearedPeriods.reduce((a, b) => (a > b ? a : b)) : null;

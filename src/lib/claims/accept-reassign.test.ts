@@ -227,6 +227,7 @@ describe("acceptFileClaimReassign", () => {
         where: { id: "claim1" },
         data: expect.objectContaining({
           status: FileClaimStatus.accepted,
+          assignedSalesRep: "Alex Tambouly",
           reviewedById: "admin1",
         }),
       }),
