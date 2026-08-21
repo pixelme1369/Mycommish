@@ -19,6 +19,7 @@ export default auth((req) => {
     | undefined;
   const isLoggedIn = Boolean(user?.agentId);
   const isAdmin = roleGrantsAdminConsole(user?.role, user?.isAdmin);
+  const isSuperAdmin = user?.role === "super_admin";
   const canStaffView = isAdmin || roleHasManagerCapabilities(user?.role);
 
   if (pathname.startsWith("/api/auth") || pathname === "/") {
@@ -36,6 +37,10 @@ export default auth((req) => {
     const url = new URL("/login", req.nextUrl.origin);
     url.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(url);
+  }
+
+  if (pathname.startsWith("/superadmin") && !isSuperAdmin) {
+    return NextResponse.redirect(new URL(homePath(user), req.nextUrl.origin));
   }
 
   if (pathname.startsWith("/admin") && !isAdmin) {

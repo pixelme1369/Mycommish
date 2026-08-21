@@ -18,6 +18,7 @@ function revalidateAgentPeriod(periodId: string, agentPeriodId: string) {
   revalidatePath(`/manager/periods/${periodId}`);
   revalidatePath("/portal");
   revalidatePath("/admin");
+  revalidatePath("/superadmin/manual-bonuses");
   revalidatePath("/manager");
 }
 
@@ -43,7 +44,11 @@ export async function createManualBonusAction(
     amount,
     note,
   });
-  if (result.ok && periodId) revalidateAgentPeriod(periodId, agentPeriodId);
+  if (result.ok) {
+    revalidatePath("/admin");
+    revalidatePath("/superadmin/manual-bonuses");
+    if (periodId) revalidateAgentPeriod(periodId, agentPeriodId);
+  }
   return result;
 }
 
@@ -72,6 +77,9 @@ export async function updateManualBonusAction(
   });
   if (result.ok && periodId && agentPeriodId) {
     revalidateAgentPeriod(periodId, agentPeriodId);
+  } else if (result.ok) {
+    revalidatePath("/admin");
+    revalidatePath("/superadmin/manual-bonuses");
   }
   return result;
 }
@@ -84,6 +92,8 @@ export async function deleteManualBonusAction(formData: FormData): Promise<void>
   if (!bonusId) return;
 
   await deletePendingManualBonus({ bonusId });
+  revalidatePath("/admin");
+  revalidatePath("/superadmin/manual-bonuses");
   if (periodId && agentPeriodId) revalidateAgentPeriod(periodId, agentPeriodId);
 }
 
@@ -93,10 +103,12 @@ export async function approveManualBonusAction(formData: FormData): Promise<void
   if (!approvedById) return;
 
   const bonusId = String(formData.get("bonusId") || "").trim();
-  const agentPeriodId = String(formData.get("agentPeriodId") || "").trim();
-  const periodId = String(formData.get("periodId") || "").trim();
   if (!bonusId) return;
 
-  await approveManualBonus({ bonusId, approvedById });
-  if (periodId && agentPeriodId) revalidateAgentPeriod(periodId, agentPeriodId);
+  const result = await approveManualBonus({ bonusId, approvedById });
+  revalidatePath("/admin");
+  revalidatePath("/superadmin/manual-bonuses");
+  if (result.ok && result.periodId && result.agentPeriodId) {
+    revalidateAgentPeriod(result.periodId, result.agentPeriodId);
+  }
 }

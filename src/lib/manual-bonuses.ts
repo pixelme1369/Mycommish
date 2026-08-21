@@ -27,6 +27,8 @@ export type ManualBonusView = {
   approvedByName: string | null;
   approvedAt: string | null;
   createdAt: string;
+  agentPeriodId: string | null;
+  periodId: string | null;
 };
 
 function mapBonus(row: {
@@ -39,8 +41,10 @@ function mapBonus(row: {
   createdById: string;
   approvedAt: Date | null;
   createdAt: Date;
+  agentPeriodId: string | null;
   createdBy: { id: string; displayName: string };
   approvedBy: { displayName: string } | null;
+  agentPeriod?: { id: string; periodId: string } | null;
 }): ManualBonusView {
   return {
     id: row.id,
@@ -54,12 +58,15 @@ function mapBonus(row: {
     approvedByName: row.approvedBy?.displayName ?? null,
     approvedAt: row.approvedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
+    agentPeriodId: row.agentPeriod?.id ?? row.agentPeriodId,
+    periodId: row.agentPeriod?.periodId ?? null,
   };
 }
 
 const include = {
   createdBy: { select: { id: true, displayName: true } },
   approvedBy: { select: { displayName: true } },
+  agentPeriod: { select: { id: true, periodId: true } },
 } as const;
 
 export async function listManualBonusesForAgentPeriod(opts: {
@@ -85,6 +92,49 @@ export async function listManualBonusesForAgentPeriod(opts: {
     return true;
   });
   return unique.map(mapBonus);
+}
+
+export async function listPendingManualBonuses(): Promise<ManualBonusView[]> {
+  const rows = await prisma.manualBonus.findMany({
+    where: { status: ManualBonusStatus.pending },
+    include,
+    orderBy: { createdAt: "asc" },
+  });
+
+  const mapped = rows.map(mapBonus);
+  const missingPeriod = mapped.filter((b) => !b.periodId);
+  if (!missingPeriod.length) return mapped;
+
+  const periods = await prisma.agentPeriod.findMany({
+    where: {
+      OR: missingPeriod.map((b) => ({
+        agentName: b.agentName,
+        period: { periodLabel: b.periodLabel, source: PeriodSource.calculated },
+      })),
+    },
+    select: {
+      id: true,
+      periodId: true,
+      agentName: true,
+      period: { select: { periodLabel: true } },
+    },
+  });
+  const byKey = new Map(
+    periods.map((p) => [`${p.period.periodLabel}\0${p.agentName}`, p] as const),
+  );
+
+  return mapped.map((b) => {
+    if (b.periodId) return b;
+    const hit = byKey.get(`${b.periodLabel}\0${b.agentName}`);
+    if (!hit) return b;
+    return { ...b, agentPeriodId: hit.id, periodId: hit.periodId };
+  });
+}
+
+export async function countPendingManualBonuses(): Promise<number> {
+  return prisma.manualBonus.count({
+    where: { status: ManualBonusStatus.pending },
+  });
 }
 
 export async function createManualBonus(opts: {
@@ -164,7 +214,9 @@ export async function deletePendingManualBonus(opts: {
 export async function approveManualBonus(opts: {
   bonusId: string;
   approvedById: string;
-}): Promise<ManualBonusActionResult> {
+}): Promise<
+  ManualBonusActionResult & { agentPeriodId?: string; periodId?: string }
+> {
   const row = await prisma.manualBonus.findUnique({ where: { id: opts.bonusId } });
   if (!row) return { ok: false, error: "Bonus not found." };
   if (row.status !== ManualBonusStatus.pending) {
@@ -227,7 +279,12 @@ export async function approveManualBonus(opts: {
   });
 
   await recomputeAgentPeriodClawbacks(agentPeriodId);
-  return { ok: true, message: "Manual bonus approved and added to net commission." };
+  return {
+    ok: true,
+    message: "Manual bonus approved and added to net commission.",
+    agentPeriodId,
+    periodId,
+  };
 }
 
 /**

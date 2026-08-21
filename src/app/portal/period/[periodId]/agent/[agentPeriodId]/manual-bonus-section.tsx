@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { money } from "@/lib/format";
 import type { ManualBonusView } from "@/lib/manual-bonuses";
+import { ApproveManualBonusButton } from "@/components/approve-manual-bonus-button";
 import {
-  approveManualBonusAction,
   createManualBonusAction,
   deleteManualBonusAction,
   updateManualBonusAction,
@@ -265,14 +265,12 @@ function ManualBonusRow({
         </div>
         <div className="flex flex-wrap gap-2">
           {canApprove && bonus.status === "pending" ? (
-            <form action={approveManualBonusAction}>
-              <input type="hidden" name="bonusId" value={bonus.id} />
-              <input type="hidden" name="periodId" value={periodId} />
-              <input type="hidden" name="agentPeriodId" value={agentPeriodId} />
-              <Button type="submit" size="sm">
-                Approve
-              </Button>
-            </form>
+            <ApproveManualBonusButton
+              bonusId={bonus.id}
+              agentName={bonus.agentName}
+              periodLabel={bonus.periodLabel}
+              amount={bonus.amount}
+            />
           ) : null}
           {canManage && bonus.status === "pending" ? (
             <>
