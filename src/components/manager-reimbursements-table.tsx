@@ -20,7 +20,7 @@ export type SerializedBonusRow = {
   periodLabel: string;
   status: "owed" | "reimbursed";
   reimbursedAt: string | null;
-  paidBy: { id: string; displayName: string; role: "admin" | "manager" | "agent" };
+  paidBy: { id: string; displayName: string; role: "super_admin" | "admin" | "manager" | "agent" };
   recipientName: string;
   recipientAgentId: string | null;
 };
@@ -28,7 +28,7 @@ export type SerializedBonusRow = {
 export type SerializedBonusGroup = {
   paidById: string;
   paidByName: string;
-  paidByRole: "admin" | "manager" | "agent";
+  paidByRole: "super_admin" | "admin" | "manager" | "agent";
   owed: SerializedBonusRow[];
   reimbursed: SerializedBonusRow[];
   owedTotal: number;
@@ -127,9 +127,11 @@ function ManagerSummaryRows({
         <td className="px-3 py-2.5">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium">{g.paidByName}</span>
-            {g.paidByRole === "manager" || g.paidByRole === "admin" ? (
+            {g.paidByRole === "manager" ||
+            g.paidByRole === "admin" ||
+            g.paidByRole === "super_admin" ? (
               <Badge variant="outline" className="h-5 text-[10px] uppercase tracking-wide">
-                {g.paidByRole}
+                {g.paidByRole === "super_admin" ? "super admin" : g.paidByRole}
               </Badge>
             ) : null}
           </div>

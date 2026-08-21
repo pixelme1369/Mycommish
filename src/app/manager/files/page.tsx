@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireManagerOrAdmin, sessionRole } from "@/lib/auth-guards";
+import { formatRoleLabel } from "@/lib/roles";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
@@ -31,7 +32,7 @@ export default async function ManagerFilesPage() {
         eyebrow={
           <span className="inline-flex items-center gap-2">
             <BrandMark size="sm" />
-            <span>· manager</span>
+            <span>· {formatRoleLabel(session.user.role)}</span>
           </span>
         }
         title="All files"

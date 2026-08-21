@@ -29,7 +29,7 @@ import {
   updateRoleAction,
 } from "./actions";
 
-export type AgentRoleView = "admin" | "manager" | "agent";
+export type AgentRoleView = "super_admin" | "admin" | "manager" | "agent";
 export type EmploymentTypeView = "employee" | "contractor";
 
 export type AgentRowView = {
@@ -48,6 +48,8 @@ export type AgentRowView = {
 
 function roleLabel(role: AgentRoleView) {
   switch (role) {
+    case "super_admin":
+      return "Super admin";
     case "admin":
       return "Admin";
     case "manager":
@@ -148,6 +150,7 @@ export function AgentsUsersTable({
             <option value="agent">Agent</option>
             <option value="manager">Manager</option>
             <option value="admin">Admin</option>
+            <option value="super_admin">Super admin</option>
           </select>
         </div>
         <div className="space-y-1">
@@ -420,6 +423,7 @@ function AgentDetailPanel({
             <option value="agent">Agent</option>
             <option value="manager">Manager</option>
             <option value="admin">Admin</option>
+            <option value="super_admin">Super admin</option>
           </select>
           <Button type="submit" size="sm" variant="outline" className="mt-auto h-8 w-fit">
             Save role

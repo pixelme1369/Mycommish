@@ -1,12 +1,13 @@
 import type { DefaultSession } from "next-auth";
 import type { JWT } from "next-auth/jwt";
+import type { AgentRoleName } from "@/lib/roles";
 
 declare module "next-auth" {
   interface Session {
     user: DefaultSession["user"] & {
       agentId?: string;
       isAdmin: boolean;
-      role: "admin" | "manager" | "agent";
+      role: AgentRoleName;
       displayName: string;
       aliasNames: string[];
       employmentType: "employee" | "contractor";
@@ -22,7 +23,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     agentId?: string;
     isAdmin?: boolean;
-    role?: "admin" | "manager" | "agent";
+    role?: AgentRoleName;
     displayName?: string;
     aliasNames?: string[];
     employmentType?: "employee" | "contractor";

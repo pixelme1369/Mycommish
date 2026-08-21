@@ -115,6 +115,7 @@ export function AddUserPanel({ salesReps = [] }: { salesReps?: string[] }) {
             <option value="agent">Agent</option>
             <option value="manager">Manager</option>
             <option value="admin">Admin</option>
+            <option value="super_admin">Super admin</option>
           </select>
         </div>
         <div className="space-y-1.5 sm:col-span-2">

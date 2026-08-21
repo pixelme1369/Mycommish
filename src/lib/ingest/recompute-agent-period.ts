@@ -1,12 +1,30 @@
 import { prisma } from "@/lib/db";
 import { LedgerType, Prisma } from "@/generated/prisma/client";
+import { computeNetCommission } from "@/lib/commission/net";
 
 function dec(n: number) {
   return new Prisma.Decimal(n);
 }
 
+async function sumActiveLedger(
+  agentPeriodId: string,
+  types: LedgerType[],
+): Promise<number> {
+  const entries = await prisma.ledgerEntry.findMany({
+    where: {
+      agentPeriodId,
+      type: { in: types },
+      reversesEntryId: null,
+    },
+    include: { reversedBy: true },
+  });
+  return entries
+    .filter((e) => !e.reversedBy)
+    .reduce((s, e) => s + Number(e.amount), 0);
+}
+
 /**
- * Recompute AgentPeriod clawback/net from non-reversed clawback ledger rows.
+ * Recompute AgentPeriod clawback / manual bonus / net from non-reversed ledger rows.
  * Never rewrites units/gross/tier (lock-after-pay).
  */
 export async function recomputeAgentPeriodClawbacks(
@@ -16,21 +34,16 @@ export async function recomputeAgentPeriodClawbacks(
   const ap = await prisma.agentPeriod.findUnique({ where: { id: agentPeriodId } });
   if (!ap) return;
 
-  const clawEntries = await prisma.ledgerEntry.findMany({
-    where: {
-      agentPeriodId,
-      type: {
-        in: [LedgerType.clawback_crm, LedgerType.clawback_cordoba, LedgerType.clawback_history],
-      },
-      reversesEntryId: null,
-    },
-    include: { reversedBy: true },
-  });
-
-  const active = clawEntries.filter((e) => !e.reversedBy);
-  const clawbackAmount = active.reduce((s, e) => s + Number(e.amount), 0);
+  const clawbackAmount = await sumActiveLedger(agentPeriodId, [
+    LedgerType.clawback_crm,
+    LedgerType.clawback_cordoba,
+    LedgerType.clawback_history,
+  ]);
+  const manualBonusAmount = await sumActiveLedger(agentPeriodId, [
+    LedgerType.manual_bonus,
+  ]);
   const gross = Number(ap.grossCommission);
-  const netCommission = Math.max(0, Math.round((gross - clawbackAmount) * 100) / 100);
+  const netCommission = computeNetCommission(gross, clawbackAmount, manualBonusAmount);
 
   let notes = ap.notes || "";
   if (noteToAppend) {
@@ -41,6 +54,7 @@ export async function recomputeAgentPeriodClawbacks(
     where: { id: agentPeriodId },
     data: {
       clawbackAmount: dec(Math.round(clawbackAmount * 100) / 100),
+      manualBonusAmount: dec(Math.round(manualBonusAmount * 100) / 100),
       netCommission: dec(netCommission),
       payout: dec(netCommission),
       notes: notes || null,

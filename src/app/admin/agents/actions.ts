@@ -14,9 +14,14 @@ import { AgentRole, EmploymentType } from "@/generated/prisma/client";
 
 function parseRole(raw: FormDataEntryValue | null): AgentRole {
   const v = String(raw || "").trim().toLowerCase();
+  if (v === "super_admin") return AgentRole.super_admin;
   if (v === "admin") return AgentRole.admin;
   if (v === "manager") return AgentRole.manager;
   return AgentRole.agent;
+}
+
+function isAdminFlagForRole(role: AgentRole): boolean {
+  return role === AgentRole.admin || role === AgentRole.super_admin;
 }
 
 function revalidateAgentPortal() {
@@ -92,7 +97,7 @@ export async function createAgentAction(
         email,
         displayName,
         role,
-        isAdmin: role === AgentRole.admin,
+        isAdmin: isAdminFlagForRole(role),
         employmentType,
         companyName:
           employmentType === EmploymentType.contractor ? companyName || knownCompany : null,
@@ -168,7 +173,7 @@ export async function updateRoleAction(formData: FormData) {
     where: { id: agentId },
     data: {
       role,
-      isAdmin: role === AgentRole.admin,
+      isAdmin: isAdminFlagForRole(role),
     },
   });
   revalidatePath("/admin/agents");

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  canActAsManager,
   canViewAllCommissions,
   isAdminUser,
+  isSuperAdminUser,
   requireSession,
   sessionRole,
 } from "@/lib/auth-guards";
@@ -33,6 +35,8 @@ import { NextTierCard } from "@/components/next-tier-card";
 import { StatementSignPanel } from "./statement-sign-panel";
 import { WaitingFirstPaymentSection } from "./waiting-first-payment-section";
 import { CancelRateBreakdownSection } from "./cancel-rate-breakdown";
+import { ManualBonusSection } from "./manual-bonus-section";
+import { listManualBonusesForAgentPeriod } from "@/lib/manual-bonuses";
 import { getStatementForAgentPeriodRow } from "@/lib/statements";
 import type { ClientEvent } from "@/generated/prisma/client";
 
@@ -57,6 +61,8 @@ export default async function PeriodDetailPage({
   const staffView = canViewAllCommissions(session);
   const admin = isAdminUser(session);
   const role = sessionRole(session);
+  const canManageManualBonus = canActAsManager(session);
+  const superAdmin = isSuperAdminUser(session);
 
   let row = null;
   if (staffView) {
@@ -119,6 +125,14 @@ export default async function PeriodDetailPage({
     staffView ? `← ${row.period.periodLabel} agents` : "← My commissions";
 
   const statement = await getStatementForAgentPeriodRow(row);
+  const manualBonuses = await listManualBonusesForAgentPeriod({
+    agentPeriodId: row.id,
+    periodLabel: row.period.periodLabel,
+    agentName: row.agentName,
+  });
+  const pendingManualBonusTotal = manualBonuses
+    .filter((b) => b.status === "pending")
+    .reduce((s, b) => s + b.amount, 0);
   const ownsAsAgent = aliases.has(row.agentName);
   const signRole =
     ownsAsAgent && !statement?.agentSignedAt
@@ -209,12 +223,32 @@ export default async function PeriodDetailPage({
               value={Number(row.clawbackAmount) > 0 ? `-${money(row.clawbackAmount)}` : "—"}
               danger={Number(row.clawbackAmount) > 0}
             />
+            <Metric
+              label="Manual bonus"
+              value={
+                Number(row.manualBonusAmount) > 0
+                  ? money(row.manualBonusAmount)
+                  : pendingManualBonusTotal > 0
+                    ? `${money(pendingManualBonusTotal)} pend.`
+                    : "—"
+              }
+            />
             <Metric label="Cancel rate" value={cancelRatePercent(row.cancellationRate)} />
             <Metric label="Pending cancellations" value={String(row.pendingUnits)} />
             <Metric label="Cleared debt" value={money(row.totalClearedDebt)} />
           </div>
         </div>
       </div>
+
+      {pendingManualBonusTotal > 0 ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Manual bonus pending super-admin approval:{" "}
+          <span className="font-medium tabular-nums text-foreground">
+            {money(pendingManualBonusTotal)}
+          </span>
+          {" "}(not included in net yet).
+        </p>
+      ) : null}
 
       {notesForDisplay ? (
         <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{notesForDisplay}</p>
@@ -232,6 +266,14 @@ export default async function PeriodDetailPage({
         managerSignedAt={statement?.managerSignedAt?.toISOString() ?? null}
         managerTypedName={statement?.managerTypedName ?? null}
         canReset={canReset}
+      />
+
+      <ManualBonusSection
+        periodId={periodId}
+        agentPeriodId={row.id}
+        bonuses={manualBonuses}
+        canManage={canManageManualBonus}
+        canApprove={superAdmin}
       />
 
       <ClearedSection

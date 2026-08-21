@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth-guards";
+import { formatRoleLabel } from "@/lib/roles";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
@@ -60,7 +61,7 @@ function formatClaimRequestedAt(d: Date) {
 }
 
 export default async function AdminClaimsPage() {
-  await requireAdmin();
+  const session = await requireAdmin();
   const [claims, totalClaimCount] = await Promise.all([
     listFileClaimsForAdmin(),
     prisma.fileClaim.count(),
@@ -122,7 +123,7 @@ export default async function AdminClaimsPage() {
         eyebrow={
           <span className="inline-flex items-center gap-2">
             <BrandMark size="sm" />
-            <span>· admin</span>
+            <span>· {formatRoleLabel(session.user.role)}</span>
           </span>
         }
         title="File claims"

@@ -1,12 +1,14 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/auth.config";
+import { roleGrantsAdminConsole, roleHasManagerCapabilities, toAppRole } from "@/lib/roles";
 
 const { auth } = NextAuth(authConfig);
 
 function homePath(user: { isAdmin?: boolean; role?: string } | undefined) {
-  if (user?.isAdmin || user?.role === "admin") return "/admin";
-  if (user?.role === "manager") return "/manager";
+  const role = toAppRole(user?.role, user?.isAdmin);
+  if (role === "admin") return "/admin";
+  if (role === "manager") return "/manager";
   return "/portal";
 }
 
@@ -16,9 +18,8 @@ export default auth((req) => {
     | { agentId?: string; isAdmin?: boolean; role?: string }
     | undefined;
   const isLoggedIn = Boolean(user?.agentId);
-  const isAdmin = Boolean(user?.isAdmin) || user?.role === "admin";
-  const isManager = user?.role === "manager";
-  const canStaffView = isAdmin || isManager;
+  const isAdmin = roleGrantsAdminConsole(user?.role, user?.isAdmin);
+  const canStaffView = isAdmin || roleHasManagerCapabilities(user?.role);
 
   if (pathname.startsWith("/api/auth") || pathname === "/") {
     return NextResponse.next();

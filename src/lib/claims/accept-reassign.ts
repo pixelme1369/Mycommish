@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { calculateAgentCommission, agentIdentityKey } from "@/lib/commission/calculator";
+import { computeNetCommission } from "@/lib/commission/net";
 import {
   ClientEventKind,
   FileClaimStatus,
@@ -374,8 +375,20 @@ async function recomputeAgentPeriodAfterReassign(
     Math.round(
       clawEntries.filter((e) => !e.reversedBy).reduce((s, e) => s + Number(e.amount), 0) * 100,
     ) / 100;
+  const bonusEntries = await tx.ledgerEntry.findMany({
+    where: {
+      agentPeriodId,
+      type: LedgerType.manual_bonus,
+      reversesEntryId: null,
+    },
+    include: { reversedBy: true },
+  });
+  const manualBonusAmount =
+    Math.round(
+      bonusEntries.filter((e) => !e.reversedBy).reduce((s, e) => s + Number(e.amount), 0) * 100,
+    ) / 100;
   const gross = Math.round(calc.grossCommission * 100) / 100;
-  const netCommission = Math.max(0, Math.round((gross - clawbackAmount) * 100) / 100);
+  const netCommission = computeNetCommission(gross, clawbackAmount, manualBonusAmount);
 
   const noteBit = `file claim reassign ${movedCrmId}`;
   const notes = ap.notes?.includes(noteBit)
@@ -394,6 +407,7 @@ async function recomputeAgentPeriodAfterReassign(
       tierRate: dec(calc.tierRate),
       grossCommission: dec(gross),
       clawbackAmount: dec(clawbackAmount),
+      manualBonusAmount: dec(manualBonusAmount),
       netCommission: dec(netCommission),
       payout: dec(netCommission),
       payoutType: calc.payoutType,

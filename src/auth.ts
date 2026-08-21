@@ -6,6 +6,7 @@ import type { JWT } from "next-auth/jwt";
 import bcrypt from "bcryptjs";
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/lib/db";
+import { isAdminRole, type AgentRoleName } from "@/lib/roles";
 
 const providers: Provider[] = [];
 
@@ -57,7 +58,7 @@ type AgentClaims = {
   email: string;
   displayName: string;
   isAdmin: boolean;
-  role: "admin" | "manager" | "agent";
+  role: AgentRoleName;
   employmentType: "employee" | "contractor";
   companyName: string | null;
   aliases: Array<{ agentName: string }>;
@@ -76,7 +77,7 @@ function clearAgentClaims(token: JWT) {
 function applyAgentClaims(token: JWT, agent: AgentClaims) {
   token.email = agent.email;
   token.agentId = agent.id;
-  token.isAdmin = agent.isAdmin || agent.role === "admin";
+  token.isAdmin = agent.isAdmin || isAdminRole(agent.role);
   token.role = agent.role;
   token.displayName = agent.displayName;
   token.aliasNames = agent.aliases.map((a) => a.agentName);

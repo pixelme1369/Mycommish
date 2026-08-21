@@ -20,6 +20,8 @@ enum EmploymentType {
 /// Portal login role (separate from employee vs 1099 contractor).
 enum AgentRole {
   admin
+  /// Same console as admin, plus every manager (and agent) capability.
+  super_admin
   manager
   agent
 }
@@ -30,7 +32,7 @@ model Agent {
   passwordHash   String?
   displayName    String
   role           AgentRole      @default(agent)
-  /// Derived convenience for gates: true when role == admin.
+  /// Derived convenience for gates: true when role is admin or super_admin.
   isAdmin        Boolean        @default(false)
   /// Employees vs 1099 contractors — commission sheet / Excel export differs later.
   employmentType EmploymentType @default(employee)
@@ -53,6 +55,8 @@ model Agent {
   bonusesPaid           ManagerBonusPayout[] @relation("ManagerBonusPaidBy")
   bonusesReceived       ManagerBonusPayout[] @relation("ManagerBonusRecipient")
   bonusesReimbursed     ManagerBonusPayout[] @relation("ManagerBonusReimbursedBy")
+  manualBonusesCreated  ManualBonus[]        @relation("ManualBonusCreatedBy")
+  manualBonusesApproved ManualBonus[]        @relation("ManualBonusApprovedBy")
 
   @@index([suspendedAt])
   @@index([lastLoginAt])
@@ -132,6 +136,40 @@ model ManagerBonusPayout {
   @@index([recipientAgentId])
 }
 
+enum ManualBonusStatus {
+  pending
+  approved
+}
+
+/// Manager-entered discretionary bonus on an agent’s period. Counts in net only after super-admin approval.
+model ManualBonus {
+  id            String            @id @default(cuid())
+  /// Durable keys — survive period delete / CRM re-upload (like CommissionStatement).
+  periodLabel   String
+  agentName     String
+  agentPeriodId String?
+  amount        Decimal           @db.Decimal(12, 2)
+  note          String
+  status        ManualBonusStatus @default(pending)
+  createdById   String
+  approvedById  String?
+  approvedAt    DateTime?
+  /// Ledger row written on approve (type manual_bonus); cleared if period/ledger wiped.
+  ledgerEntryId String?           @unique
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  agentPeriod AgentPeriod? @relation(fields: [agentPeriodId], references: [id], onDelete: SetNull)
+  createdBy   Agent        @relation("ManualBonusCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  approvedBy  Agent?       @relation("ManualBonusApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  ledgerEntry LedgerEntry? @relation(fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+
+  @@index([agentPeriodId, status])
+  @@index([periodLabel, agentName])
+  @@index([status, createdAt])
+  @@index([createdById])
+}
+
 /// Soft-dismiss a CRM Sales Rep from active commission views / Gusto.
 /// Ledger + AgentPeriod rows stay for audit; UI and payroll export hide them.
 model SalesRepDismissal {
@@ -188,6 +226,8 @@ model AgentPeriod {
   tierRate                 Decimal @default(0) @db.Decimal(8, 6)
   grossCommission          Decimal @default(0) @db.Decimal(14, 2)
   clawbackAmount           Decimal @default(0) @db.Decimal(14, 2)
+  /// Sum of approved manual bonuses (ledger type manual_bonus).
+  manualBonusAmount        Decimal @default(0) @db.Decimal(14, 2)
   netCommission            Decimal @default(0) @db.Decimal(14, 2)
   payout                   Decimal @default(0) @db.Decimal(14, 2)
   payoutType               String  @default("commission")
@@ -202,6 +242,7 @@ model AgentPeriod {
   clientEvents  ClientEvent[]
   ledgerEntries LedgerEntry[]
   statement     CommissionStatement?
+  manualBonuses ManualBonus[]
 
   @@unique([periodId, agentName])
   @@index([agentName])
@@ -338,6 +379,8 @@ enum LedgerType {
   clawback_crm
   clawback_cordoba
   clawback_history
+  /// Super-admin–approved manager manual bonus (added into net).
+  manual_bonus
   reversal
 }
 
@@ -361,6 +404,7 @@ model LedgerEntry {
   uploadBatch   UploadBatch?      @relation(fields: [uploadBatchId], references: [id], onDelete: SetNull)
   reversesEntry LedgerEntry?      @relation("LedgerReversal", fields: [reversesEntryId], references: [id])
   reversedBy    LedgerEntry?      @relation("LedgerReversal")
+  manualBonus   ManualBonus?
 
   @@index([periodId, agentName])
   @@index([crmId])
