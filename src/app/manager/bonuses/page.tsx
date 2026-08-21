@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireManagerOrAdmin, sessionRole } from "@/lib/auth-guards";
+import { adminNavLabel } from "@/lib/roles";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +57,7 @@ export default async function ManagerBonusesPage() {
                 href="/admin"
                 className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
               >
-                Admin
+                {adminNavLabel(session.user.role)}
               </Link>
             ) : null}
             <SignOutButton />

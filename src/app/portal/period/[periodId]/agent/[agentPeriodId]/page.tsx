@@ -223,16 +223,6 @@ export default async function PeriodDetailPage({
               value={Number(row.clawbackAmount) > 0 ? `-${money(row.clawbackAmount)}` : "—"}
               danger={Number(row.clawbackAmount) > 0}
             />
-            <Metric
-              label="Manual bonus"
-              value={
-                Number(row.manualBonusAmount) > 0
-                  ? money(row.manualBonusAmount)
-                  : pendingManualBonusTotal > 0
-                    ? `${money(pendingManualBonusTotal)} pend.`
-                    : "—"
-              }
-            />
             <Metric label="Cancel rate" value={cancelRatePercent(row.cancellationRate)} />
             <Metric label="Pending cancellations" value={String(row.pendingUnits)} />
             <Metric label="Cleared debt" value={money(row.totalClearedDebt)} />
@@ -240,7 +230,7 @@ export default async function PeriodDetailPage({
         </div>
       </div>
 
-      {pendingManualBonusTotal > 0 ? (
+      {isAgentView && pendingManualBonusTotal > 0 ? (
         <p className="mt-3 text-xs text-muted-foreground">
           Manual bonus pending super-admin approval:{" "}
           <span className="font-medium tabular-nums text-foreground">
@@ -274,6 +264,7 @@ export default async function PeriodDetailPage({
         bonuses={manualBonuses}
         canManage={canManageManualBonus}
         canApprove={superAdmin}
+        agentView={isAgentView}
       />
 
       <ClearedSection

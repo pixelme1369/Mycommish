@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireManagerOrAdmin, sessionRole } from "@/lib/auth-guards";
-import { formatRoleLabel } from "@/lib/roles";
+import { adminNavLabel, formatRoleLabel } from "@/lib/roles";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
@@ -50,7 +50,7 @@ export default async function ManagerFilesPage() {
                 href="/admin"
                 className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
               >
-                Admin
+                {adminNavLabel(session.user.role)}
               </Link>
             ) : null}
             <SignOutButton />

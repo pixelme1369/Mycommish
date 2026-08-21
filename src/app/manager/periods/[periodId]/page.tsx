@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireManagerOrAdmin, sessionRole } from "@/lib/auth-guards";
+import { adminNavLabel } from "@/lib/roles";
 import { SignOutButton } from "@/components/sign-out-button";
 import { prisma } from "@/lib/db";
 import { PeriodSource } from "@/generated/prisma/client";
@@ -111,7 +112,7 @@ export default async function ManagerPeriodPage({
                 href={`/admin/periods/${period.id}`}
                 className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
               >
-                Admin view
+                {adminNavLabel(session.user.role)} view
               </Link>
             ) : null}
             <SignOutButton />

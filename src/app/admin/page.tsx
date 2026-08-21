@@ -5,6 +5,7 @@ import {
   listRecentUploads,
 } from "./actions";
 import { requireAdmin } from "@/lib/auth-guards";
+import { adminNavLabel } from "@/lib/roles";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
@@ -145,7 +146,7 @@ export default async function AdminHome() {
             <span>· {session.user.displayName}</span>
           </span>
         }
-        title="Admin"
+        title={adminNavLabel(session.user.role)}
         description="Open a period to pay · import only when files are ready"
         actions={
           <>

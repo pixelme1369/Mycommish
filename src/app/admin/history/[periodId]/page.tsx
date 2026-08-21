@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth-guards";
+import { adminHomeLinkLabel } from "@/lib/roles";
 import { SignOutButton } from "@/components/sign-out-button";
 import { prisma } from "@/lib/db";
 import { PeriodSource } from "@/generated/prisma/client";
@@ -15,7 +16,7 @@ export default async function AdminHistoryPeriodPage({
 }: {
   params: Promise<{ periodId: string }>;
 }) {
-  await requireAdmin();
+  const session = await requireAdmin();
   const { periodId } = await params;
 
   const period = await prisma.commissionPeriod.findFirst({
@@ -58,7 +59,7 @@ export default async function AdminHistoryPeriodPage({
       <div className="flex flex-wrap items-baseline justify-between gap-4">
         <p className="text-sm text-zinc-500">
           <Link href="/admin" className="hover:underline">
-            ← Admin
+            {adminHomeLinkLabel(session.user.role)}
           </Link>
         </p>
         <div className="flex items-center gap-4">

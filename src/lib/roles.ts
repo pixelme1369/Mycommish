@@ -54,3 +54,13 @@ export function formatRoleLabel(role: string | null | undefined): string {
       return "portal";
   }
 }
+
+/** Back-link / nav text for the shared `/admin` console. */
+export function adminHomeLinkLabel(role: string | null | undefined): string {
+  return role === "super_admin" ? "← Super admin" : "← Admin";
+}
+
+/** Short CTA when linking into `/admin` from portal/manager. */
+export function adminNavLabel(role: string | null | undefined): string {
+  return role === "super_admin" ? "Super admin" : "Admin";
+}

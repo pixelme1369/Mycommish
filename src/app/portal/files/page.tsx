@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth-guards";
+import { adminNavLabel } from "@/lib/roles";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
@@ -49,7 +50,7 @@ export default async function PortalFilesPage() {
                 href="/admin"
                 className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
               >
-                Admin
+                {adminNavLabel(session.user.role)}
               </Link>
             ) : session.user.role === "manager" ? (
               <Link

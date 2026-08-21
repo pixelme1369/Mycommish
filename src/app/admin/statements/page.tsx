@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth-guards";
+import { adminHomeLinkLabel } from "@/lib/roles";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { buttonVariants } from "@/components/ui/button";
@@ -15,7 +16,7 @@ export default async function AdminSignedStatementsPage({
 }: {
   searchParams: Promise<{ period?: string }>;
 }) {
-  await requireAdmin();
+  const session = await requireAdmin();
   const sp = await searchParams;
   const periodFilter = sp.period?.trim() || undefined;
 
@@ -44,7 +45,7 @@ export default async function AdminSignedStatementsPage({
             href="/admin"
             className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2")}
           >
-            ← Admin
+            {adminHomeLinkLabel(session.user.role)}
           </Link>
         }
         title="Signed statements"

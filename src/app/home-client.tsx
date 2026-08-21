@@ -70,14 +70,13 @@ export default function HomeClient() {
           </p>
         </FadeIn>
 
-        <FadeIn delay={0.28} className="mt-10 flex flex-wrap items-center gap-3">
+        <FadeIn delay={0.28} className="mt-10">
           <Link
             href="/login"
             className={cn(buttonVariants({ size: "lg" }), "h-12 px-7 text-base shadow-sm")}
           >
             View My Commissions
           </Link>
-          <span className="text-sm text-muted-foreground">Agents &amp; Admins</span>
         </FadeIn>
       </main>
 

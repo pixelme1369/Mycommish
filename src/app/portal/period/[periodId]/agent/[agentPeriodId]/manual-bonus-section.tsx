@@ -21,6 +21,7 @@ export function ManualBonusSection({
   bonuses,
   canManage,
   canApprove,
+  agentView,
 }: {
   periodId: string;
   agentPeriodId: string;
@@ -29,11 +30,46 @@ export function ManualBonusSection({
   canManage: boolean;
   /** Super admins — approve pending. */
   canApprove: boolean;
+  /** Agents only see this when a bonus exists (rare). */
+  agentView?: boolean;
 }) {
   const pending = bonuses.filter((b) => b.status === "pending");
   const approved = bonuses.filter((b) => b.status === "approved");
-  const show = canManage || canApprove || bonuses.length > 0;
+  const show =
+    canManage || canApprove || (agentView ? bonuses.length > 0 : bonuses.length > 0);
   if (!show) return null;
+
+  // Agents: no empty section chrome — only list when something exists.
+  if (agentView && !canManage && !canApprove) {
+    if (bonuses.length === 0) return null;
+    return (
+      <section className="mt-8">
+        <h2 className="font-heading text-base tracking-tight">Manual bonus</h2>
+        <ul className="mt-4 space-y-3">
+          {pending.map((b) => (
+            <ManualBonusRow
+              key={b.id}
+              bonus={b}
+              periodId={periodId}
+              agentPeriodId={agentPeriodId}
+              canManage={false}
+              canApprove={false}
+            />
+          ))}
+          {approved.map((b) => (
+            <ManualBonusRow
+              key={b.id}
+              bonus={b}
+              periodId={periodId}
+              agentPeriodId={agentPeriodId}
+              canManage={false}
+              canApprove={false}
+            />
+          ))}
+        </ul>
+      </section>
+    );
+  }
 
   return (
     <section className="mt-8">
