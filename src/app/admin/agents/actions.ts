@@ -5,6 +5,11 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-guards";
 import { contractorCompanyFor } from "@/lib/agents/contractors";
+import {
+  formatCommissionLinkSummary,
+  findCommissionLinksForAliases,
+  resolveCrmAliasSpellings,
+} from "@/lib/agents/link-commission";
 import { AgentRole, EmploymentType } from "@/generated/prisma/client";
 
 function parseRole(raw: FormDataEntryValue | null): AgentRole {
@@ -14,8 +19,16 @@ function parseRole(raw: FormDataEntryValue | null): AgentRole {
   return AgentRole.agent;
 }
 
+function revalidateAgentPortal() {
+  revalidatePath("/admin/agents");
+  revalidatePath("/portal");
+  revalidatePath("/portal/files");
+  revalidatePath("/admin");
+  revalidatePath("/manager");
+}
+
 export type CreateAgentResult =
-  | { ok: true }
+  | { ok: true; message: string; aliases: string[] }
   | { ok: false; error: string };
 
 export async function createAgentAction(
@@ -52,15 +65,16 @@ export async function createAgentAction(
     };
   }
 
-  const aliasNames = [
-    ...new Map(
-      formData
-        .getAll("alias")
-        .map((v) => String(v || "").trim())
-        .filter(Boolean)
-        .map((name) => [name.toLowerCase(), name] as const),
-    ).values(),
-  ];
+  const formAliases = formData
+    .getAll("alias")
+    .map((v) => String(v || "").trim())
+    .filter(Boolean);
+
+  const [fromForm, fromDisplay] = await Promise.all([
+    resolveCrmAliasSpellings(formAliases),
+    resolveCrmAliasSpellings([displayName], { onlyKnown: true }),
+  ]);
+  const aliasNames = await resolveCrmAliasSpellings([...fromForm, ...fromDisplay]);
 
   const knownCompany =
     contractorCompanyFor(displayName) ||
@@ -103,8 +117,19 @@ export async function createAgentAction(
     throw err;
   }
 
-  revalidatePath("/admin/agents");
-  return { ok: true };
+  const hits = await findCommissionLinksForAliases(aliasNames);
+  const linkSummary = formatCommissionLinkSummary(hits);
+  const aliasBit =
+    aliasNames.length > 0
+      ? `Aliases: ${aliasNames.join(", ")}. `
+      : "No CRM aliases yet — add a Sales Rep spelling so they can see commission. ";
+
+  revalidateAgentPortal();
+  return {
+    ok: true,
+    aliases: aliasNames,
+    message: `User created. ${aliasBit}${linkSummary}`,
+  };
 }
 
 export async function setPasswordAction(formData: FormData) {
@@ -179,15 +204,40 @@ export async function updateEmploymentAction(formData: FormData) {
   revalidatePath("/admin/agents");
 }
 
-export async function addAliasAction(formData: FormData) {
+export type AddAliasResult =
+  | { ok: true; message: string }
+  | { ok: false; error: string };
+
+export async function addAliasAction(
+  _prev: AddAliasResult | null,
+  formData: FormData,
+): Promise<AddAliasResult> {
   await requireAdmin();
   const agentId = String(formData.get("agentId") || "");
-  const agentName = String(formData.get("agentName") || "").trim();
-  if (!agentId || !agentName) return;
+  const rawName = String(formData.get("agentName") || "").trim();
+  if (!agentId || !rawName) {
+    return { ok: false, error: "Sales Rep name is required." };
+  }
 
-  await prisma.agentAlias.create({
-    data: { agentId, agentName },
-  });
+  const [agentName] = await resolveCrmAliasSpellings([rawName]);
+  if (!agentName) {
+    return { ok: false, error: "Sales Rep name is required." };
+  }
+
+  try {
+    await prisma.agentAlias.create({
+      data: { agentId, agentName },
+    });
+  } catch (err) {
+    const code =
+      err && typeof err === "object" && "code" in err
+        ? String((err as { code: unknown }).code)
+        : "";
+    if (code === "P2002") {
+      return { ok: false, error: `Alias “${agentName}” is already mapped to a user.` };
+    }
+    throw err;
+  }
 
   const company = contractorCompanyFor(agentName);
   if (company) {
@@ -197,7 +247,14 @@ export async function addAliasAction(formData: FormData) {
     });
   }
 
-  revalidatePath("/admin/agents");
+  const hits = await findCommissionLinksForAliases([agentName]);
+  const linkSummary = formatCommissionLinkSummary(hits);
+
+  revalidateAgentPortal();
+  return {
+    ok: true,
+    message: `Alias “${agentName}” added. ${linkSummary}`,
+  };
 }
 
 export async function deleteAliasAction(formData: FormData) {
@@ -205,7 +262,7 @@ export async function deleteAliasAction(formData: FormData) {
   const aliasId = String(formData.get("aliasId") || "");
   if (!aliasId) return;
   await prisma.agentAlias.delete({ where: { id: aliasId } });
-  revalidatePath("/admin/agents");
+  revalidateAgentPortal();
 }
 
 export async function deleteAgentAction(formData: FormData) {

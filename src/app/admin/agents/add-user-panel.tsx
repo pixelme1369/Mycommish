@@ -16,6 +16,7 @@ export function AddUserPanel({ salesReps = [] }: { salesReps?: string[] }) {
   const [aliasOpen, setAliasOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const [state, action, pending] = useActionState(createAgentAction, initial);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const excluded = useMemo(
     () => new Set(aliases.map((n) => n.trim().toLowerCase())),
@@ -31,6 +32,7 @@ export function AddUserPanel({ salesReps = [] }: { salesReps?: string[] }) {
 
   useEffect(() => {
     if (state?.ok) {
+      setSuccessMessage(state.message);
       setOpen(false);
       setAliases([]);
       setAliasDraft("");
@@ -65,9 +67,23 @@ export function AddUserPanel({ salesReps = [] }: { salesReps?: string[] }) {
 
   if (!open) {
     return (
-      <Button type="button" size="sm" onClick={() => setOpen(true)}>
-        + Add user
-      </Button>
+      <div className="flex max-w-xl flex-col items-end gap-2">
+        {successMessage ? (
+          <p className="w-full text-left text-sm text-emerald-700 dark:text-emerald-400" role="status">
+            {successMessage}
+          </p>
+        ) : null}
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            setSuccessMessage(null);
+            setOpen(true);
+          }}
+        >
+          + Add user
+        </Button>
+      </div>
     );
   }
 
@@ -123,7 +139,8 @@ export function AddUserPanel({ salesReps = [] }: { salesReps?: string[] }) {
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="new-alias">CRM aliases (Sales Rep names)</Label>
           <p className="text-[11px] text-muted-foreground">
-            Exact CRM spelling so this login sees the right files and commission.
+            Exact CRM Sales Rep spelling links this login to commission already in the system —
+            no CRM re-upload needed. Display name is auto-added when it matches a known Sales Rep.
           </p>
           {aliases.map((name) => (
             <input key={name} type="hidden" name="alias" value={name} />

@@ -18,6 +18,7 @@ import {
   getCordobaFlags,
   getScopedAgentPeriod,
   getWaitingFirstPaymentForAgent,
+  getCancelRateBreakdownForAgent,
   mergeClawbacksWithCordoba,
   money,
   ratePercent,
@@ -31,6 +32,7 @@ import {
 import { NextTierCard } from "@/components/next-tier-card";
 import { StatementSignPanel } from "./statement-sign-panel";
 import { WaitingFirstPaymentSection } from "./waiting-first-payment-section";
+import { CancelRateBreakdownSection } from "./cancel-rate-breakdown";
 import { getStatementForAgentPeriodRow } from "@/lib/statements";
 import type { ClientEvent } from "@/generated/prisma/client";
 
@@ -80,6 +82,10 @@ export default async function PeriodDetailPage({
     row.id,
   );
   const waitingFirstPayment = await getWaitingFirstPaymentForAgent(
+    [row.agentName],
+    row.period.periodLabel,
+  );
+  const cancelRateBreakdown = await getCancelRateBreakdownForAgent(
     [row.agentName],
     row.period.periodLabel,
   );
@@ -245,6 +251,10 @@ export default async function PeriodDetailPage({
         title="Cancelled (not clawed)"
         clients={cancelled}
         empty="No same-month cancels."
+      />
+      <CancelRateBreakdownSection
+        breakdown={cancelRateBreakdown}
+        storedRatePct={Number(row.cancellationRate)}
       />
     </AppShell>
   );

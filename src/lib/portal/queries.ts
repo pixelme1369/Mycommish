@@ -318,4 +318,142 @@ export async function getWaitingFirstPaymentForAgent(
   return out;
 }
 
+export type CancelRateCohortRow = {
+  crmId: string;
+  externalId: string | null;
+  clientName: string | null;
+  enrolledDate: string | null;
+  droppedDate: string | null;
+  hasDropped: boolean;
+};
+
+export type CancelRateBreakdown = {
+  periodLabel: string;
+  enrolledCount: number;
+  droppedCount: number;
+  ratePct: number;
+  rows: CancelRateCohortRow[];
+};
+
+/**
+ * Same cohort as commission cancel rate: Enrolled Date in this period month,
+ * for this Sales Rep. Dropped = any real Dropped Date present.
+ */
+export async function getCancelRateBreakdownForAgent(
+  agentNames: string[],
+  periodLabel: string,
+): Promise<CancelRateBreakdown> {
+  const { parseDate, periodOf, isPoisonedDebtDroppedDate } = await import(
+    "@/lib/commission/crm-parser"
+  );
+  const names = [...new Set(agentNames.map((n) => n.trim()).filter(Boolean))];
+  if (!names.length || !periodLabel) {
+    return { periodLabel, enrolledCount: 0, droppedCount: 0, ratePct: 0, rows: [] };
+  }
+
+  const identities = await prisma.clientIdentity.findMany({
+    where: {
+      salesRep: { in: names },
+      enrolledDate: { not: null },
+    },
+    select: {
+      crmId: true,
+      externalId: true,
+      clientName: true,
+      enrolledDate: true,
+      droppedDate: true,
+    },
+    orderBy: [{ clientName: "asc" }, { crmId: "asc" }],
+  });
+
+  // Also pick up ClientEvents for this rep whose identity salesRep drifted.
+  const events = await prisma.clientEvent.findMany({
+    where: {
+      agentName: { in: names },
+      enrolledDate: { not: null },
+    },
+    select: {
+      crmId: true,
+      clientName: true,
+      enrolledDate: true,
+      droppedDate: true,
+      identity: { select: { externalId: true } },
+    },
+    orderBy: [{ clientName: "asc" }, { crmId: "asc" }],
+  });
+
+  const byCrm = new Map<string, CancelRateCohortRow>();
+
+  const consider = (opts: {
+    crmId: string;
+    externalId: string | null;
+    clientName: string | null;
+    enrolledDate: string | null;
+    droppedDate: string | null;
+  }) => {
+    if (!opts.crmId) return;
+    const enrolled = (opts.enrolledDate || "").trim();
+    if (!enrolled) return;
+    if (periodOf(parseDate(enrolled)) !== periodLabel) return;
+
+    const droppedRaw = (opts.droppedDate || "").trim();
+    const hasDropped = Boolean(droppedRaw) && !isPoisonedDebtDroppedDate(droppedRaw);
+
+    const prev = byCrm.get(opts.crmId);
+    if (!prev) {
+      byCrm.set(opts.crmId, {
+        crmId: opts.crmId,
+        externalId: opts.externalId,
+        clientName: opts.clientName,
+        enrolledDate: opts.enrolledDate,
+        droppedDate: hasDropped ? droppedRaw : null,
+        hasDropped,
+      });
+      return;
+    }
+    // Prefer a row that shows a drop; keep best name / external id.
+    if (hasDropped && !prev.hasDropped) {
+      prev.hasDropped = true;
+      prev.droppedDate = droppedRaw;
+    }
+    if (!prev.clientName && opts.clientName) prev.clientName = opts.clientName;
+    if (!prev.externalId && opts.externalId) prev.externalId = opts.externalId;
+    if (!prev.enrolledDate && opts.enrolledDate) prev.enrolledDate = opts.enrolledDate;
+  };
+
+  for (const r of identities) {
+    consider({
+      crmId: r.crmId,
+      externalId: r.externalId,
+      clientName: r.clientName,
+      enrolledDate: r.enrolledDate,
+      droppedDate: r.droppedDate,
+    });
+  }
+  for (const e of events) {
+    consider({
+      crmId: e.crmId,
+      externalId: e.identity?.externalId ?? null,
+      clientName: e.clientName,
+      enrolledDate: e.enrolledDate,
+      droppedDate: e.droppedDate,
+    });
+  }
+
+  const rows = [...byCrm.values()].sort((a, b) => {
+    if (a.hasDropped !== b.hasDropped) return a.hasDropped ? -1 : 1;
+    return (
+      (a.clientName || "").localeCompare(b.clientName || "") ||
+      a.crmId.localeCompare(b.crmId)
+    );
+  });
+
+  const enrolledCount = rows.length;
+  const droppedCount = rows.filter((r) => r.hasDropped).length;
+  const ratePct =
+    enrolledCount > 0 ? Math.round((droppedCount / enrolledCount) * 1000) / 10 : 0;
+
+  return { periodLabel, enrolledCount, droppedCount, ratePct, rows };
+}
+
 export { money, ratePercent, cancelRatePercent } from "@/lib/format";

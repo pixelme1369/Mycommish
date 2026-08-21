@@ -430,10 +430,15 @@ async function createFullPeriod(
     where: { periodId: periodRow.id },
     select: { id: true, agentName: true },
   });
-  await relinkCommissionStatements({
-    periodLabel: period.periodLabel!,
-    agentPeriods: createdAgentPeriods,
-  });
+  try {
+    await relinkCommissionStatements({
+      periodLabel: period.periodLabel!,
+      agentPeriods: createdAgentPeriods,
+    });
+  } catch (err) {
+    // Never fail CRM ingest because statement re-link failed (stale Prisma client, etc.).
+    console.error("relinkCommissionStatements failed", err);
+  }
 }
 
 async function applyClawbacksOnly(
