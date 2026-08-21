@@ -45,6 +45,12 @@ export default async function ManagerFilesPage() {
             >
               Commissions
             </Link>
+            <Link
+              href="/admin/claims"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              File claims
+            </Link>
             {role === "admin" ? (
               <Link
                 href="/admin"
@@ -61,7 +67,7 @@ export default async function ManagerFilesPage() {
       <section className="mt-8">
         <h2 className="font-heading text-lg tracking-tight">Look up a file</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          External ID or client name — shows who it’s assigned to. Claim to send it for admin review.
+          External ID or client name — shows who it’s assigned to. Claim to send it for review.
         </p>
         <Card className="glass-panel mt-3 p-4">
           <FileLookupChat lookupAction={lookupManagerFileChatAction} />

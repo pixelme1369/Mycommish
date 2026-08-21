@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth-guards";
+import {
+  isAdminUser,
+  requireManagerOrAdmin,
+} from "@/lib/auth-guards";
 import { adminHomeLinkLabel, formatRoleLabel } from "@/lib/roles";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
@@ -61,7 +64,8 @@ function formatClaimRequestedAt(d: Date) {
 }
 
 export default async function AdminClaimsPage() {
-  const session = await requireAdmin();
+  const session = await requireManagerOrAdmin();
+  const admin = isAdminUser(session);
   const [claims, totalClaimCount] = await Promise.all([
     listFileClaimsForAdmin(),
     prisma.fileClaim.count(),
@@ -130,12 +134,12 @@ export default async function AdminClaimsPage() {
         description={`${pendingCount} pending · External ID (= Cordoba ID) · Accept moves open-period commission to claimer; closed periods stay locked`}
         actions={
           <>
-            <ClearAllClaimsButton claimCount={totalClaimCount} />
+            {admin ? <ClearAllClaimsButton claimCount={totalClaimCount} /> : null}
             <Link
-              href="/admin"
+              href={admin ? "/admin" : "/manager"}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
-              {adminHomeLinkLabel(session.user.role)}
+              {admin ? adminHomeLinkLabel(session.user.role) : "← Manager"}
             </Link>
             <SignOutButton />
           </>

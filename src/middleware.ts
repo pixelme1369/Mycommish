@@ -43,8 +43,13 @@ export default auth((req) => {
     return NextResponse.redirect(new URL(homePath(user), req.nextUrl.origin));
   }
 
+  // Managers may review file claims; rest of /admin stays admin-only.
+  const isAdminClaimsPath =
+    pathname === "/admin/claims" || pathname.startsWith("/admin/claims/");
   if (pathname.startsWith("/admin") && !isAdmin) {
-    return NextResponse.redirect(new URL(homePath(user), req.nextUrl.origin));
+    if (!(isAdminClaimsPath && roleHasManagerCapabilities(user?.role))) {
+      return NextResponse.redirect(new URL(homePath(user), req.nextUrl.origin));
+    }
   }
 
   if (pathname.startsWith("/manager") && !canStaffView) {

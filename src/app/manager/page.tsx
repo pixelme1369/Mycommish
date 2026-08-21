@@ -79,6 +79,12 @@ export default async function ManagerHome() {
         actions={
           <>
             <Link
+              href="/admin/claims"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              File claims
+            </Link>
+            <Link
               href="/manager/bonuses"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >

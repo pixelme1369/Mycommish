@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireSession, requireAdmin } from "@/lib/auth-guards";
+import { requireSession, requireAdmin, requireManagerOrAdmin } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
 import { FileClaimStatus } from "@/generated/prisma/client";
 import { acceptFileClaimReassign } from "@/lib/claims/accept-reassign";
@@ -83,7 +83,7 @@ export async function reviewFileClaimAction(
   _prev: ClaimActionState,
   formData: FormData,
 ): Promise<ClaimActionState> {
-  const session = await requireAdmin();
+  const session = await requireManagerOrAdmin();
   const reviewerId = session.user.agentId;
   if (!reviewerId) return { ok: false, error: "Not signed in." };
 
@@ -104,7 +104,9 @@ export async function reviewFileClaimAction(
     });
     revalidatePath("/admin/claims");
     revalidatePath("/portal/files");
+    revalidatePath("/manager/files");
     revalidatePath("/admin");
+    revalidatePath("/manager");
     return result;
   }
 
@@ -126,7 +128,9 @@ export async function reviewFileClaimAction(
 
   revalidatePath("/admin/claims");
   revalidatePath("/portal/files");
+  revalidatePath("/manager/files");
   revalidatePath("/admin");
+  revalidatePath("/manager");
 
   return { ok: true, message: "Rejected." };
 }
