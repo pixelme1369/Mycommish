@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireSession } from "@/lib/auth-guards";
+import { redirect } from "next/navigation";
+import { isSuperAdminUser, requireSession } from "@/lib/auth-guards";
 import { adminNavLabel } from "@/lib/roles";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
@@ -18,6 +19,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PortalFilesPage() {
   const session = await requireSession();
+  if (isSuperAdminUser(session)) redirect("/admin");
   const aliasNames = session.user.aliasNames || [];
   const agentId = session.user.agentId;
 

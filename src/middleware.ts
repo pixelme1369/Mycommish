@@ -51,6 +51,14 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/portal", req.nextUrl.origin));
   }
 
+  // Super admins have no agent commissions / CRM aliases — skip agent portal home.
+  if (
+    isSuperAdmin &&
+    (pathname === "/portal" || pathname === "/portal/files" || pathname.startsWith("/portal/files/"))
+  ) {
+    return NextResponse.redirect(new URL("/admin", req.nextUrl.origin));
+  }
+
   return NextResponse.next();
 });
 
