@@ -93,15 +93,14 @@ export async function getClientsForAgentPeriod(agentPeriodId: string) {
   );
   const pending = events.filter((e) => e.kind === ClientEventKind.pending && !e.clawbackApplied);
   const cancelled = events.filter(
-    (e) =>
-      !e.clawbackApplied &&
-      (e.kind === ClientEventKind.same_month_cancel || e.kind === ClientEventKind.safe_cancel),
+    (e) => !e.clawbackApplied && e.kind === ClientEventKind.same_month_cancel,
   );
   const cleared = events.filter(
     (e) =>
       !e.clawbackApplied &&
       (e.kind === ClientEventKind.cleared ||
         e.kind === ClientEventKind.low_credit_cleared ||
+        e.kind === ClientEventKind.safe_cancel ||
         (e.isCleared && e.kind !== ClientEventKind.pending)),
   );
 

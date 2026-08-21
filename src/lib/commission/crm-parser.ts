@@ -552,8 +552,10 @@ export function parseCrmAndCalculate(
     const tierUnits = [...cleared, ...safeCancels];
     const unitsCleared = tierUnits.length;
     const lowCreditClients = tierUnits.filter((c) => c.isLowCredit);
+    // Safe cancels (payment threshold met) earn full commission — Cordoba will not
+    // charge them back. Only low-credit units stay at $0 debt/commission.
     const totalClearedDebt = tierUnits
-      .filter((c) => !c.isLowCredit && c.unitStatus !== "safe_cancel")
+      .filter((c) => !c.isLowCredit)
       .reduce((s, c) => s + c.enrolledDebt, 0);
     // OWNER POLICY: cancel rate = enrollments in this commission month that have a
     // Dropped Date / enrollments in this commission month (CRM Enrolled Date).
@@ -601,7 +603,7 @@ export function parseCrmAndCalculate(
       result.notes += ` | ${lowCreditClients.length} unit(s) counted at $0 commission (Credit Score < 500)`;
     }
     if (safeCancels.length) {
-      result.notes += ` | ${safeCancels.length} unit(s) counted at $0 commission (safe cancel — payment threshold met before drop)`;
+      result.notes += ` | ${safeCancels.length} safe cancel unit(s) commissioned (payment threshold met — no Cordoba clawback)`;
     }
     const lateActivations = tierUnits.filter((c) => c.isLateActivation);
     if (lateActivations.length) {
@@ -610,10 +612,9 @@ export function parseCrmAndCalculate(
     }
 
     for (const c of tierUnits) {
-      c.commissionOnClient =
-        c.isLowCredit || c.unitStatus === "safe_cancel"
-          ? 0
-          : Math.round(c.enrolledDebt * result.tierRate * 100) / 100;
+      c.commissionOnClient = c.isLowCredit
+        ? 0
+        : Math.round(c.enrolledDebt * result.tierRate * 100) / 100;
     }
 
     agentPeriodResults.set(k, result);

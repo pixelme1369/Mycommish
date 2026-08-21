@@ -78,3 +78,5 @@ src/app/portal/                   # agent-facing (next)
 4. Clawbacks land in the client’s own dropped month
 5. Cordoba never uses the Chargebacks file’s Dropped Date / debt for math
 6. History-paid clients: clawback = `enrolled_debt × paid_rate` when Rate known
+7. Safe cancel (payments ≥ pay-freq threshold before drop): full commission in cleared month; no CRM clawback (Cordoba will not charge back)
+8. Commission statement signatures survive period delete / CRM re-upload (keyed by period + agent name)

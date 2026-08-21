@@ -31,7 +31,7 @@ import {
 import { NextTierCard } from "@/components/next-tier-card";
 import { StatementSignPanel } from "./statement-sign-panel";
 import { WaitingFirstPaymentSection } from "./waiting-first-payment-section";
-import { getStatementForAgentPeriod } from "@/lib/statements";
+import { getStatementForAgentPeriodRow } from "@/lib/statements";
 import type { ClientEvent } from "@/generated/prisma/client";
 
 type PortalClientEvent = ClientEvent & {
@@ -112,7 +112,7 @@ export default async function PeriodDetailPage({
   const backLabel =
     staffView ? `← ${row.period.periodLabel} agents` : "← My commissions";
 
-  const statement = await getStatementForAgentPeriod(row.id);
+  const statement = await getStatementForAgentPeriodRow(row);
   const ownsAsAgent = aliases.has(row.agentName);
   const signRole =
     ownsAsAgent && !statement?.agentSignedAt
@@ -244,7 +244,7 @@ export default async function PeriodDetailPage({
       <ClientSection
         title="Cancelled (not clawed)"
         clients={cancelled}
-        empty="No same-month / safe cancels."
+        empty="No same-month cancels."
       />
     </AppShell>
   );

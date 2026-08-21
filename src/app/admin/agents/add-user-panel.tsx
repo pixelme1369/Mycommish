@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createAgentAction } from "./actions";
+import { createAgentAction, type CreateAgentResult } from "./actions";
+
+const initial: CreateAgentResult | null = null;
 
 export function AddUserPanel({ salesReps = [] }: { salesReps?: string[] }) {
   const [open, setOpen] = useState(false);
@@ -13,6 +15,7 @@ export function AddUserPanel({ salesReps = [] }: { salesReps?: string[] }) {
   const [aliasDraft, setAliasDraft] = useState("");
   const [aliasOpen, setAliasOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
+  const [state, action, pending] = useActionState(createAgentAction, initial);
 
   const excluded = useMemo(
     () => new Set(aliases.map((n) => n.trim().toLowerCase())),
@@ -25,6 +28,15 @@ export function AddUserPanel({ salesReps = [] }: { salesReps?: string[] }) {
     if (!q) return pool.slice(0, 8);
     return pool.filter((n) => n.toLowerCase().includes(q)).slice(0, 8);
   }, [salesReps, excluded, aliasDraft]);
+
+  useEffect(() => {
+    if (state?.ok) {
+      setOpen(false);
+      setAliases([]);
+      setAliasDraft("");
+      setAliasOpen(false);
+    }
+  }, [state]);
 
   function addAlias(raw: string) {
     const name = raw.trim();
@@ -67,7 +79,7 @@ export function AddUserPanel({ salesReps = [] }: { salesReps?: string[] }) {
           Cancel
         </Button>
       </div>
-      <form action={createAgentAction} className="mt-3 grid gap-3 sm:grid-cols-2">
+      <form action={action} className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="new-email">Email</Label>
           <Input id="new-email" name="email" type="email" required placeholder="email@example.com" />
@@ -219,8 +231,19 @@ export function AddUserPanel({ salesReps = [] }: { salesReps?: string[] }) {
           </div>
         </div>
 
-        <Button type="submit" size="sm" className="sm:col-span-2 sm:justify-self-end">
-          Create
+        {state && !state.ok ? (
+          <p className="sm:col-span-2 text-sm text-destructive" role="alert">
+            {state.error}
+          </p>
+        ) : null}
+
+        <Button
+          type="submit"
+          size="sm"
+          className="sm:col-span-2 sm:justify-self-end"
+          disabled={pending}
+        >
+          {pending ? "Creating…" : "Create"}
         </Button>
       </form>
     </Card>

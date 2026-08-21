@@ -9,6 +9,7 @@ import { isPeriodClosedByPayday } from "@/lib/commission/calculator";
 import type { CrmClient, PeriodOutput } from "@/lib/commission/crm-parser";
 import { isPoisonedDebtDroppedDate, parseCrmAndCalculate } from "@/lib/commission/crm-parser";
 import { loadAcceptedSalesRepOverrides } from "@/lib/claims/sales-rep-overrides";
+import { relinkCommissionStatements } from "@/lib/statements";
 import {
   ClientEventKind,
   LedgerType,
@@ -343,7 +344,8 @@ async function createFullPeriod(
         enrolledDebt: dec(c.enrolledDebt),
         creditScore: c.creditScore,
         isLowCredit: c.isLowCredit,
-        isCleared: c.unitStatus === "cleared",
+        // Safe cancels are commissioned (threshold met); mark cleared for statements.
+        isCleared: c.unitStatus === "cleared" || c.unitStatus === "safe_cancel",
         clawbackApplied: false,
         commissionOnClient: dec(c.commissionOnClient),
         isLateActivation: Boolean(c.isLateActivation),
@@ -371,7 +373,7 @@ async function createFullPeriod(
         enrolledDebt: dec(c.enrolledDebt),
         creditScore: c.creditScore,
         isLowCredit: c.isLowCredit,
-        isCleared: false,
+        isCleared: c.unitStatus === "safe_cancel",
         clawbackApplied: false,
         commissionOnClient: dec(c.commissionOnClient || 0),
         uploadBatchId,
@@ -423,6 +425,15 @@ async function createFullPeriod(
   for (let i = 0; i < ledgerRows.length; i += CHUNK) {
     await prisma.ledgerEntry.createMany({ data: ledgerRows.slice(i, i + CHUNK) });
   }
+
+  const createdAgentPeriods = await prisma.agentPeriod.findMany({
+    where: { periodId: periodRow.id },
+    select: { id: true, agentName: true },
+  });
+  await relinkCommissionStatements({
+    periodLabel: period.periodLabel!,
+    agentPeriods: createdAgentPeriods,
+  });
 }
 
 async function applyClawbacksOnly(

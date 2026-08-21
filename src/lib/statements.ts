@@ -30,6 +30,53 @@ export async function getStatementForAgentPeriod(agentPeriodId: string) {
   });
 }
 
+/** Prefer live agentPeriod link; fall back to durable periodLabel + agentName. */
+export async function getStatementForAgentPeriodRow(row: {
+  id: string;
+  agentName: string;
+  period: { periodLabel: string };
+}) {
+  const linked = await prisma.commissionStatement.findUnique({
+    where: { agentPeriodId: row.id },
+  });
+  if (linked) return linked;
+
+  const durable = await prisma.commissionStatement.findUnique({
+    where: {
+      periodLabel_agentName: {
+        periodLabel: row.period.periodLabel,
+        agentName: row.agentName,
+      },
+    },
+  });
+  if (durable && durable.agentPeriodId !== row.id) {
+    return prisma.commissionStatement.update({
+      where: { id: durable.id },
+      data: { agentPeriodId: row.id },
+    });
+  }
+  return durable;
+}
+
+/**
+ * After CRM recreates AgentPeriod rows, re-attach any signatures that survived
+ * a period delete (keyed by periodLabel + agentName).
+ */
+export async function relinkCommissionStatements(opts: {
+  periodLabel: string;
+  agentPeriods: Array<{ id: string; agentName: string }>;
+}) {
+  for (const ap of opts.agentPeriods) {
+    await prisma.commissionStatement.updateMany({
+      where: {
+        periodLabel: opts.periodLabel,
+        agentName: ap.agentName,
+      },
+      data: { agentPeriodId: ap.id },
+    });
+  }
+}
+
 export async function signaturesFromRecord(
   statement: Awaited<ReturnType<typeof getStatementForAgentPeriod>>,
 ): Promise<StatementSignatures> {
@@ -71,8 +118,8 @@ export function statementStatusLabel(status: StatementSignStatus | undefined | n
 
 export type AwaitingManagerStatementRow = {
   statementId: string;
-  agentPeriodId: string;
-  periodId: string;
+  agentPeriodId: string | null;
+  periodId: string | null;
   periodLabel: string;
   agentName: string;
   netCommission: number;
@@ -87,11 +134,10 @@ export async function listStatementsAwaitingManager(
   const rows = await prisma.commissionStatement.findMany({
     where: {
       status: StatementSignStatus.agent_signed,
-      agentPeriod: { period: { source: PeriodSource.calculated } },
     },
     include: {
       agentPeriod: {
-        include: { period: { select: { id: true, periodLabel: true } } },
+        include: { period: { select: { id: true, periodLabel: true, source: true } } },
       },
     },
     orderBy: { agentSignedAt: "asc" },
@@ -100,13 +146,18 @@ export async function listStatementsAwaitingManager(
 
   return rows
     .filter((r) => r.agentSignedAt)
+    .filter((r) => {
+      // Prefer calculated-period rows; keep detached survivors (period deleted).
+      const src = r.agentPeriod?.period.source;
+      return !src || src === PeriodSource.calculated;
+    })
     .map((r) => ({
       statementId: r.id,
       agentPeriodId: r.agentPeriodId,
-      periodId: r.agentPeriod.period.id,
-      periodLabel: r.agentPeriod.period.periodLabel,
-      agentName: r.agentPeriod.agentName,
-      netCommission: Number(r.netAtAgentSign ?? r.agentPeriod.netCommission),
+      periodId: r.agentPeriod?.period.id ?? null,
+      periodLabel: r.periodLabel || r.agentPeriod?.period.periodLabel || "—",
+      agentName: r.agentName || r.agentPeriod?.agentName || "—",
+      netCommission: Number(r.netAtAgentSign ?? r.agentPeriod?.netCommission ?? 0),
       agentTypedName: r.agentTypedName,
       agentSignedAt: r.agentSignedAt!,
     }));
@@ -114,8 +165,8 @@ export async function listStatementsAwaitingManager(
 
 export type FullySignedStatementRow = {
   statementId: string;
-  agentPeriodId: string;
-  periodId: string;
+  agentPeriodId: string | null;
+  periodId: string | null;
   periodLabel: string;
   agentName: string;
   netCommission: number;
@@ -133,16 +184,11 @@ export async function listFullySignedStatements(
   const rows = await prisma.commissionStatement.findMany({
     where: {
       status: StatementSignStatus.fully_signed,
-      agentPeriod: {
-        period: {
-          source: PeriodSource.calculated,
-          ...(opts?.periodLabel ? { periodLabel: opts.periodLabel } : {}),
-        },
-      },
+      ...(opts?.periodLabel ? { periodLabel: opts.periodLabel } : {}),
     },
     include: {
       agentPeriod: {
-        include: { period: { select: { id: true, periodLabel: true } } },
+        include: { period: { select: { id: true, periodLabel: true, source: true } } },
       },
     },
     orderBy: [{ managerSignedAt: "desc" }, { agentSignedAt: "desc" }],
@@ -151,13 +197,17 @@ export async function listFullySignedStatements(
 
   return rows
     .filter((r) => r.agentSignedAt && r.managerSignedAt)
+    .filter((r) => {
+      const src = r.agentPeriod?.period.source;
+      return !src || src === PeriodSource.calculated;
+    })
     .map((r) => ({
       statementId: r.id,
       agentPeriodId: r.agentPeriodId,
-      periodId: r.agentPeriod.period.id,
-      periodLabel: r.agentPeriod.period.periodLabel,
-      agentName: r.agentPeriod.agentName,
-      netCommission: Number(r.netAtAgentSign ?? r.agentPeriod.netCommission),
+      periodId: r.agentPeriod?.period.id ?? null,
+      periodLabel: r.periodLabel || r.agentPeriod?.period.periodLabel || "—",
+      agentName: r.agentName || r.agentPeriod?.agentName || "—",
+      netCommission: Number(r.netAtAgentSign ?? r.agentPeriod?.netCommission ?? 0),
       agentTypedName: r.agentTypedName,
       managerTypedName: r.managerTypedName,
       agentSignedAt: r.agentSignedAt!,

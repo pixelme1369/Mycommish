@@ -54,7 +54,12 @@ export async function signStatementAsAgentAction(input: {
   }
 
   const existing = await prisma.commissionStatement.findUnique({
-    where: { agentPeriodId: row.id },
+    where: {
+      periodLabel_agentName: {
+        periodLabel: row.period.periodLabel,
+        agentName: row.agentName,
+      },
+    },
   });
   if (existing?.agentSignedAt) {
     return { ok: false, error: "You already signed this statement." };
@@ -64,8 +69,15 @@ export async function signStatementAsAgentAction(input: {
   const now = new Date();
 
   await prisma.commissionStatement.upsert({
-    where: { agentPeriodId: row.id },
+    where: {
+      periodLabel_agentName: {
+        periodLabel: row.period.periodLabel,
+        agentName: row.agentName,
+      },
+    },
     create: {
+      periodLabel: row.period.periodLabel,
+      agentName: row.agentName,
       agentPeriodId: row.id,
       status: StatementSignStatus.agent_signed,
       agentTypedName: typedName,
@@ -75,6 +87,7 @@ export async function signStatementAsAgentAction(input: {
       netAtAgentSign: row.netCommission,
     },
     update: {
+      agentPeriodId: row.id,
       status: StatementSignStatus.agent_signed,
       agentTypedName: typedName,
       agentSignaturePng: png,
@@ -114,7 +127,12 @@ export async function signStatementAsManagerAction(input: {
   if (!row) return { ok: false, error: "Period not found." };
 
   const existing = await prisma.commissionStatement.findUnique({
-    where: { agentPeriodId: row.id },
+    where: {
+      periodLabel_agentName: {
+        periodLabel: row.period.periodLabel,
+        agentName: row.agentName,
+      },
+    },
   });
   if (!existing?.agentSignedAt) {
     return { ok: false, error: "Agent must sign before the manager." };
@@ -127,8 +145,9 @@ export async function signStatementAsManagerAction(input: {
   const now = new Date();
 
   await prisma.commissionStatement.update({
-    where: { agentPeriodId: row.id },
+    where: { id: existing.id },
     data: {
+      agentPeriodId: row.id,
       status: StatementSignStatus.fully_signed,
       managerTypedName: typedName,
       managerSignaturePng: png,
@@ -158,7 +177,12 @@ export async function resetStatementSignaturesAction(input: {
   if (!row) return { ok: false, error: "Period not found." };
 
   const existing = await prisma.commissionStatement.findUnique({
-    where: { agentPeriodId: row.id },
+    where: {
+      periodLabel_agentName: {
+        periodLabel: row.period.periodLabel,
+        agentName: row.agentName,
+      },
+    },
   });
   if (!existing || existing.status === StatementSignStatus.unsigned) {
     return { ok: false, error: "Nothing to reset." };
@@ -180,8 +204,9 @@ export async function resetStatementSignaturesAction(input: {
   }
 
   await prisma.commissionStatement.update({
-    where: { agentPeriodId: row.id },
+    where: { id: existing.id },
     data: {
+      agentPeriodId: row.id,
       status: StatementSignStatus.unsigned,
       agentTypedName: null,
       agentSignaturePng: null,

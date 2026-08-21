@@ -33,14 +33,13 @@ export function countsTowardUnits(kind: ClientEventKind, isLowCredit: boolean): 
   return false;
 }
 
-/** Debt that contributes to totalClearedDebt / gross (excludes $0 commission units). */
+/** Debt that contributes to totalClearedDebt / gross (excludes low-credit $0 units). */
 export function debtTowardGross(event: {
   kind: ClientEventKind;
   isLowCredit: boolean;
   enrolledDebt: { toNumber?: () => number } | number;
 }): number {
   if (event.isLowCredit) return 0;
-  if (event.kind === ClientEventKind.safe_cancel) return 0;
   if (event.kind === ClientEventKind.low_credit_cleared) return 0;
   if (!countsTowardUnits(event.kind, event.isLowCredit)) return 0;
   const debt =
@@ -75,7 +74,6 @@ export function commissionOnClientFor(
   tierRate: number,
 ): number {
   if (event.isLowCredit) return 0;
-  if (event.kind === ClientEventKind.safe_cancel) return 0;
   if (event.kind === ClientEventKind.low_credit_cleared) return 0;
   if (!countsTowardUnits(event.kind, event.isLowCredit)) return 0;
   return Math.round(event.enrolledDebt * tierRate * 100) / 100;

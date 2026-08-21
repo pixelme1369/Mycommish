@@ -136,20 +136,26 @@ export default async function AdminSignedStatementsPage({
                     })}
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <a
-                        href={`/api/admin/periods/${r.periodId}/agents/${r.agentPeriodId}/statement`}
-                        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-                      >
-                        PDF
-                      </a>
-                      <Link
-                        href={`/portal/period/${r.periodId}/agent/${r.agentPeriodId}`}
-                        className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-8")}
-                      >
-                        Open
-                      </Link>
-                    </div>
+                    {r.periodId && r.agentPeriodId ? (
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <a
+                          href={`/api/admin/periods/${r.periodId}/agents/${r.agentPeriodId}/statement`}
+                          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+                        >
+                          PDF
+                        </a>
+                        <Link
+                          href={`/portal/period/${r.periodId}/agent/${r.agentPeriodId}`}
+                          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-8")}
+                        >
+                          Open
+                        </Link>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Re-upload CRM to restore
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

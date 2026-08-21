@@ -215,8 +215,12 @@ enum StatementSignStatus {
 }
 
 model CommissionStatement {
-  id            String              @id @default(cuid())
-  agentPeriodId String              @unique
+  id String @id @default(cuid())
+  /// Durable keys — survive commission period delete / CRM re-upload.
+  periodLabel String
+  agentName   String
+  /// Live link when the calculated AgentPeriod exists; null while period is deleted.
+  agentPeriodId String? @unique
   status        StatementSignStatus @default(unsigned)
 
   agentTypedName      String?
@@ -233,11 +237,13 @@ model CommissionStatement {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  agentPeriod   AgentPeriod @relation(fields: [agentPeriodId], references: [id], onDelete: Cascade)
-  agentSigner   Agent?      @relation("StatementAgentSigner", fields: [agentSignedById], references: [id], onDelete: SetNull)
-  managerSigner Agent?      @relation("StatementManagerSigner", fields: [managerSignedById], references: [id], onDelete: SetNull)
+  agentPeriod   AgentPeriod? @relation(fields: [agentPeriodId], references: [id], onDelete: SetNull)
+  agentSigner   Agent?       @relation("StatementAgentSigner", fields: [agentSignedById], references: [id], onDelete: SetNull)
+  managerSigner Agent?       @relation("StatementManagerSigner", fields: [managerSignedById], references: [id], onDelete: SetNull)
 
+  @@unique([periodLabel, agentName])
   @@index([status])
+  @@index([periodLabel, status])
 }
 
 // ─── Clients ──────────────────────────────────────────────────────────────────

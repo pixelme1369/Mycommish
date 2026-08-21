@@ -34,6 +34,7 @@ export async function GET(req: Request) {
   const usedNames = new Map<string, number>();
 
   for (const row of rows) {
+    if (!row.periodId || !row.agentPeriodId) continue;
     const built = await buildSignedStatementPdf(row.periodId, row.agentPeriodId);
     if (!built) continue;
     let name = built.filename;

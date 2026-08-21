@@ -84,7 +84,7 @@ describe("accept-reassign helpers", () => {
         isLowCredit: false,
         enrolledDebt: 1000,
       }),
-    ).toBe(0);
+    ).toBe(1000);
   });
 
   it("sums units and debt for a mixed cohort", () => {
@@ -95,7 +95,7 @@ describe("accept-reassign helpers", () => {
       { kind: ClientEventKind.pending, isLowCredit: false, enrolledDebt: 9000 },
     ]);
     expect(r.unitsCleared).toBe(3);
-    expect(r.totalClearedDebt).toBe(5000);
+    expect(r.totalClearedDebt).toBe(7000);
   });
 
   it("commissionOnClientFor applies tier rate only to paid units", () => {
@@ -110,7 +110,7 @@ describe("accept-reassign helpers", () => {
         { kind: ClientEventKind.safe_cancel, isLowCredit: false, enrolledDebt: 10_000 },
         0.02,
       ),
-    ).toBe(0);
+    ).toBe(200);
   });
 });
 

@@ -252,12 +252,16 @@ export default async function AdminHome() {
                       })}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      <a
-                        href={`/api/admin/periods/${r.periodId}/agents/${r.agentPeriodId}/statement`}
-                        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-                      >
-                        PDF
-                      </a>
+                      {r.periodId && r.agentPeriodId ? (
+                        <a
+                          href={`/api/admin/periods/${r.periodId}/agents/${r.agentPeriodId}/statement`}
+                          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+                        >
+                          PDF
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Detached</span>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -32,9 +32,8 @@ function typeLabel(kind: ClientEventKind, clawbackApplied: boolean, isCleared: b
     return "Clawback";
   }
   if (kind === ClientEventKind.pending) return "Pending Cancellation";
-  if (kind === ClientEventKind.same_month_cancel || kind === ClientEventKind.safe_cancel) {
-    return "Cancelled";
-  }
+  if (kind === ClientEventKind.safe_cancel) return "Safe cancel";
+  if (kind === ClientEventKind.same_month_cancel) return "Cancelled";
   if (
     kind === ClientEventKind.cleared ||
     kind === ClientEventKind.low_credit_cleared ||

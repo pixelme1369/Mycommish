@@ -95,6 +95,7 @@ export async function buildAgentCommissionStatementPdf(
       !isCb &&
       (e.kind === ClientEventKind.cleared ||
         e.kind === ClientEventKind.low_credit_cleared ||
+        e.kind === ClientEventKind.safe_cancel ||
         e.isCleared);
     if (!isCb && !isCleared) continue; // statement focuses on paid + clawbacks
 
@@ -103,7 +104,13 @@ export async function buildAgentCommissionStatementPdf(
       clientName: e.clientName || "",
       enrolledDate: e.enrolledDate || "",
       enrolledDebt: num(e.enrolledDebt),
-      status: isCb ? "Clawback" : e.kind === ClientEventKind.low_credit_cleared ? "Low credit" : "Cleared",
+      status: isCb
+        ? "Clawback"
+        : e.kind === ClientEventKind.low_credit_cleared
+          ? "Low credit"
+          : e.kind === ClientEventKind.safe_cancel
+            ? "Safe cancel"
+            : "Cleared",
       clearedDate: e.firstPaymentClearedDate || "",
       droppedDate: e.droppedDate || "",
       paymentsMade: e.paymentsMade,

@@ -51,13 +51,19 @@ export function StatementsAwaitingManager({
                     })}
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    <Link
-                      href={`/portal/period/${r.periodId}/agent/${r.agentPeriodId}`}
-                      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-                      title={`Open from ${viewBase}`}
-                    >
-                      Countersign →
-                    </Link>
+                    {r.periodId && r.agentPeriodId ? (
+                      <Link
+                        href={`/portal/period/${r.periodId}/agent/${r.agentPeriodId}`}
+                        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+                        title={`Open from ${viewBase}`}
+                      >
+                        Countersign →
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Re-upload CRM to restore
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

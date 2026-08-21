@@ -14,7 +14,14 @@ function parseRole(raw: FormDataEntryValue | null): AgentRole {
   return AgentRole.agent;
 }
 
-export async function createAgentAction(formData: FormData) {
+export type CreateAgentResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function createAgentAction(
+  _prev: CreateAgentResult | null,
+  formData: FormData,
+): Promise<CreateAgentResult> {
   await requireAdmin();
   const email = String(formData.get("email") || "")
     .trim()
@@ -24,7 +31,26 @@ export async function createAgentAction(formData: FormData) {
   const password = String(formData.get("password") || "");
   const isContractor = formData.get("isContractor") === "on";
   const companyName = String(formData.get("companyName") || "").trim() || null;
-  if (!email || !displayName) return;
+  if (!email || !displayName) {
+    return { ok: false, error: "Email and display name are required." };
+  }
+
+  const existing = await prisma.agent.findUnique({
+    where: { email },
+    select: { id: true, displayName: true, suspendedAt: true, role: true },
+  });
+  if (existing) {
+    if (existing.suspendedAt) {
+      return {
+        ok: false,
+        error: `That email already belongs to suspended user “${existing.displayName}”. Unsuspend them on this page instead of creating a duplicate.`,
+      };
+    }
+    return {
+      ok: false,
+      error: `That email is already used by “${existing.displayName}” (${existing.role}). Edit that user instead.`,
+    };
+  }
 
   const aliasNames = [
     ...new Map(
@@ -46,27 +72,39 @@ export async function createAgentAction(formData: FormData) {
   const passwordHash =
     password.trim().length >= 6 ? await bcrypt.hash(password.trim(), 10) : undefined;
 
-  const agent = await prisma.agent.create({
-    data: {
-      email,
-      displayName,
-      role,
-      isAdmin: role === AgentRole.admin,
-      employmentType,
-      companyName:
-        employmentType === EmploymentType.contractor ? companyName || knownCompany : null,
-      ...(passwordHash ? { passwordHash } : {}),
-    },
-  });
-
-  if (aliasNames.length > 0) {
-    await prisma.agentAlias.createMany({
-      data: aliasNames.map((agentName) => ({ agentId: agent.id, agentName })),
-      skipDuplicates: true,
+  try {
+    const agent = await prisma.agent.create({
+      data: {
+        email,
+        displayName,
+        role,
+        isAdmin: role === AgentRole.admin,
+        employmentType,
+        companyName:
+          employmentType === EmploymentType.contractor ? companyName || knownCompany : null,
+        ...(passwordHash ? { passwordHash } : {}),
+      },
     });
+
+    if (aliasNames.length > 0) {
+      await prisma.agentAlias.createMany({
+        data: aliasNames.map((agentName) => ({ agentId: agent.id, agentName })),
+        skipDuplicates: true,
+      });
+    }
+  } catch (err) {
+    const code =
+      err && typeof err === "object" && "code" in err
+        ? String((err as { code: unknown }).code)
+        : "";
+    if (code === "P2002") {
+      return { ok: false, error: "That email is already registered." };
+    }
+    throw err;
   }
 
   revalidatePath("/admin/agents");
+  return { ok: true };
 }
 
 export async function setPasswordAction(formData: FormData) {

@@ -76,7 +76,7 @@ describe("classification", () => {
     expect(july.results[0].unitsCleared).toBe(5); // E1–E5; J1 is clawback (dropped Aug)
   });
 
-  it("safe_cancel counts as $0 unit", () => {
+  it("safe_cancel counts as commissioned unit", () => {
     const periods = parse(
       [
         clientRow("A1", { cleared: "06/10/26", debt: "10000" }),
@@ -86,9 +86,12 @@ describe("classification", () => {
     );
     const june = byPeriod(periods)["2026-06"];
     expect(june.results[0].unitsCleared).toBe(2);
-    expect(june.results[0].totalClearedDebt).toBe(10000);
-    expect(june.results[0].grossCommission).toBe(100);
+    expect(june.results[0].totalClearedDebt).toBe(20000);
+    expect(june.results[0].grossCommission).toBe(200);
     expect(june.results[0].notes).toMatch(/safe cancel/);
+    const safe = june.clientRows.find((c) => c.crmId === "A2");
+    expect(safe?.unitStatus).toBe("safe_cancel");
+    expect(safe?.commissionOnClient).toBe(100);
     expect(byPeriod(periods)["2026-08"]).toBeUndefined();
   });
 
