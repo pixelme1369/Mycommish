@@ -10,7 +10,7 @@ import { agentIdentityKey } from "@/lib/commission/calculator";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ periodId: string; agentPeriodId: string }> },
 ) {
   const session = await auth();
@@ -49,11 +49,12 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const inline = new URL(req.url).searchParams.get("inline") === "1";
   return new NextResponse(new Uint8Array(built.buffer), {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${built.filename}"`,
+      "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${built.filename}"`,
       "Cache-Control": "no-store",
     },
   });

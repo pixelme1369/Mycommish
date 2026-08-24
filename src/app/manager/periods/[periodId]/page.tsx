@@ -95,16 +95,7 @@ export default async function ManagerPeriodPage({
           </Link>
         }
         title={period.periodLabel}
-        description={
-          <>
-            Status: {period.status} · calculated
-            {period.filename ? ` · ${period.filename}` : ""}
-            {period.uploadedAt
-              ? ` · uploaded ${period.uploadedAt.toISOString().slice(0, 10)}`
-              : ""}
-            {" · view only"}
-          </>
-        }
+        description={<>Status: {period.status === "open" ? "Open" : "Closed"}</>}
         actions={
           <>
             <Link

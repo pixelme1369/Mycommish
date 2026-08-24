@@ -94,17 +94,7 @@ export default async function AdminPeriodPage({
           </Link>
         }
         title={period.periodLabel}
-        description={
-          <>
-            Status: {period.status} · calculated
-            {period.filename ? ` · ${period.filename}` : ""}
-            {period.uploadedAt
-              ? ` · uploaded ${period.uploadedAt.toISOString().slice(0, 10)}`
-              : ""}
-            {excludedCount > 0 ? ` · ${excludedCount} removed from period` : ""}
-            {dismissedCount > 0 ? ` · ${dismissedCount} dismissed hidden` : ""}
-          </>
-        }
+        description={<>Status: {period.status === "open" ? "Open" : "Closed"}</>}
         actions={
           <>
             <DeletePeriodButton periodId={period.id} periodLabel={period.periodLabel} />

@@ -278,6 +278,16 @@ export function StatementSignPanel({
         </div>
         <div className="flex flex-wrap gap-2">
           <a
+            href={`/api/portal/periods/${periodId}/agents/${agentPeriodId}/statement?inline=1`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              "inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium hover:bg-muted",
+            )}
+          >
+            View
+          </a>
+          <a
             href={`/api/portal/periods/${periodId}/agents/${agentPeriodId}/statement`}
             className={cn(
               "inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium hover:bg-muted",
