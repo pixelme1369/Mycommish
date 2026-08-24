@@ -17,17 +17,11 @@ import { AdminImportSection } from "./admin-import-section";
 import { AdminSecondarySections } from "./admin-secondary-sections";
 import { StatementsAwaitingManager } from "@/components/statements-awaiting-manager";
 import {
-  listFullySignedStatements,
   listStatementsAwaitingManager,
 } from "@/lib/statements";
 import { prisma } from "@/lib/db";
 import { FileClaimStatus } from "@/generated/prisma/client";
-import { money } from "@/lib/format";
-import {
-  countPendingManualBonuses,
-  listPendingManualBonuses,
-} from "@/lib/manual-bonuses";
-import { ApproveManualBonusButton } from "@/components/approve-manual-bonus-button";
+import { countPendingManualBonuses } from "@/lib/manual-bonuses";
 
 export const dynamic = "force-dynamic";
 
@@ -95,9 +89,7 @@ export default async function AdminHome() {
     uploads,
     pendingClaims,
     awaitingManager,
-    fullySigned,
     fullySignedCount,
-    pendingManualBonuses,
     pendingManualBonusCount,
   ] = await Promise.all([
     listCalculatedPeriods().catch(() => []),
@@ -107,14 +99,11 @@ export default async function AdminHome() {
       .count({ where: { status: FileClaimStatus.pending } })
       .catch(() => 0),
     listStatementsAwaitingManager().catch(() => []),
-    listFullySignedStatements({ limit: 8 }).catch(() => []),
     prisma.commissionStatement
       .count({ where: { status: "fully_signed" } })
       .catch(() => 0),
-    superAdmin ? listPendingManualBonuses().catch(() => []) : Promise.resolve([]),
     superAdmin ? countPendingManualBonuses().catch(() => 0) : Promise.resolve(0),
   ]);
-
   const periods = sortPeriodsForDashboard(periodsRaw);
   const openPeriods = periods.filter((p) => p.status === "open").map(toDashboardRow);
   const closedPeriods = periods
@@ -229,147 +218,9 @@ export default async function AdminHome() {
         </p>
       </Card>
 
-      {superAdmin ? (
-        <section className="mt-8">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="font-heading text-xl tracking-tight">Manual bonuses</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Waiting for your approval — approved amounts add to the agent’s net commission.
-              </p>
-            </div>
-            <Link
-              href="/superadmin/manual-bonuses"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              View all →
-            </Link>
-          </div>
-
-          {pendingManualBonuses.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">None waiting right now.</p>
-          ) : (
-            <Card className="glass-panel mt-4 overflow-hidden py-0">
-              <table className="min-w-full text-left text-sm">
-                <thead className="border-b border-border bg-muted/40 text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-2.5 font-medium">Period</th>
-                    <th className="px-4 py-2.5 font-medium">Agent</th>
-                    <th className="px-4 py-2.5 font-medium">Amount</th>
-                    <th className="px-4 py-2.5 font-medium">Note</th>
-                    <th className="px-4 py-2.5 font-medium">Logged by</th>
-                    <th className="px-4 py-2.5 font-medium" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/70">
-                  {pendingManualBonuses.slice(0, 8).map((b) => (
-                    <tr key={b.id}>
-                      <td className="px-4 py-2.5 font-medium">{b.periodLabel}</td>
-                      <td className="px-4 py-2.5">{b.agentName}</td>
-                      <td className="px-4 py-2.5 tabular-nums font-semibold text-money">
-                        {money(b.amount)}
-                      </td>
-                      <td className="max-w-xs truncate px-4 py-2.5 text-muted-foreground">
-                        {b.note}
-                      </td>
-                      <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                        {b.createdByName}
-                      </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <ApproveManualBonusButton
-                          bonusId={b.id}
-                          agentName={b.agentName}
-                          periodLabel={b.periodLabel}
-                          amount={b.amount}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </Card>
-          )}
-        </section>
-      ) : null}
-
       <div className="mt-8">
         <StatementsAwaitingManager rows={awaitingManager} viewBase="/admin" />
       </div>
-
-      <section className="mt-8">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="font-heading text-xl tracking-tight">Signed statements</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Fully signed by agent and manager — archive and bulk download.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {fullySigned.length > 0 ? (
-              <a
-                href="/api/admin/statements/bulk"
-                className={cn(buttonVariants({ variant: "default", size: "sm" }))}
-              >
-                Bulk download ZIP
-              </a>
-            ) : null}
-            <Link
-              href="/admin/statements"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              View all →
-            </Link>
-          </div>
-        </div>
-
-        {fullySigned.length === 0 ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            No fully signed statements yet.
-          </p>
-        ) : (
-          <Card className="glass-panel mt-4 overflow-hidden py-0">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-border bg-muted/40 text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-2.5 font-medium">Period</th>
-                  <th className="px-4 py-2.5 font-medium">Agent</th>
-                  <th className="px-4 py-2.5 font-medium">Net</th>
-                  <th className="px-4 py-2.5 font-medium">Manager signed</th>
-                  <th className="px-4 py-2.5 font-medium" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/70">
-                {fullySigned.map((r) => (
-                  <tr key={r.statementId}>
-                    <td className="px-4 py-2.5 font-medium">{r.periodLabel}</td>
-                    <td className="px-4 py-2.5">{r.agentName}</td>
-                    <td className="px-4 py-2.5 tabular-nums">{money(r.netCommission)}</td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                      {r.managerSignedAt.toLocaleString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      {r.periodId && r.agentPeriodId ? (
-                        <a
-                          href={`/api/admin/periods/${r.periodId}/agents/${r.agentPeriodId}/statement`}
-                          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-                        >
-                          PDF
-                        </a>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Detached</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-        )}
-      </section>
 
       <div className="mt-8">
         <AdminCalculatedPeriods

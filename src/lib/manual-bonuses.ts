@@ -100,8 +100,39 @@ export async function listPendingManualBonuses(): Promise<ManualBonusView[]> {
     include,
     orderBy: { createdAt: "asc" },
   });
+  return attachMissingPeriodLinks(rows.map(mapBonus));
+}
 
-  const mapped = rows.map(mapBonus);
+/** Pending + approved for the super-admin “View all” history page. */
+export async function listManualBonusesForAdmin(opts?: {
+  /** Cap approved history rows (pending always included). Default 200. */
+  historyLimit?: number;
+}): Promise<{ pending: ManualBonusView[]; approved: ManualBonusView[] }> {
+  const historyLimit = opts?.historyLimit ?? 200;
+  const [pendingRows, approvedRows] = await Promise.all([
+    prisma.manualBonus.findMany({
+      where: { status: ManualBonusStatus.pending },
+      include,
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.manualBonus.findMany({
+      where: { status: ManualBonusStatus.approved },
+      include,
+      orderBy: [{ approvedAt: "desc" }, { createdAt: "desc" }],
+      take: historyLimit,
+    }),
+  ]);
+
+  const [pending, approved] = await Promise.all([
+    attachMissingPeriodLinks(pendingRows.map(mapBonus)),
+    attachMissingPeriodLinks(approvedRows.map(mapBonus)),
+  ]);
+  return { pending, approved };
+}
+
+async function attachMissingPeriodLinks(
+  mapped: ManualBonusView[],
+): Promise<ManualBonusView[]> {
   const missingPeriod = mapped.filter((b) => !b.periodId);
   if (!missingPeriod.length) return mapped;
 

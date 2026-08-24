@@ -109,14 +109,6 @@ function PeriodList({
                 {p.status}
               </Badge>
               <span className="text-muted-foreground">{p.agentCount} agents</span>
-              {p.filename ? (
-                <span
-                  className="max-w-[14rem] truncate text-xs text-muted-foreground"
-                  title={p.filename}
-                >
-                  {p.filename}
-                </span>
-              ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <Link
