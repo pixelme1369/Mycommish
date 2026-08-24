@@ -214,3 +214,23 @@ export async function listFullySignedStatements(
       managerSignedAt: r.managerSignedAt!,
     }));
 }
+
+/** Count of fully signed statements per period label (newest period first). */
+export async function countFullySignedStatementsByPeriod(): Promise<
+  { periodLabel: string; count: number }[]
+> {
+  const groups = await prisma.commissionStatement.groupBy({
+    by: ["periodLabel"],
+    where: {
+      status: StatementSignStatus.fully_signed,
+      agentSignedAt: { not: null },
+      managerSignedAt: { not: null },
+    },
+    _count: { _all: true },
+    orderBy: { periodLabel: "desc" },
+  });
+  return groups.map((g) => ({
+    periodLabel: g.periodLabel,
+    count: g._count._all,
+  }));
+}

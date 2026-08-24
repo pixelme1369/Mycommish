@@ -7,6 +7,7 @@ import {
   requireSession,
 } from "@/lib/auth-guards";
 import { parseSignatureDataUrl } from "@/lib/statements";
+import { canAgentSignStatementForPeriod } from "@/lib/commission/calculator";
 import { PeriodSource, StatementSignStatus } from "@/generated/prisma/client";
 
 function pngOrNull(dataUrl: string | null | undefined): Uint8Array<ArrayBuffer> | null {
@@ -54,6 +55,13 @@ export async function signStatementAsAgentAction(input: {
 
   const row = await loadCalculatedAgentPeriod(input.periodId, input.agentPeriodId);
   if (!row) return { ok: false, error: "Period not found." };
+
+  if (!canAgentSignStatementForPeriod(row.period.periodLabel)) {
+    return {
+      ok: false,
+      error: "Too early to sign for this commission period.",
+    };
+  }
 
   const aliases = new Set((session.user.aliasNames || []).map((n) => n.toLowerCase()));
   const ownsRow = aliases.has(row.agentName.toLowerCase());
@@ -234,6 +242,7 @@ export async function resetStatementSignaturesAction(input: {
   revalidatePath(`/portal/period/${input.periodId}/agent/${input.agentPeriodId}`);
   revalidatePath(`/admin/periods/${input.periodId}`);
   revalidatePath(`/manager/periods/${input.periodId}`);
+  revalidatePath("/admin/statements");
   revalidatePath("/admin");
   revalidatePath("/manager");
   return { ok: true };

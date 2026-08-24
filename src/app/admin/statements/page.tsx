@@ -7,7 +7,11 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { money } from "@/lib/format";
-import { listFullySignedStatements } from "@/lib/statements";
+import {
+  countFullySignedStatementsByPeriod,
+  listFullySignedStatements,
+} from "@/lib/statements";
+import { RevokeStatementButton } from "./revoke-statement-button";
 
 export const dynamic = "force-dynamic";
 
@@ -20,18 +24,29 @@ export default async function AdminSignedStatementsPage({
   const sp = await searchParams;
   const periodFilter = sp.period?.trim() || undefined;
 
-  const rows = await listFullySignedStatements({
-    periodLabel: periodFilter,
-    limit: 200,
-  });
+  const [rows, periodCounts] = await Promise.all([
+    listFullySignedStatements({
+      periodLabel: periodFilter,
+      limit: 500,
+    }),
+    countFullySignedStatementsByPeriod(),
+  ]);
 
-  const periods = [...new Set(rows.map((r) => r.periodLabel))].sort((a, b) =>
-    a < b ? 1 : -1,
-  );
-  // If filtered, still show that period in the filter chips even if somehow empty
+  const countByPeriod = new Map(periodCounts.map((p) => [p.periodLabel, p.count]));
+  const totalSigned = periodCounts.reduce((sum, p) => sum + p.count, 0);
+
   const periodOptions = periodFilter
-    ? [...new Set([periodFilter, ...periods])]
-    : periods;
+    ? [
+        ...new Set([
+          periodFilter,
+          ...periodCounts.map((p) => p.periodLabel),
+        ]),
+      ].sort((a, b) => (a < b ? 1 : -1))
+    : periodCounts.map((p) => p.periodLabel);
+
+  const selectedCount = periodFilter
+    ? (countByPeriod.get(periodFilter) ?? rows.length)
+    : totalSigned;
 
   const bulkHref = periodFilter
     ? `/api/admin/statements/bulk?period=${encodeURIComponent(periodFilter)}`
@@ -49,7 +64,7 @@ export default async function AdminSignedStatementsPage({
           </Link>
         }
         title="Signed statements"
-        description="Fully signed commission PDFs (agent + manager). Download one or zip them all."
+        description="Fully signed commission PDFs (agent + manager). View, download, or revoke signatures."
         actions={
           <>
             {rows.length > 0 ? (
@@ -59,6 +74,7 @@ export default async function AdminSignedStatementsPage({
               >
                 Bulk download ZIP
                 {periodFilter ? ` · ${periodFilter}` : ""}
+                {` · ${selectedCount}`}
               </a>
             ) : null}
             <SignOutButton />
@@ -74,33 +90,42 @@ export default async function AdminSignedStatementsPage({
             "h-8",
           )}
         >
-          All periods
+          All periods{totalSigned > 0 ? ` (${totalSigned})` : ""}
         </Link>
-        {periodOptions.map((p) => (
-          <Link
-            key={p}
-            href={`/admin/statements?period=${encodeURIComponent(p)}`}
-            className={cn(
-              buttonVariants({
-                variant: periodFilter === p ? "secondary" : "outline",
-                size: "sm",
-              }),
-              "h-8",
-            )}
-          >
-            {p}
-          </Link>
-        ))}
+        {periodOptions.map((p) => {
+          const n = countByPeriod.get(p) ?? 0;
+          return (
+            <Link
+              key={p}
+              href={`/admin/statements?period=${encodeURIComponent(p)}`}
+              className={cn(
+                buttonVariants({
+                  variant: periodFilter === p ? "secondary" : "outline",
+                  size: "sm",
+                }),
+                "h-8",
+              )}
+            >
+              {p} ({n})
+            </Link>
+          );
+        })}
       </div>
 
+      <p className="mt-3 text-sm text-muted-foreground">
+        {periodFilter
+          ? `${selectedCount} agent${selectedCount === 1 ? "" : "s"} fully signed for ${periodFilter}`
+          : `${selectedCount} agent${selectedCount === 1 ? "" : "s"} fully signed across all periods`}
+      </p>
+
       {rows.length === 0 ? (
-        <Card className="glass-panel mt-6 p-6 text-sm text-muted-foreground">
+        <Card className="glass-panel mt-4 p-6 text-sm text-muted-foreground">
           {periodFilter
             ? `No fully signed statements for ${periodFilter} yet.`
             : "No fully signed statements yet. They appear here after both agent and manager sign."}
         </Card>
       ) : (
-        <Card className="glass-panel mt-6 overflow-hidden py-0">
+        <Card className="glass-panel mt-4 overflow-hidden py-0">
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-border bg-muted/40 text-muted-foreground">
               <tr>
@@ -140,6 +165,14 @@ export default async function AdminSignedStatementsPage({
                     {r.periodId && r.agentPeriodId ? (
                       <div className="flex flex-wrap justify-end gap-2">
                         <a
+                          href={`/api/admin/periods/${r.periodId}/agents/${r.agentPeriodId}/statement?inline=1`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+                        >
+                          View
+                        </a>
+                        <a
                           href={`/api/admin/periods/${r.periodId}/agents/${r.agentPeriodId}/statement`}
                           className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
                         >
@@ -151,6 +184,12 @@ export default async function AdminSignedStatementsPage({
                         >
                           Open
                         </Link>
+                        <RevokeStatementButton
+                          periodId={r.periodId}
+                          agentPeriodId={r.agentPeriodId}
+                          agentName={r.agentName}
+                          periodLabel={r.periodLabel}
+                        />
                       </div>
                     ) : (
                       <span className="text-xs text-muted-foreground">

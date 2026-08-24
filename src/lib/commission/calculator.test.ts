@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  agentStatementSignOpensAt,
   calculateAgentCommission,
   calculateClawbackAmount,
+  canAgentSignStatementForPeriod,
   commissionGainAtNextTier,
   getFixedRate,
   getTier,
@@ -82,6 +84,28 @@ describe("payday", () => {
   it("closed after payday", () => {
     expect(isPeriodClosedByPayday("2026-05", new Date("2026-06-25T00:00:00Z"))).toBe(true);
     expect(isPeriodClosedByPayday("2026-05", new Date("2026-06-24T23:59:59Z"))).toBe(false);
+  });
+});
+
+describe("agent statement sign window", () => {
+  it("opens 7 days before payday", () => {
+    // July period → Aug 25 payday → opens Aug 18
+    expect(agentStatementSignOpensAt("2026-07").toISOString().startsWith("2026-08-18")).toBe(
+      true,
+    );
+  });
+  it("blocks before the window", () => {
+    expect(
+      canAgentSignStatementForPeriod("2026-07", new Date("2026-08-17T23:59:59Z")),
+    ).toBe(false);
+  });
+  it("allows on the open day and after", () => {
+    expect(
+      canAgentSignStatementForPeriod("2026-07", new Date("2026-08-18T00:00:00Z")),
+    ).toBe(true);
+    expect(
+      canAgentSignStatementForPeriod("2026-07", new Date("2026-08-25T12:00:00Z")),
+    ).toBe(true);
   });
 });
 

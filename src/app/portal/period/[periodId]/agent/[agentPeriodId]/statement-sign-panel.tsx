@@ -12,6 +12,16 @@ import {
   signStatementAsAgentAction,
   signStatementAsManagerAction,
 } from "./statement-actions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { canAgentSignStatementForPeriod } from "@/lib/commission/calculator";
 
 const fontVibes = Great_Vibes({ weight: "400", subsets: ["latin"] });
 const fontDance = Dancing_Script({ weight: "500", subsets: ["latin"] });
@@ -65,6 +75,7 @@ async function renderTypedSignaturePng(
 export function StatementSignPanel({
   periodId,
   agentPeriodId,
+  periodLabel,
   role,
   lockedName,
   status,
@@ -77,6 +88,7 @@ export function StatementSignPanel({
 }: {
   periodId: string;
   agentPeriodId: string;
+  periodLabel: string;
   role: Role;
   /** Account display name — not editable; stamped on the PDF. */
   lockedName: string;
@@ -90,6 +102,7 @@ export function StatementSignPanel({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [tooEarlyOpen, setTooEarlyOpen] = useState(false);
   const [mode, setMode] = useState<SignMode>("style");
   const [selectedStyle, setSelectedStyle] = useState<string>(SIGNATURE_STYLES[0].id);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +117,15 @@ export function StatementSignPanel({
   const showReset = canReset && status !== "unsigned";
   const signerName = lockedName.trim();
   const previewName = signerName || "Your name";
+  const agentSignWindowOpen = canAgentSignStatementForPeriod(periodLabel);
+
+  function onSignClick() {
+    if (role === "agent" && !agentSignWindowOpen) {
+      setTooEarlyOpen(true);
+      return;
+    }
+    setOpen(true);
+  }
 
   useEffect(() => {
     if (!open || mode !== "draw") return;
@@ -296,7 +318,7 @@ export function StatementSignPanel({
             Download PDF
           </a>
           {canSign ? (
-            <Button type="button" size="sm" className="h-8" onClick={() => setOpen(true)}>
+            <Button type="button" size="sm" className="h-8" onClick={onSignClick}>
               {role === "agent" ? "Sign statement" : "Countersign"}
             </Button>
           ) : null}
@@ -444,6 +466,21 @@ export function StatementSignPanel({
           </div>
         </div>
       ) : null}
+
+      <AlertDialog open={tooEarlyOpen} onOpenChange={setTooEarlyOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Too early to sign</AlertDialogTitle>
+            <AlertDialogDescription>
+              Too early to sign for this commission period. Signing opens one week before
+              payday.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setTooEarlyOpen(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

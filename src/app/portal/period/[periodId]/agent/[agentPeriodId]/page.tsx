@@ -271,6 +271,7 @@ export default async function PeriodDetailPage({
         className="mt-6"
         periodId={periodId}
         agentPeriodId={row.id}
+        periodLabel={row.period.periodLabel}
         role={signRole}
         lockedName={session.user.displayName || ""}
         status={statement?.status ?? "unsigned"}

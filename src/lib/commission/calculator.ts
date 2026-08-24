@@ -232,6 +232,25 @@ export function isPeriodClosedByPayday(periodLabel: string, asOf: Date = new Dat
   return asOf.getTime() >= paymentDateForPeriod(periodLabel).getTime();
 }
 
+/** Agents may e-sign starting this many days before payday (25th). */
+export const AGENT_STATEMENT_SIGN_DAYS_BEFORE_PAYDAY = 7;
+
+/** First moment agents may sign statements for a period (UTC). */
+export function agentStatementSignOpensAt(periodLabel: string): Date {
+  const pay = paymentDateForPeriod(periodLabel);
+  return new Date(
+    pay.getTime() - AGENT_STATEMENT_SIGN_DAYS_BEFORE_PAYDAY * 24 * 60 * 60 * 1000,
+  );
+}
+
+/** Agent e-sign window: from 7 days before payday onward. */
+export function canAgentSignStatementForPeriod(
+  periodLabel: string,
+  asOf: Date = new Date(),
+): boolean {
+  return asOf.getTime() >= agentStatementSignOpensAt(periodLabel).getTime();
+}
+
 /**
  * Units still needed this period to reach the next tier's low threshold.
  * null for fixed-rate agents (Alex/Peter) or already at Tier 6.
