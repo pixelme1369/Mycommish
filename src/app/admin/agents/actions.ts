@@ -11,6 +11,7 @@ import {
   resolveCrmAliasSpellings,
 } from "@/lib/agents/link-commission";
 import { AgentRole, EmploymentType } from "@/generated/prisma/client";
+import { fillAgentGustoIfEmpty } from "@/lib/gusto/sync-agent-profiles";
 
 function parseRole(raw: FormDataEntryValue | null): AgentRole {
   const v = String(raw || "").trim().toLowerCase();
@@ -91,6 +92,7 @@ export async function createAgentAction(
   const passwordHash =
     password.trim().length >= 6 ? await bcrypt.hash(password.trim(), 10) : undefined;
 
+  let createdId = "";
   try {
     const agent = await prisma.agent.create({
       data: {
@@ -104,6 +106,7 @@ export async function createAgentAction(
         ...(passwordHash ? { passwordHash } : {}),
       },
     });
+    createdId = agent.id;
 
     if (aliasNames.length > 0) {
       await prisma.agentAlias.createMany({
@@ -120,6 +123,10 @@ export async function createAgentAction(
       return { ok: false, error: "That email is already registered." };
     }
     throw err;
+  }
+
+  if (createdId) {
+    await fillAgentGustoIfEmpty(createdId).catch(() => false);
   }
 
   const hits = await findCommissionLinksForAliases(aliasNames);
@@ -209,6 +216,22 @@ export async function updateEmploymentAction(formData: FormData) {
   revalidatePath("/admin/agents");
 }
 
+export async function updateGustoProfileAction(formData: FormData) {
+  await requireAdmin();
+  const agentId = String(formData.get("agentId") || "");
+  if (!agentId) return;
+
+  const gustoFirstName = String(formData.get("gustoFirstName") || "").trim() || null;
+  const gustoLastName = String(formData.get("gustoLastName") || "").trim() || null;
+  const gustoEmployeeId = String(formData.get("gustoEmployeeId") || "").trim() || null;
+
+  await prisma.agent.update({
+    where: { id: agentId },
+    data: { gustoFirstName, gustoLastName, gustoEmployeeId },
+  });
+  revalidatePath("/admin/agents");
+}
+
 export type AddAliasResult =
   | { ok: true; message: string }
   | { ok: false; error: string };
@@ -251,6 +274,8 @@ export async function addAliasAction(
       data: { employmentType: EmploymentType.contractor, companyName: company },
     });
   }
+
+  await fillAgentGustoIfEmpty(agentId).catch(() => false);
 
   const hits = await findCommissionLinksForAliases([agentName]);
   const linkSummary = formatCommissionLinkSummary(hits);

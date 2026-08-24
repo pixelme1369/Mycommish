@@ -38,6 +38,10 @@ model Agent {
   employmentType EmploymentType @default(employee)
   /// Legal entity for contractors (shown small on profile; used on contractor sheets).
   companyName    String?
+  /// Gusto payroll legal name + employee id (used on Gusto employee export).
+  gustoFirstName   String?
+  gustoLastName    String?
+  gustoEmployeeId  String?
   lastLoginAt    DateTime?
   /// When set, portal login is blocked (separate from SalesRepDismissal).
   suspendedAt    DateTime?

@@ -26,6 +26,7 @@ import {
   suspendAgentAction,
   updateDisplayNameAction,
   updateEmploymentAction,
+  updateGustoProfileAction,
   updateRoleAction,
 } from "./actions";
 
@@ -39,6 +40,9 @@ export type AgentRowView = {
   role: AgentRoleView;
   employmentType: EmploymentTypeView;
   companyName: string | null;
+  gustoFirstName: string | null;
+  gustoLastName: string | null;
+  gustoEmployeeId: string | null;
   hasPassword: boolean;
   lastLoginAt: string | null;
   suspendedAt: string | null;
@@ -523,6 +527,64 @@ function AgentDetailPanel({
           </Button>
         </form>
       </details>
+
+      <div className="rounded-lg bg-background p-3 ring-1 ring-border/60">
+        <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+          Gusto payroll
+        </p>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Legal name + employee ID for the Gusto export. Prefills from roster when we can match
+          a CRM alias — edit anytime.
+        </p>
+        <form
+          key={`gusto-${agent.id}-${agent.gustoEmployeeId || ""}-${agent.gustoFirstName || ""}-${agent.gustoLastName || ""}`}
+          action={updateGustoProfileAction}
+          className="mt-3 grid gap-2 sm:grid-cols-3"
+        >
+          <input type="hidden" name="agentId" value={agent.id} />
+          <div className="space-y-1">
+            <Label htmlFor={`gusto-first-${agent.id}`} className="text-xs text-muted-foreground">
+              First name
+            </Label>
+            <Input
+              id={`gusto-first-${agent.id}`}
+              name="gustoFirstName"
+              defaultValue={agent.gustoFirstName || ""}
+              placeholder="Gusto first name"
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={`gusto-last-${agent.id}`} className="text-xs text-muted-foreground">
+              Last name
+            </Label>
+            <Input
+              id={`gusto-last-${agent.id}`}
+              name="gustoLastName"
+              defaultValue={agent.gustoLastName || ""}
+              placeholder="Gusto last name"
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={`gusto-id-${agent.id}`} className="text-xs text-muted-foreground">
+              Employee ID
+            </Label>
+            <Input
+              id={`gusto-id-${agent.id}`}
+              name="gustoEmployeeId"
+              defaultValue={agent.gustoEmployeeId || ""}
+              placeholder="e.g. 85260d"
+              className="h-9 font-mono text-xs"
+            />
+          </div>
+          <div className="sm:col-span-3">
+            <Button type="submit" size="sm" variant="outline" className="h-8">
+              Save Gusto
+            </Button>
+          </div>
+        </form>
+      </div>
 
       <div className="rounded-lg bg-background p-3 ring-1 ring-border/60">
         <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">

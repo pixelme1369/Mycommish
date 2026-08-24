@@ -13,11 +13,23 @@ import { listDismissals } from "@/lib/agents/dismissal";
 import { listKnownSalesRepNames } from "@/lib/agents/sales-reps";
 import { AddUserPanel } from "./add-user-panel";
 import { AgentsUsersTable, type AgentRowView } from "./agents-table";
+import { prisma } from "@/lib/db";
+import { backfillAllAgentGustoProfiles } from "@/lib/gusto/sync-agent-profiles";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManageAgentsPage() {
   const session = await requireAdmin();
+
+  const missingGusto = await prisma.agent.count({
+    where: { OR: [{ gustoEmployeeId: null }, { gustoEmployeeId: "" }] },
+  });
+  if (missingGusto > 0) {
+    await backfillAllAgentGustoProfiles().catch((err) => {
+      console.error("backfillAllAgentGustoProfiles failed", err);
+    });
+  }
+
   const [agents, dismissals, salesReps] = await Promise.all([
     listAgents(),
     listDismissals(),
@@ -31,6 +43,9 @@ export default async function ManageAgentsPage() {
     role: a.role,
     employmentType: a.employmentType,
     companyName: a.companyName,
+    gustoFirstName: a.gustoFirstName,
+    gustoLastName: a.gustoLastName,
+    gustoEmployeeId: a.gustoEmployeeId,
     hasPassword: Boolean(a.passwordHash),
     lastLoginAt: a.lastLoginAt?.toISOString() ?? null,
     suspendedAt: a.suspendedAt?.toISOString() ?? null,

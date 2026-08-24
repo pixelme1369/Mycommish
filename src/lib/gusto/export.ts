@@ -58,6 +58,10 @@ export type GustoExportAgent = {
   /** When set (from Agent profile), forces contractor vs employee sheet. */
   employmentType?: "employee" | "contractor" | null;
   companyName?: string | null;
+  /** Prefer Agent profile Gusto fields when set. */
+  gustoFirstName?: string | null;
+  gustoLastName?: string | null;
+  gustoEmployeeId?: string | null;
 };
 
 function csvEscape(value: string | number): string {
@@ -83,12 +87,20 @@ function employeeRow(
   roster: EmployeeRosterRow | null,
   periodLabel: string,
 ): Array<string | number> {
-  // Names from mycommish (CRM / portal spelling), not Gusto roster legal names.
+  // Prefer Agent profile → Gusto roster legal names → CRM spelling.
   const split = splitPersonName(agent.agentName);
-  const last = titleCaseName(split.lastName).trim();
-  const first = titleCaseName(split.firstName).trim();
+  const last = (
+    agent.gustoLastName?.trim() ||
+    roster?.lastName ||
+    titleCaseName(split.lastName)
+  ).trim();
+  const first = (
+    agent.gustoFirstName?.trim() ||
+    roster?.firstName ||
+    titleCaseName(split.firstName)
+  ).trim();
   const title = roster?.title || "Debt Settlement Officer (Primary)";
-  const id = roster?.gustoEmployeeId || "";
+  const id = (agent.gustoEmployeeId?.trim() || roster?.gustoEmployeeId || "").trim();
   const hours = roster?.regularHours ?? "0.0";
 
   return [
@@ -133,8 +145,8 @@ function contractorRow(
     ein,
     hourly,
     "",
-    agent.netCommission !== 0 ? moneyPlain(agent.netCommission) : "",
     "",
+    agent.netCommission !== 0 ? moneyPlain(agent.netCommission) : "",
     "",
     "",
     "",
@@ -189,7 +201,8 @@ export function collectGustoSheets(
     }
 
     const roster = findEmployeeRoster(agent.agentName);
-    if (!roster?.gustoEmployeeId) missingGustoId.push(agent.agentName);
+    const hasId = Boolean(agent.gustoEmployeeId?.trim() || roster?.gustoEmployeeId);
+    if (!hasId) missingGustoId.push(agent.agentName);
     employeeRows.push(employeeRow(agent, roster, periodLabel));
   }
 

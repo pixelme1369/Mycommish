@@ -392,7 +392,7 @@ export function PeriodAgentsGustoTable({
         <p className="text-sm text-muted-foreground">
           {readOnly
             ? "Team commissions · view only · open an agent for file detail and claims"
-            : "Select people to export · Gusto, Commission History, or Agent Client Details"}
+            : "Select to export"}
         </p>
         {!readOnly ? (
           <div className="flex flex-wrap items-center gap-2">

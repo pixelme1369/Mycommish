@@ -74,7 +74,15 @@ export async function POST(
       })),
     },
     include: {
-      agent: { select: { employmentType: true, companyName: true } },
+      agent: {
+        select: {
+          employmentType: true,
+          companyName: true,
+          gustoFirstName: true,
+          gustoLastName: true,
+          gustoEmployeeId: true,
+        },
+      },
     },
   });
   const profileByKey = new Map(
@@ -83,6 +91,9 @@ export async function POST(
       {
         employmentType: a.agent.employmentType as "employee" | "contractor",
         companyName: a.agent.companyName,
+        gustoFirstName: a.agent.gustoFirstName,
+        gustoLastName: a.agent.gustoLastName,
+        gustoEmployeeId: a.agent.gustoEmployeeId,
       },
     ]),
   );
@@ -96,6 +107,9 @@ export async function POST(
         netCommission: Number(r.netCommission) || 0,
         employmentType: profile?.employmentType ?? null,
         companyName: profile?.companyName ?? null,
+        gustoFirstName: profile?.gustoFirstName ?? null,
+        gustoLastName: profile?.gustoLastName ?? null,
+        gustoEmployeeId: profile?.gustoEmployeeId ?? null,
       };
     }),
     period.periodLabel,
