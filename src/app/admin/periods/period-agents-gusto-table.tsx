@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -571,9 +572,19 @@ export function PeriodAgentsGustoTable({
                   ) : null}
                   <td className="px-3 py-2 align-middle whitespace-nowrap">
                     <div className="flex max-w-[14rem] items-center gap-1.5">
-                      <span className="truncate font-medium" title={r.agentName}>
-                        {r.agentName}
-                      </span>
+                      {r.dismissed ? (
+                        <span className="truncate font-medium" title={r.agentName}>
+                          {r.agentName}
+                        </span>
+                      ) : (
+                        <Link
+                          href={`/portal/period/${periodId}/agent/${r.id}`}
+                          className="truncate font-medium underline-offset-2 hover:underline"
+                          title={`View files for ${r.agentName}`}
+                        >
+                          {r.agentName}
+                        </Link>
+                      )}
                       {isContractor ? (
                         <span
                           className="shrink-0 text-[10px] font-medium tracking-wide text-muted-foreground uppercase"
