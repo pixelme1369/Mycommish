@@ -116,6 +116,32 @@ export function statementStatusLabel(status: StatementSignStatus | undefined | n
   }
 }
 
+/**
+ * Map CRM agent name → whether the agent has signed (agent or fully signed).
+ * Looks up by periodLabel (durable across CRM re-upload).
+ */
+export async function agentSignedByNameForPeriod(
+  periodLabel: string,
+): Promise<Map<string, boolean>> {
+  const out = new Map<string, boolean>();
+  if (!periodLabel.trim()) return out;
+
+  const rows = await prisma.commissionStatement.findMany({
+    where: {
+      periodLabel,
+      agentSignedAt: { not: null },
+      status: {
+        in: [StatementSignStatus.agent_signed, StatementSignStatus.fully_signed],
+      },
+    },
+    select: { agentName: true },
+  });
+  for (const r of rows) {
+    out.set(r.agentName, true);
+  }
+  return out;
+}
+
 export type AwaitingManagerStatementRow = {
   statementId: string;
   agentPeriodId: string | null;

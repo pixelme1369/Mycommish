@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { PeriodAgentsGustoTable } from "@/app/admin/periods/period-agents-gusto-table";
 import { listBonusesForPeriod } from "@/lib/manager-bonuses";
 import { ManagerReimbursementsSection } from "@/components/manager-reimbursements-section";
+import { agentSignedByNameForPeriod } from "@/lib/statements";
 
 export const dynamic = "force-dynamic";
 
@@ -38,21 +39,23 @@ export default async function ManagerPeriodPage({
   const ownOnly = role !== "admin";
   const paidById = session.user.agentId || undefined;
 
-  const [agents, dismissedKeys, excludedKeys, bonusRows] = await Promise.all([
-    prisma.agentPeriod.findMany({
-      where: { periodId },
-      orderBy: [{ netCommission: "desc" }, { agentName: "asc" }],
-    }),
-    listDismissedKeys(),
-    listExcludedKeysForPeriod(period.periodLabel),
-    listBonusesForPeriod(
-      period.periodLabel,
-      ownOnly && paidById ? { paidById } : undefined,
-    ).catch((err) => {
-      console.error("listBonusesForPeriod failed", err);
-      return [];
-    }),
-  ]);
+  const [agents, dismissedKeys, excludedKeys, bonusRows, signedByName] =
+    await Promise.all([
+      prisma.agentPeriod.findMany({
+        where: { periodId },
+        orderBy: [{ netCommission: "desc" }, { agentName: "asc" }],
+      }),
+      listDismissedKeys(),
+      listExcludedKeysForPeriod(period.periodLabel),
+      listBonusesForPeriod(
+        period.periodLabel,
+        ownOnly && paidById ? { paidById } : undefined,
+      ).catch((err) => {
+        console.error("listBonusesForPeriod failed", err);
+        return [];
+      }),
+      agentSignedByNameForPeriod(period.periodLabel),
+    ]);
 
   const tableRows = agents.map((a) => ({
     id: a.id,
@@ -69,6 +72,7 @@ export default async function ManagerPeriodPage({
     cancellationRate: Number(a.cancellationRate),
     dismissed: dismissedKeys.has(dismissalKey(a.agentName)),
     excluded: excludedKeys.has(exclusionKey(a.agentName)),
+    agentSigned: signedByName.get(a.agentName) === true,
   }));
 
   const activeRows = tableRows.filter((r) => !r.dismissed && !r.excluded);

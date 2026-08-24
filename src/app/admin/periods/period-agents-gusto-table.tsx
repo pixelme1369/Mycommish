@@ -27,6 +27,8 @@ export type PeriodAgentRow = {
   dismissed?: boolean;
   /** Hidden from this period’s pay only (not global dismiss). */
   excluded?: boolean;
+  /** Agent has e-signed their commission statement. */
+  agentSigned?: boolean;
 };
 
 type SortKey =
@@ -612,6 +614,14 @@ export function PeriodAgentsGustoTable({
                           title={companyTitle}
                         >
                           1099
+                        </span>
+                      ) : null}
+                      {r.agentSigned ? (
+                        <span
+                          className="inline-flex shrink-0 items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/15"
+                          title="Agent signed their commission statement"
+                        >
+                          Signed
                         </span>
                       ) : null}
                       {r.excluded && !r.dismissed ? (
