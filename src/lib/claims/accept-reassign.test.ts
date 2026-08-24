@@ -168,7 +168,7 @@ describe("acceptFileClaimReassign", () => {
     }
   });
 
-  it("refuses when commission sits in a closed period", async () => {
+  it("accepts when closed history exists and still locks Sales Rep for future CRM", async () => {
     prismaMock.fileClaim.findUnique.mockResolvedValue(baseClaim());
     prismaMock.clientIdentity.findFirst.mockResolvedValue({
       crmId: "CRM-1",
@@ -191,16 +191,146 @@ describe("acceptFileClaimReassign", () => {
         },
       },
     ]);
+    prismaMock.clientIdentity.update.mockResolvedValue({});
+    prismaMock.fileClaim.update.mockResolvedValue({});
 
     const res = await acceptFileClaimReassign({
       claimId: "claim1",
       reviewerId: "admin1",
       adminNote: null,
     });
-    expect(res).toEqual({ ok: false, error: CLOSED_PERIOD_ERROR });
-    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.message).toMatch(/locked to Alex Tambouly/i);
+      expect(res.message).toMatch(/Closed period/i);
+    }
+    expect(prismaMock.fileClaim.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: FileClaimStatus.accepted,
+          assignedSalesRep: "Alex Tambouly",
+        }),
+      }),
+    );
   });
 
+  it("moves open clawback/drop rows even when a closed cleared row also exists", async () => {
+    prismaMock.fileClaim.findUnique.mockResolvedValue(baseClaim());
+    prismaMock.clientIdentity.findFirst.mockResolvedValue({
+      crmId: "CRM-1",
+      externalId: "EXT-1",
+      salesRep: "Peter Godwin",
+    });
+    prismaMock.clientEvent.findMany
+      .mockResolvedValueOnce([
+        {
+          id: "ev-closed",
+          crmId: "CRM-1",
+          periodId: "p-closed",
+          agentPeriodId: "ap-peter-closed",
+          agentName: "Peter Godwin",
+          kind: ClientEventKind.cleared,
+          isLowCredit: false,
+          enrolledDebt: 10_000,
+          period: {
+            id: "p-closed",
+            status: PeriodStatus.closed,
+            periodLabel: "2026-06",
+            source: PeriodSource.calculated,
+          },
+        },
+        {
+          id: "ev-claw",
+          crmId: "CRM-1",
+          periodId: "p-open",
+          agentPeriodId: "ap-peter-open",
+          agentName: "Peter Godwin",
+          kind: ClientEventKind.clawback,
+          isLowCredit: false,
+          enrolledDebt: 10_000,
+          clawbackAmount: 175,
+          period: {
+            id: "p-open",
+            status: PeriodStatus.open,
+            periodLabel: "2026-08",
+            source: PeriodSource.calculated,
+          },
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "ev-claw",
+          crmId: "CRM-1",
+          periodId: "p-open",
+          agentPeriodId: "ap-alex",
+          agentName: "Alex Tambouly",
+          kind: ClientEventKind.clawback,
+          isLowCredit: false,
+          enrolledDebt: 10_000,
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    prismaMock.agentPeriod.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "ap-alex",
+        periodId: "p-open",
+        agentName: "Alex Tambouly",
+        cancellationRate: 5,
+        notes: null,
+        grossCommission: 0,
+      })
+      .mockResolvedValueOnce({
+        id: "ap-peter-open",
+        periodId: "p-open",
+        agentName: "Peter Godwin",
+        cancellationRate: 5,
+        notes: null,
+        grossCommission: 0,
+      });
+    prismaMock.agentPeriod.findFirst.mockResolvedValue({
+      id: "ap-peter-open",
+      periodId: "p-open",
+      agentName: "Peter Godwin",
+      cancellationRate: 5,
+    });
+    prismaMock.agentPeriod.create.mockResolvedValue({
+      id: "ap-alex",
+      periodId: "p-open",
+      agentName: "Alex Tambouly",
+      cancellationRate: 5,
+    });
+    prismaMock.clientEvent.update.mockResolvedValue({});
+    prismaMock.ledgerEntry.findMany.mockResolvedValue([]);
+    prismaMock.ledgerEntry.create.mockResolvedValue({});
+    prismaMock.agentPeriod.update.mockResolvedValue({});
+    prismaMock.clientIdentity.update.mockResolvedValue({});
+    prismaMock.fileClaim.update.mockResolvedValue({});
+
+    const res = await acceptFileClaimReassign({
+      claimId: "claim1",
+      reviewerId: "admin1",
+      adminNote: null,
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.message).toMatch(/moved to Alex Tambouly/i);
+      expect(res.message).toMatch(/dropped\/clawback/i);
+    }
+    expect(prismaMock.clientEvent.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "ev-claw" },
+        data: expect.objectContaining({
+          agentName: "Alex Tambouly",
+          agentPeriodId: "ap-alex",
+        }),
+      }),
+    );
+    expect(prismaMock.clientEvent.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "ev-closed" } }),
+    );
+  });
   it("accepts directory-only file and updates salesRep", async () => {
     prismaMock.fileClaim.findUnique.mockResolvedValue(baseClaim());
     prismaMock.clientIdentity.findFirst.mockResolvedValue({

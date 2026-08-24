@@ -9,7 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { prisma } from "@/lib/db";
-import { PeriodSource, PeriodStatus } from "@/generated/prisma/client";
+import { PeriodSource, PeriodStatus, FileClaimStatus } from "@/generated/prisma/client";
 import { latestCalculatedPeriods } from "@/lib/portal/queries";
 import { listStatementsAwaitingManager } from "@/lib/statements";
 import { StatementsAwaitingManager } from "@/components/statements-awaiting-manager";
@@ -22,10 +22,13 @@ export default async function ManagerHome() {
   const session = await requireManagerOrAdmin();
   const role = sessionRole(session);
   const agentId = session.user.agentId;
-  const [windowPeriods, awaitingManager, owedTotal] = await Promise.all([
+  const [windowPeriods, awaitingManager, owedTotal, pendingClaims] = await Promise.all([
     latestCalculatedPeriods(),
     listStatementsAwaitingManager().catch(() => []),
     agentId ? sumMyOwedBonuses(agentId) : Promise.resolve(0),
+    prisma.fileClaim
+      .count({ where: { status: FileClaimStatus.pending } })
+      .catch(() => 0),
   ]);
   const periodIds = windowPeriods.map((p) => p.id);
 
@@ -79,10 +82,17 @@ export default async function ManagerHome() {
         actions={
           <>
             <Link
-              href="/admin/claims"
+              href="/manager/advances"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Advances
+            </Link>
+            <Link
+              href="/manager/claims"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
               File claims
+              {pendingClaims > 0 ? ` (${pendingClaims})` : ""}
             </Link>
             <Link
               href="/manager/bonuses"

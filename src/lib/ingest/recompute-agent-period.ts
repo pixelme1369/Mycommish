@@ -24,7 +24,7 @@ async function sumActiveLedger(
 }
 
 /**
- * Recompute AgentPeriod clawback / manual bonus / net from non-reversed ledger rows.
+ * Recompute AgentPeriod clawback / bonus / advance / net from non-reversed ledger rows.
  * Never rewrites units/gross/tier (lock-after-pay).
  */
 export async function recomputeAgentPeriodClawbacks(
@@ -42,8 +42,20 @@ export async function recomputeAgentPeriodClawbacks(
   const manualBonusAmount = await sumActiveLedger(agentPeriodId, [
     LedgerType.manual_bonus,
   ]);
+  const advancePaidAmount = await sumActiveLedger(agentPeriodId, [
+    LedgerType.advance_paid,
+  ]);
+  const advanceRepayAmount = await sumActiveLedger(agentPeriodId, [
+    LedgerType.advance_repay,
+  ]);
   const gross = Number(ap.grossCommission);
-  const netCommission = computeNetCommission(gross, clawbackAmount, manualBonusAmount);
+  const netCommission = computeNetCommission(
+    gross,
+    clawbackAmount,
+    manualBonusAmount,
+    advancePaidAmount,
+    advanceRepayAmount,
+  );
 
   let notes = ap.notes || "";
   if (noteToAppend) {
@@ -55,6 +67,8 @@ export async function recomputeAgentPeriodClawbacks(
     data: {
       clawbackAmount: dec(Math.round(clawbackAmount * 100) / 100),
       manualBonusAmount: dec(Math.round(manualBonusAmount * 100) / 100),
+      advancePaidAmount: dec(Math.round(advancePaidAmount * 100) / 100),
+      advanceRepayAmount: dec(Math.round(advanceRepayAmount * 100) / 100),
       netCommission: dec(netCommission),
       payout: dec(netCommission),
       notes: notes || null,

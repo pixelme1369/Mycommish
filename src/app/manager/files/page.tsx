@@ -46,7 +46,7 @@ export default async function ManagerFilesPage() {
               Commissions
             </Link>
             <Link
-              href="/admin/claims"
+              href="/manager/claims"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
               File claims
@@ -93,8 +93,8 @@ export default async function ManagerFilesPage() {
       <section className="mt-10">
         <h2 className="font-heading text-lg tracking-tight">Flag a file</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Submit External ID + Name for admin review. Accepted claims do not invent commission —
-          admin fixes via the next CRM upload or reassignment.
+          Submit External ID + Name for manager review. Accepted claims do not invent commission —
+          assignment is locked for future CRM uploads.
         </p>
         <Card className="glass-panel mt-3 p-4">
           <MissingFileClaimForm />

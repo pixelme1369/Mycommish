@@ -57,6 +57,8 @@ model Agent {
   bonusesReimbursed     ManagerBonusPayout[] @relation("ManagerBonusReimbursedBy")
   manualBonusesCreated  ManualBonus[]        @relation("ManualBonusCreatedBy")
   manualBonusesApproved ManualBonus[]        @relation("ManualBonusApprovedBy")
+  advancesCreated       CommissionAdvance[]  @relation("AdvanceCreatedBy")
+  advancesReceived      CommissionAdvance[]  @relation("AdvanceAgent")
 
   @@index([suspendedAt])
   @@index([lastLoginAt])
@@ -170,6 +172,43 @@ model ManualBonus {
   @@index([createdById])
 }
 
+/// Company advance: add $ to one period's paycheck, deduct from a later period.
+/// Durable across CRM wipe (keyed by period labels + agentName).
+model CommissionAdvance {
+  id                    String    @id @default(cuid())
+  /// CRM Sales Rep spelling (matches AgentPeriod.agentName).
+  agentName             String
+  /// Portal user when chosen from the directory; optional.
+  agentId               String?
+  amount                Decimal   @db.Decimal(12, 2)
+  note                  String?
+  /// Period whose payday includes the advance (e.g. July paid Aug 25).
+  payWithPeriodLabel    String
+  /// Period we recover from (e.g. August).
+  deductFromPeriodLabel String
+  createdById           String
+  cancelledAt           DateTime?
+  payAgentPeriodId      String?
+  repayAgentPeriodId    String?
+  payLedgerEntryId      String?   @unique
+  repayLedgerEntryId    String?   @unique
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  createdBy      Agent            @relation("AdvanceCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  agent          Agent?           @relation("AdvanceAgent", fields: [agentId], references: [id], onDelete: SetNull)
+  payAgentPeriod AgentPeriod?     @relation("AdvancePayPeriod", fields: [payAgentPeriodId], references: [id], onDelete: SetNull)
+  repayAgentPeriod AgentPeriod?   @relation("AdvanceRepayPeriod", fields: [repayAgentPeriodId], references: [id], onDelete: SetNull)
+  payLedgerEntry LedgerEntry?     @relation("AdvancePayLedger", fields: [payLedgerEntryId], references: [id], onDelete: SetNull)
+  repayLedgerEntry LedgerEntry?   @relation("AdvanceRepayLedger", fields: [repayLedgerEntryId], references: [id], onDelete: SetNull)
+
+  @@index([agentName])
+  @@index([payWithPeriodLabel])
+  @@index([deductFromPeriodLabel])
+  @@index([createdById])
+  @@index([cancelledAt])
+}
+
 /// Soft-dismiss a CRM Sales Rep from active commission views / Gusto.
 /// Ledger + AgentPeriod rows stay for audit; UI and payroll export hide them.
 model SalesRepDismissal {
@@ -228,6 +267,10 @@ model AgentPeriod {
   clawbackAmount           Decimal @default(0) @db.Decimal(14, 2)
   /// Sum of approved manual bonuses (ledger type manual_bonus).
   manualBonusAmount        Decimal @default(0) @db.Decimal(14, 2)
+  /// Advances paid out on this period's paycheck (ledger advance_paid).
+  advancePaidAmount        Decimal @default(0) @db.Decimal(14, 2)
+  /// Advances recovered on this period (ledger advance_repay).
+  advanceRepayAmount       Decimal @default(0) @db.Decimal(14, 2)
   netCommission            Decimal @default(0) @db.Decimal(14, 2)
   payout                   Decimal @default(0) @db.Decimal(14, 2)
   payoutType               String  @default("commission")
@@ -243,6 +286,8 @@ model AgentPeriod {
   ledgerEntries LedgerEntry[]
   statement     CommissionStatement?
   manualBonuses ManualBonus[]
+  advancesPaid  CommissionAdvance[] @relation("AdvancePayPeriod")
+  advancesRepaid CommissionAdvance[] @relation("AdvanceRepayPeriod")
 
   @@unique([periodId, agentName])
   @@index([agentName])
@@ -381,6 +426,10 @@ enum LedgerType {
   clawback_history
   /// Super-admin–approved manager manual bonus (added into net).
   manual_bonus
+  /// Company advance included on this period's paycheck.
+  advance_paid
+  /// Company advance recovered from this period's paycheck.
+  advance_repay
   reversal
 }
 
@@ -405,6 +454,8 @@ model LedgerEntry {
   reversesEntry LedgerEntry?      @relation("LedgerReversal", fields: [reversesEntryId], references: [id])
   reversedBy    LedgerEntry?      @relation("LedgerReversal")
   manualBonus   ManualBonus?
+  advancePay    CommissionAdvance? @relation("AdvancePayLedger")
+  advanceRepay  CommissionAdvance? @relation("AdvanceRepayLedger")
 
   @@index([periodId, agentName])
   @@index([crmId])

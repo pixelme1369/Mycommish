@@ -162,8 +162,38 @@ export async function deleteHistoryPeriodAction(periodId: string) {
   return { ok: true as const, periodLabel: period.periodLabel };
 }
 
+/**
+ * Wipe period money rows only.
+ * Durable ops logs stay unless explicitly cleared elsewhere:
+ * statements, manual bonuses, advances, manager reimbursements, accepted file claims.
+ */
 async function deletePeriodsByIds(periodIds: string[]) {
   if (!periodIds.length) return;
+
+  // Detach advances first so ledger/period deletes never remove the durable rows.
+  const linkedAdvances = await prisma.commissionAdvance.findMany({
+    where: {
+      OR: [
+        { payAgentPeriod: { periodId: { in: periodIds } } },
+        { repayAgentPeriod: { periodId: { in: periodIds } } },
+        { payLedgerEntry: { periodId: { in: periodIds } } },
+        { repayLedgerEntry: { periodId: { in: periodIds } } },
+      ],
+    },
+    select: { id: true },
+  });
+  if (linkedAdvances.length) {
+    await prisma.commissionAdvance.updateMany({
+      where: { id: { in: linkedAdvances.map((a) => a.id) } },
+      data: {
+        payAgentPeriodId: null,
+        repayAgentPeriodId: null,
+        payLedgerEntryId: null,
+        repayLedgerEntryId: null,
+      },
+    });
+  }
+
   await prisma.ledgerEntry.deleteMany({ where: { periodId: { in: periodIds } } });
   await prisma.clientEvent.deleteMany({ where: { periodId: { in: periodIds } } });
   await prisma.agentPeriod.deleteMany({ where: { periodId: { in: periodIds } } });

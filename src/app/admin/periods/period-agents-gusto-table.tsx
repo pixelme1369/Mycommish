@@ -142,6 +142,7 @@ export function PeriodAgentsGustoTable({
 }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [pending, startTransition] = useTransition();
+  const [exportKind, setExportKind] = useState<"gusto" | "history" | "details" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showDismissed, setShowDismissed] = useState(false);
@@ -199,6 +200,7 @@ export function PeriodAgentsGustoTable({
   const exportGusto = () => {
     setMessage(null);
     setError(null);
+    setExportKind("gusto");
     startTransition(async () => {
       try {
         const res = await fetch(`/api/admin/periods/${periodId}/gusto`, {
@@ -249,6 +251,122 @@ export function PeriodAgentsGustoTable({
         setMessage(msg);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Export failed");
+      } finally {
+        setExportKind(null);
+      }
+    });
+  };
+
+  const exportCommissionHistory = () => {
+    setMessage(null);
+    setError(null);
+    setExportKind("history");
+    startTransition(async () => {
+      try {
+        const res = await fetch(
+          `/api/admin/periods/${periodId}/commission-history`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ agentPeriodIds: [...selected] }),
+          },
+        );
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          setError(data?.error || "Export failed");
+          return;
+        }
+
+        const metaRaw = res.headers.get("X-Commission-History-Meta");
+        const meta = metaRaw
+          ? (JSON.parse(metaRaw) as {
+              rowCount: number;
+              agentCount: number;
+              filename: string;
+            })
+          : null;
+
+        const blob = await res.blob();
+        const filename =
+          meta?.filename ||
+          res.headers
+            .get("Content-Disposition")
+            ?.match(/filename="([^"]+)"/)?.[1] ||
+          "commission-history.xlsx";
+        downloadBlob(filename, blob);
+
+        setMessage(
+          `Downloaded ${filename}${
+            meta?.rowCount != null
+              ? ` · ${meta.rowCount} client row${meta.rowCount === 1 ? "" : "s"}`
+              : ""
+          }.`,
+        );
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Export failed");
+      } finally {
+        setExportKind(null);
+      }
+    });
+  };
+
+  const exportAgentClientDetails = () => {
+    setMessage(null);
+    setError(null);
+    setExportKind("details");
+    startTransition(async () => {
+      try {
+        const res = await fetch(
+          `/api/admin/periods/${periodId}/agent-client-details`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ agentPeriodIds: [...selected] }),
+          },
+        );
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          setError(data?.error || "Export failed");
+          return;
+        }
+
+        const metaRaw = res.headers.get("X-Agent-Client-Details-Meta");
+        const meta = metaRaw
+          ? (JSON.parse(metaRaw) as {
+              agentCount: number;
+              clientRowCount: number;
+              chargebackRowCount: number;
+              filename: string;
+            })
+          : null;
+
+        const blob = await res.blob();
+        const filename =
+          meta?.filename ||
+          res.headers
+            .get("Content-Disposition")
+            ?.match(/filename="([^"]+)"/)?.[1] ||
+          "agent-client-details.xlsx";
+        downloadBlob(filename, blob);
+
+        const parts = [
+          meta?.agentCount != null ? `${meta.agentCount} agents` : null,
+          meta?.clientRowCount != null
+            ? `${meta.clientRowCount} client row${meta.clientRowCount === 1 ? "" : "s"}`
+            : null,
+          meta?.chargebackRowCount
+            ? `${meta.chargebackRowCount} chargeback${meta.chargebackRowCount === 1 ? "" : "s"}`
+            : null,
+        ].filter(Boolean);
+        setMessage(
+          `Downloaded ${filename}${parts.length ? ` · ${parts.join(", ")}` : ""}.`,
+        );
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Export failed");
+      } finally {
+        setExportKind(null);
       }
     });
   };
@@ -259,7 +377,7 @@ export function PeriodAgentsGustoTable({
         <p className="text-sm text-muted-foreground">
           {readOnly
             ? "Team commissions · view only · open an agent for file detail and claims"
-            : "Select people for Gusto · employees and 1099s export as separate tabs"}
+            : "Select people to export · Gusto, Commission History, or Agent Client Details"}
         </p>
         {!readOnly ? (
           <div className="flex flex-wrap items-center gap-2">
@@ -285,7 +403,29 @@ export function PeriodAgentsGustoTable({
               onClick={exportGusto}
               className={cn(buttonVariants({ variant: "default", size: "sm" }))}
             >
-              {pending ? "Exporting…" : `Export Gusto${someSelected ? ` (${selected.size})` : ""}`}
+              {pending && exportKind === "gusto"
+                ? "Exporting…"
+                : `Export Gusto${someSelected ? ` (${selected.size})` : ""}`}
+            </button>
+            <button
+              type="button"
+              disabled={!someSelected || pending}
+              onClick={exportCommissionHistory}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              {pending && exportKind === "history"
+                ? "Exporting…"
+                : `Commission History${someSelected ? ` (${selected.size})` : ""}`}
+            </button>
+            <button
+              type="button"
+              disabled={!someSelected || pending}
+              onClick={exportAgentClientDetails}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              {pending && exportKind === "details"
+                ? "Exporting…"
+                : `Agent Client Details${someSelected ? ` (${selected.size})` : ""}`}
             </button>
           </div>
         ) : null}

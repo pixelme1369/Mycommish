@@ -91,8 +91,11 @@ export async function resolveClaimIdentity(externalOrCrmId: string, db: Db = pri
 }
 
 /**
- * Accept a pending file claim: move open calculated commission to the claimer’s
- * Sales Rep alias, or refuse if any hit is in a closed period.
+ * Accept a pending file claim:
+ * - Always lock Sales Rep (`assignedSalesRep` + directory) so future CRM uploads keep it
+ * - Move any *open* calculated ClientEvents / clawback ledger rows to the claimer
+ *   (including dropped / clawback / cancelled rows)
+ * - Never rewrite *closed* (already paid) periods — those stay as historical rows
  */
 export async function acceptFileClaimReassign(opts: {
   claimId: string;
@@ -134,11 +137,8 @@ export async function acceptFileClaimReassign(opts: {
     include: { period: { select: { id: true, status: true, periodLabel: true, source: true } } },
   });
 
-  if (events.some((e) => e.period.status === PeriodStatus.closed)) {
-    return { ok: false, error: CLOSED_PERIOD_ERROR };
-  }
-
   const openEvents = events.filter((e) => e.period.status === PeriodStatus.open);
+  const closedCount = events.length - openEvents.length;
   const alreadyOnClaimer =
     agentIdentityKey(identity.salesRep || "") === claimerKey &&
     openEvents.every((e) => agentIdentityKey(e.agentName) === claimerKey);
@@ -174,19 +174,24 @@ export async function acceptFileClaimReassign(opts: {
     return { ok: false, error: msg };
   }
 
+  const closedNote =
+    closedCount > 0
+      ? ` Closed period row(s) left unchanged (${CLOSED_PERIOD_ERROR.replace(/\.$/, "")}).`
+      : "";
+
   if (alreadyOnClaimer || openEvents.length === 0) {
     return {
       ok: true,
       message:
         openEvents.length === 0
-          ? "Accepted — Assigned to updated; file was not in an open commission period."
-          : "Accepted — already assigned to claimer.",
+          ? `Accepted — locked to ${claimerAlias} for future CRM uploads.${closedNote || " No open-period commission rows to move yet."}`
+          : `Accepted — already assigned to claimer.${closedNote}`,
     };
   }
 
   return {
     ok: true,
-    message: `Accepted — moved to ${claimerAlias} in open period(s).`,
+    message: `Accepted — moved to ${claimerAlias} in open period(s) (incl. dropped/clawback rows).${closedNote}`,
   };
 }
 
@@ -387,8 +392,42 @@ async function recomputeAgentPeriodAfterReassign(
     Math.round(
       bonusEntries.filter((e) => !e.reversedBy).reduce((s, e) => s + Number(e.amount), 0) * 100,
     ) / 100;
+  const advancePaidEntries = await tx.ledgerEntry.findMany({
+    where: {
+      agentPeriodId,
+      type: LedgerType.advance_paid,
+      reversesEntryId: null,
+    },
+    include: { reversedBy: true },
+  });
+  const advancePaidAmount =
+    Math.round(
+      advancePaidEntries
+        .filter((e) => !e.reversedBy)
+        .reduce((s, e) => s + Number(e.amount), 0) * 100,
+    ) / 100;
+  const advanceRepayEntries = await tx.ledgerEntry.findMany({
+    where: {
+      agentPeriodId,
+      type: LedgerType.advance_repay,
+      reversesEntryId: null,
+    },
+    include: { reversedBy: true },
+  });
+  const advanceRepayAmount =
+    Math.round(
+      advanceRepayEntries
+        .filter((e) => !e.reversedBy)
+        .reduce((s, e) => s + Number(e.amount), 0) * 100,
+    ) / 100;
   const gross = Math.round(calc.grossCommission * 100) / 100;
-  const netCommission = computeNetCommission(gross, clawbackAmount, manualBonusAmount);
+  const netCommission = computeNetCommission(
+    gross,
+    clawbackAmount,
+    manualBonusAmount,
+    advancePaidAmount,
+    advanceRepayAmount,
+  );
 
   const noteBit = `file claim reassign ${movedCrmId}`;
   const notes = ap.notes?.includes(noteBit)
@@ -408,6 +447,8 @@ async function recomputeAgentPeriodAfterReassign(
       grossCommission: dec(gross),
       clawbackAmount: dec(clawbackAmount),
       manualBonusAmount: dec(manualBonusAmount),
+      advancePaidAmount: dec(advancePaidAmount),
+      advanceRepayAmount: dec(advanceRepayAmount),
       netCommission: dec(netCommission),
       payout: dec(netCommission),
       payoutType: calc.payoutType,

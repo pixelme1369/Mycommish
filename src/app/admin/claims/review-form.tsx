@@ -39,7 +39,7 @@ export function ClaimReviewForm({
       <Input
         value={adminNote}
         onChange={(e) => setAdminNote(e.target.value)}
-        placeholder="Admin notes"
+        placeholder="Notes"
         className="h-7 text-xs"
         disabled={busy}
       />

@@ -12,6 +12,7 @@ import { isPoisonedDebtDroppedDate, parseCrmAndCalculate } from "@/lib/commissio
 import { loadAcceptedSalesRepOverrides } from "@/lib/claims/sales-rep-overrides";
 import { relinkCommissionStatements } from "@/lib/statements";
 import { relinkManualBonuses } from "@/lib/manual-bonuses";
+import { relinkAdvances } from "@/lib/advances";
 import {
   ClientEventKind,
   LedgerType,
@@ -449,6 +450,14 @@ async function createFullPeriod(
   } catch (err) {
     console.error("relinkManualBonuses failed", err);
   }
+  try {
+    await relinkAdvances({
+      periodLabel: period.periodLabel!,
+      agentPeriods: createdAgentPeriods,
+    });
+  } catch (err) {
+    console.error("relinkAdvances failed", err);
+  }
 }
 
 async function applyClawbacksOnly(
@@ -532,11 +541,15 @@ async function applyClawbacksOnly(
       const newCb = Number(agentPeriod.clawbackAmount) + added;
       const gross = Number(agentPeriod.grossCommission);
       const manualBonus = Number(agentPeriod.manualBonusAmount);
+      const advancePaid = Number(agentPeriod.advancePaidAmount);
+      const advanceRepay = Number(agentPeriod.advanceRepayAmount);
       await prisma.agentPeriod.update({
         where: { id: agentPeriod.id },
         data: {
           clawbackAmount: dec(Math.round(newCb * 100) / 100),
-          netCommission: dec(computeNetCommission(gross, newCb, manualBonus)),
+          netCommission: dec(
+            computeNetCommission(gross, newCb, manualBonus, advancePaid, advanceRepay),
+          ),
           notes: agentPeriod.notes
             ? `${agentPeriod.notes} | CRM clawback +$${added.toFixed(2)}`
             : `CRM clawback +$${added.toFixed(2)}`,

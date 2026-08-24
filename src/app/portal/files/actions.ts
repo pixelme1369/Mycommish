@@ -42,7 +42,9 @@ async function createPendingClaim(opts: {
 
   revalidatePath("/portal/files");
   revalidatePath("/admin/claims");
-  return { ok: true, message: "Submitted for admin review." };
+  revalidatePath("/manager/claims");
+  revalidatePath("/manager/files");
+  return { ok: true, message: "Submitted for review." };
 }
 
 export async function createFileClaimAction(
@@ -103,6 +105,7 @@ export async function reviewFileClaimAction(
       adminNote,
     });
     revalidatePath("/admin/claims");
+    revalidatePath("/manager/claims");
     revalidatePath("/portal/files");
     revalidatePath("/manager/files");
     revalidatePath("/admin");
@@ -127,6 +130,7 @@ export async function reviewFileClaimAction(
   });
 
   revalidatePath("/admin/claims");
+  revalidatePath("/manager/claims");
   revalidatePath("/portal/files");
   revalidatePath("/manager/files");
   revalidatePath("/admin");
@@ -166,6 +170,7 @@ export async function deleteAllFileClaimsAction(): Promise<ClaimActionState> {
   await requireAdmin();
   const result = await prisma.fileClaim.deleteMany({});
   revalidatePath("/admin/claims");
+  revalidatePath("/manager/claims");
   revalidatePath("/portal/files");
   revalidatePath("/admin");
   return {

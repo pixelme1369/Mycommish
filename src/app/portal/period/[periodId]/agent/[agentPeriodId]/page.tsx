@@ -37,9 +37,9 @@ import { WaitingFirstPaymentSection } from "./waiting-first-payment-section";
 import { CancelRateBreakdownSection } from "./cancel-rate-breakdown";
 import { ManualBonusSection } from "./manual-bonus-section";
 import { listManualBonusesForAgentPeriod } from "@/lib/manual-bonuses";
+import { listAdvancesForAgentPeriod } from "@/lib/advances";
 import { getStatementForAgentPeriodRow } from "@/lib/statements";
 import type { ClientEvent } from "@/generated/prisma/client";
-
 type PortalClientEvent = ClientEvent & {
   identity?: { externalId: string | null } | null;
 };
@@ -129,6 +129,10 @@ export default async function PeriodDetailPage({
     agentPeriodId: row.id,
     periodLabel: row.period.periodLabel,
     agentName: row.agentName,
+  });
+  const advances = await listAdvancesForAgentPeriod({
+    agentName: row.agentName,
+    periodLabel: row.period.periodLabel,
   });
   const pendingManualBonusTotal = manualBonuses
     .filter((b) => b.status === "pending")
@@ -223,6 +227,19 @@ export default async function PeriodDetailPage({
               value={Number(row.clawbackAmount) > 0 ? `-${money(row.clawbackAmount)}` : "—"}
               danger={Number(row.clawbackAmount) > 0}
             />
+            {Number(row.advancePaidAmount) > 0 ? (
+              <Metric
+                label="Advance paid"
+                value={`+${money(row.advancePaidAmount)}`}
+              />
+            ) : null}
+            {Number(row.advanceRepayAmount) > 0 ? (
+              <Metric
+                label="Advance repay"
+                value={`-${money(row.advanceRepayAmount)}`}
+                danger
+              />
+            ) : null}
             <Metric label="Cancel rate" value={cancelRatePercent(row.cancellationRate)} />
             <Metric label="Pending cancellations" value={String(row.pendingUnits)} />
             <Metric label="Cleared debt" value={money(row.totalClearedDebt)} />
@@ -266,6 +283,45 @@ export default async function PeriodDetailPage({
         canApprove={superAdmin}
         agentView={isAgentView}
       />
+
+      {advances.length > 0 ? (
+        <section className="mt-8">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <h2 className="font-heading text-base tracking-tight">Advances</h2>
+            {staffView ? (
+              <Link
+                href="/manager/advances"
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+              >
+                Manage
+              </Link>
+            ) : null}
+          </div>
+          <Card className="glass-panel mt-3 overflow-hidden py-0">
+            <ul className="divide-y divide-border/70">
+              {advances.map((a) => {
+                const onPay = a.payWithPeriodLabel === row.period.periodLabel;
+                return (
+                  <li key={a.id} className="px-4 py-3 text-sm">
+                    <p className="font-medium tabular-nums">
+                      {onPay ? "+" : "−"}
+                      {money(a.amount)}
+                      <span className="ml-2 font-normal text-muted-foreground">
+                        {onPay
+                          ? `included on this paycheck · recovers from ${a.deductFromPeriodLabel}`
+                          : `repaying advance from ${a.payWithPeriodLabel}`}
+                      </span>
+                    </p>
+                    {a.note ? (
+                      <p className="mt-0.5 text-xs text-muted-foreground">{a.note}</p>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        </section>
+      ) : null}
 
       <ClearedSection
         clients={cleared}

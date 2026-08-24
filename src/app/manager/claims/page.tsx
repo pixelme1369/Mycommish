@@ -1,24 +1,21 @@
 import Link from "next/link";
-import {
-  isAdminUser,
-  requireManagerOrAdmin,
-} from "@/lib/auth-guards";
-import { adminHomeLinkLabel, formatRoleLabel } from "@/lib/roles";
+import { requireManagerOrAdmin, isAdminUser } from "@/lib/auth-guards";
+import { formatRoleLabel } from "@/lib/roles";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ClearAllClaimsButton } from "./clear-all-claims-button";
 import { FileClaimsQueue } from "@/components/file-claims-queue";
 import { loadFileClaimsQueueData } from "@/lib/claims/load-queue";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminClaimsPage() {
+export default async function ManagerClaimsPage() {
   const session = await requireManagerOrAdmin();
   const admin = isAdminUser(session);
-  const { claims, pendingCount, totalClaimCount, identityByClaimId, eventByCrm } =
+  const { claims, pendingCount, identityByClaimId, eventByCrm } =
     await loadFileClaimsQueueData();
 
   return (
@@ -31,22 +28,37 @@ export default async function AdminClaimsPage() {
           </span>
         }
         title="File claims"
-        description={`${pendingCount} pending · External ID (= Cordoba ID) · Accept locks Sales Rep for future CRM + moves open-period rows (incl. dropped/clawback); closed periods stay locked`}
+        description={
+          <>
+            {pendingCount > 0 ? (
+              <Badge variant="secondary" className="mr-2 font-normal">
+                {pendingCount} pending
+              </Badge>
+            ) : null}
+            Review agent claims · Accept locks Sales Rep for future CRM + moves
+            open-period rows (incl. dropped/clawback); closed periods stay locked
+          </>
+        }
         actions={
           <>
-            {admin ? <ClearAllClaimsButton claimCount={totalClaimCount} /> : null}
             <Link
-              href={admin ? "/admin" : "/manager"}
+              href="/manager"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
-              {admin ? adminHomeLinkLabel(session.user.role) : "← Manager"}
+              ← Manager
             </Link>
-            {!admin ? (
+            <Link
+              href="/manager/files"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              All files
+            </Link>
+            {admin ? (
               <Link
-                href="/manager/claims"
+                href="/admin/claims"
                 className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
               >
-                Manager view
+                Admin claims
               </Link>
             ) : null}
             <SignOutButton />
