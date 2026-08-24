@@ -83,9 +83,10 @@ function employeeRow(
   roster: EmployeeRosterRow | null,
   periodLabel: string,
 ): Array<string | number> {
-  // Always use Gusto timesheet legal names when roster matched — never CRM spelling.
-  const last = roster?.lastName || "";
-  const first = roster?.firstName || "";
+  // Names from mycommish (CRM / portal spelling), not Gusto roster legal names.
+  const split = splitPersonName(agent.agentName);
+  const last = titleCaseName(split.lastName).trim();
+  const first = titleCaseName(split.firstName).trim();
   const title = roster?.title || "Debt Settlement Officer (Primary)";
   const id = roster?.gustoEmployeeId || "";
   const hours = roster?.regularHours ?? "0.0";
@@ -218,15 +219,30 @@ export function buildGustoExports(
   };
 }
 
+const GUSTO_ID_COL = 4; // gusto_employee_id (1-based)
+
 function fillSheet(
   ws: ExcelJS.Worksheet,
   headers: readonly string[],
   rows: Array<Array<string | number>>,
+  opts?: { highlightMissingGustoId?: boolean },
 ) {
   ws.addRow([...headers]);
   ws.getRow(1).font = { bold: true };
   for (const row of rows) {
-    ws.addRow(row);
+    const excelRow = ws.addRow(row);
+    if (opts?.highlightMissingGustoId) {
+      const idCell = excelRow.getCell(GUSTO_ID_COL);
+      const idVal = String(idCell.value ?? "").trim();
+      if (!idVal) {
+        idCell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFFF0000" },
+        };
+        idCell.font = { color: { argb: "FFFFFFFF" }, bold: true };
+      }
+    }
   }
   ws.views = [{ state: "frozen", ySplit: 1 }];
 }
@@ -252,7 +268,9 @@ export async function buildGustoWorkbook(
     const agentsSheet = wb.addWorksheet("Agents", {
       properties: { defaultColWidth: 14 },
     });
-    fillSheet(agentsSheet, EMPLOYEE_HEADERS, sheets.employeeRows);
+    fillSheet(agentsSheet, EMPLOYEE_HEADERS, sheets.employeeRows, {
+      highlightMissingGustoId: true,
+    });
   }
 
   if (sheets.contractorRows.length > 0) {
@@ -261,10 +279,6 @@ export async function buildGustoWorkbook(
     });
     fillSheet(contractorsSheet, CONTRACTOR_HEADERS, sheets.contractorRows);
   }
-
-  // Always include both tabs when mixed selection requested empty side? User asked
-  // for two tabs when both selected — we only add sheets that have rows.
-  // If only one type, still one tab (correct template).
 
   const buffer = Buffer.from(await wb.xlsx.writeBuffer());
   const safe = periodLabel.replace(/[^\w\-]+/g, "_");

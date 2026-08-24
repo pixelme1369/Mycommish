@@ -54,13 +54,22 @@ describe("buildGustoExports", () => {
     expect(built.contractorCsv).toContain("Aluna Consulting Group LLC");
   });
 
-  it("exports Gusto legal names not CRM nicknames", () => {
+  it("exports mycommish app names on employee sheet", () => {
     const built = buildGustoExports(
       [{ agentPeriodId: "1", agentName: "AJ Valipour", netCommission: 100 }],
       "2026-07",
     );
-    expect(built.employeeCsv).toContain("Valipour,Amirarsalan,");
-    expect(built.employeeCsv).not.toContain("AJ");
+    expect(built.employeeCsv).toContain("Valipour,Aj,");
+    expect(built.employeeCsv).toContain("a330a1");
+  });
+
+  it("still looks up gusto_employee_id from roster when present", () => {
+    const built = buildGustoExports(
+      [{ agentPeriodId: "1", agentName: "Neka Bullock", netCommission: 50 }],
+      "2026-07",
+    );
+    expect(built.employeeCsv).toContain("Bullock,Neka,");
+    expect(built.employeeCsv).toContain("957970");
   });
 
   it("never puts a contractor on the employee sheet", () => {
@@ -105,5 +114,21 @@ describe("buildGustoWorkbook", () => {
     expect(wb.getWorksheet("Contractors")!.getRow(2).getCell(3).value).toBe(
       "Debt Free Consulting LLC",
     );
+  });
+
+  it("highlights missing gusto_employee_id cells in red", async () => {
+    const built = await buildGustoWorkbook(
+      [{ agentPeriodId: "1", agentName: "Unknown Agent Person", netCommission: 10 }],
+      "2026-07",
+    );
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(built.buffer as unknown as ArrayBuffer);
+    const cell = wb.getWorksheet("Agents")!.getRow(2).getCell(4);
+    expect(cell.value == null || cell.value === "").toBe(true);
+    const fill = cell.fill as ExcelJS.FillPattern | undefined;
+    expect(fill?.type).toBe("pattern");
+    expect(fill?.fgColor?.argb).toBe("FFFF0000");
+    expect(wb.getWorksheet("Agents")!.getRow(2).getCell(1).value).toBe("Person");
+    expect(wb.getWorksheet("Agents")!.getRow(2).getCell(2).value).toBe("Unknown Agent");
   });
 });
