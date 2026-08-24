@@ -59,6 +59,7 @@ model Agent {
   manualBonusesApproved ManualBonus[]        @relation("ManualBonusApprovedBy")
   advancesCreated       CommissionAdvance[]  @relation("AdvanceCreatedBy")
   advancesReceived      CommissionAdvance[]  @relation("AdvanceAgent")
+  periodExclusionsCreated PeriodAgentExclusion[] @relation("PeriodExclusionCreatedBy")
 
   @@index([suspendedAt])
   @@index([lastLoginAt])
@@ -218,6 +219,24 @@ model SalesRepDismissal {
   dismissedAt  DateTime @default(now())
   note         String?
   createdAt    DateTime @default(now())
+}
+
+/// Hide an agent from one calculated period’s pay list / Gusto only.
+/// Durable across CRM wipe (keyed by periodLabel + agentNameKey).
+model PeriodAgentExclusion {
+  id           String   @id @default(cuid())
+  periodLabel  String // YYYY-MM
+  agentNameKey String
+  agentName    String
+  note         String?
+  createdById  String?
+  createdAt    DateTime @default(now())
+
+  createdBy Agent? @relation("PeriodExclusionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([periodLabel, agentNameKey])
+  @@index([periodLabel])
+  @@index([agentNameKey])
 }
 
 // ─── Periods ──────────────────────────────────────────────────────────────────

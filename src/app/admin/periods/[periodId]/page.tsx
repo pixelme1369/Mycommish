@@ -10,6 +10,10 @@ import {
   dismissalKey,
   listDismissedKeys,
 } from "@/lib/agents/dismissal";
+import {
+  exclusionKey,
+  listExcludedKeysForPeriod,
+} from "@/lib/agents/period-exclusion";
 import { DeletePeriodButton } from "@/app/admin/delete-period-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
@@ -34,12 +38,13 @@ export default async function AdminPeriodPage({
   });
   if (!period) notFound();
 
-  const [agents, dismissedKeys, bonusRows] = await Promise.all([
+  const [agents, dismissedKeys, excludedKeys, bonusRows] = await Promise.all([
     prisma.agentPeriod.findMany({
       where: { periodId },
       orderBy: [{ netCommission: "desc" }, { agentName: "asc" }],
     }),
     listDismissedKeys(),
+    listExcludedKeysForPeriod(period.periodLabel),
     listBonusesForPeriod(period.periodLabel).catch((err) => {
       console.error("listBonusesForPeriod failed", err);
       return [];
@@ -60,9 +65,10 @@ export default async function AdminPeriodPage({
     netCommission: Number(a.netCommission),
     cancellationRate: Number(a.cancellationRate),
     dismissed: dismissedKeys.has(dismissalKey(a.agentName)),
+    excluded: excludedKeys.has(exclusionKey(a.agentName)),
   }));
 
-  const activeRows = tableRows.filter((r) => !r.dismissed);
+  const activeRows = tableRows.filter((r) => !r.dismissed && !r.excluded);
   const activeTotals = activeRows.reduce(
     (acc, a) => {
       acc.units += a.unitsCleared;
@@ -73,7 +79,8 @@ export default async function AdminPeriodPage({
     },
     { units: 0, gross: 0, clawback: 0, net: 0 },
   );
-  const dismissedCount = tableRows.length - activeRows.length;
+  const dismissedCount = tableRows.filter((r) => r.dismissed).length;
+  const excludedCount = tableRows.filter((r) => r.excluded && !r.dismissed).length;
 
   return (
     <AppShell wide>
@@ -94,6 +101,7 @@ export default async function AdminPeriodPage({
             {period.uploadedAt
               ? ` · uploaded ${period.uploadedAt.toISOString().slice(0, 10)}`
               : ""}
+            {excludedCount > 0 ? ` · ${excludedCount} removed from period` : ""}
             {dismissedCount > 0 ? ` · ${dismissedCount} dismissed hidden` : ""}
           </>
         }
@@ -123,8 +131,10 @@ export default async function AdminPeriodPage({
       ) : (
         <PeriodAgentsGustoTable
           periodId={period.id}
+          periodLabel={period.periodLabel}
           agents={tableRows}
           dismissedCount={dismissedCount}
+          excludedCount={excludedCount}
         />
       )}
     </AppShell>

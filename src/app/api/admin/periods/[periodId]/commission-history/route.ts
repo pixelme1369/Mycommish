@@ -4,6 +4,10 @@ import { prisma } from "@/lib/db";
 import { PeriodSource } from "@/generated/prisma/client";
 import { buildCommissionHistoryWorkbook } from "@/lib/export/commission-history";
 import { dismissalKey, listDismissedKeys } from "@/lib/agents/dismissal";
+import {
+  exclusionKey,
+  listExcludedKeysForPeriod,
+} from "@/lib/agents/period-exclusion";
 
 export const dynamic = "force-dynamic";
 
@@ -44,13 +48,20 @@ export async function POST(
     return NextResponse.json({ error: "No matching agents" }, { status: 404 });
   }
 
-  const dismissedKeys = await listDismissedKeys();
-  const activeRows = rows.filter((r) => !dismissedKeys.has(dismissalKey(r.agentName)));
+  const [dismissedKeys, excludedKeys] = await Promise.all([
+    listDismissedKeys(),
+    listExcludedKeysForPeriod(period.periodLabel),
+  ]);
+  const activeRows = rows.filter(
+    (r) =>
+      !dismissedKeys.has(dismissalKey(r.agentName)) &&
+      !excludedKeys.has(exclusionKey(r.agentName)),
+  );
   if (activeRows.length === 0) {
     return NextResponse.json(
       {
         error:
-          "Selected agents are dismissed — reinstate them first, or pick active agents",
+          "Selected agents are dismissed or removed from this period — restore them first, or pick active agents",
       },
       { status: 400 },
     );

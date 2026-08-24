@@ -25,6 +25,8 @@ export type PeriodAgentRow = {
   netCommission: number | string;
   cancellationRate: number | string;
   dismissed?: boolean;
+  /** Hidden from this period’s pay only (not global dismiss). */
+  excluded?: boolean;
 };
 
 type SortKey =
@@ -131,13 +133,17 @@ function SortTh({
 
 export function PeriodAgentsGustoTable({
   periodId,
+  periodLabel,
   agents,
   dismissedCount = 0,
+  excludedCount = 0,
   readOnly = false,
 }: {
   periodId: string;
+  periodLabel: string;
   agents: PeriodAgentRow[];
   dismissedCount?: number;
+  excludedCount?: number;
   /** Managers: view + navigate only — no Gusto, select, or dismiss. */
   readOnly?: boolean;
 }) {
@@ -147,12 +153,18 @@ export function PeriodAgentsGustoTable({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showDismissed, setShowDismissed] = useState(false);
+  const [showExcluded, setShowExcluded] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("netCommission");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const visibleAgents = useMemo(() => {
-    const filtered =
-      readOnly || !showDismissed ? agents.filter((a) => !a.dismissed) : agents;
+    let filtered = agents;
+    if (readOnly) {
+      filtered = agents.filter((a) => !a.dismissed && !a.excluded);
+    } else {
+      if (!showDismissed) filtered = filtered.filter((a) => !a.dismissed);
+      if (!showExcluded) filtered = filtered.filter((a) => !a.excluded);
+    }
     const sorted = [...filtered].sort((a, b) => {
       const av = sortValue(a, sortKey);
       const bv = sortValue(b, sortKey);
@@ -166,7 +178,7 @@ export function PeriodAgentsGustoTable({
       return sortDir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [agents, showDismissed, sortKey, sortDir, readOnly]);
+  }, [agents, showDismissed, showExcluded, sortKey, sortDir, readOnly]);
 
   const onSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -382,6 +394,15 @@ export function PeriodAgentsGustoTable({
         </p>
         {!readOnly ? (
           <div className="flex flex-wrap items-center gap-2">
+            {excludedCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => setShowExcluded((v) => !v)}
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+              >
+                {showExcluded ? "Hide removed" : `Removed (${excludedCount})`}
+              </button>
+            ) : null}
             {dismissedCount > 0 ? (
               <button
                 type="button"
@@ -555,7 +576,7 @@ export function PeriodAgentsGustoTable({
                   className={cn(
                     "hover:bg-muted/30",
                     !readOnly && checked && "bg-muted/40",
-                    r.dismissed && "opacity-60",
+                    (r.dismissed || r.excluded) && "opacity-60",
                   )}
                 >
                   {!readOnly ? (
@@ -563,7 +584,7 @@ export function PeriodAgentsGustoTable({
                       <input
                         type="checkbox"
                         checked={checked}
-                        disabled={Boolean(r.dismissed)}
+                        disabled={Boolean(r.dismissed || r.excluded)}
                         onChange={() => toggle(r.id)}
                         aria-label={`Select ${r.agentName}`}
                         className="rounded border-border"
@@ -572,7 +593,7 @@ export function PeriodAgentsGustoTable({
                   ) : null}
                   <td className="px-3 py-2 align-middle whitespace-nowrap">
                     <div className="flex max-w-[14rem] items-center gap-1.5">
-                      {r.dismissed ? (
+                      {r.dismissed || r.excluded ? (
                         <span className="truncate font-medium" title={r.agentName}>
                           {r.agentName}
                         </span>
@@ -591,6 +612,11 @@ export function PeriodAgentsGustoTable({
                           title={companyTitle}
                         >
                           1099
+                        </span>
+                      ) : null}
+                      {r.excluded && !r.dismissed ? (
+                        <span className="shrink-0 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                          Removed
                         </span>
                       ) : null}
                       {r.dismissed ? (
@@ -666,9 +692,11 @@ export function PeriodAgentsGustoTable({
                   <td className="px-3 py-2 align-middle">
                     <PeriodAgentRowActions
                       periodId={periodId}
+                      periodLabel={periodLabel}
                       agentPeriodId={r.id}
                       agentName={r.agentName}
                       dismissed={r.dismissed}
+                      excluded={r.excluded}
                       readOnly={readOnly}
                     />
                   </td>

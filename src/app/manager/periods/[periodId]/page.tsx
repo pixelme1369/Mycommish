@@ -7,6 +7,10 @@ import { prisma } from "@/lib/db";
 import { PeriodSource } from "@/generated/prisma/client";
 import { money } from "@/lib/format";
 import { dismissalKey, listDismissedKeys } from "@/lib/agents/dismissal";
+import {
+  exclusionKey,
+  listExcludedKeysForPeriod,
+} from "@/lib/agents/period-exclusion";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
@@ -34,12 +38,13 @@ export default async function ManagerPeriodPage({
   const ownOnly = role !== "admin";
   const paidById = session.user.agentId || undefined;
 
-  const [agents, dismissedKeys, bonusRows] = await Promise.all([
+  const [agents, dismissedKeys, excludedKeys, bonusRows] = await Promise.all([
     prisma.agentPeriod.findMany({
       where: { periodId },
       orderBy: [{ netCommission: "desc" }, { agentName: "asc" }],
     }),
     listDismissedKeys(),
+    listExcludedKeysForPeriod(period.periodLabel),
     listBonusesForPeriod(
       period.periodLabel,
       ownOnly && paidById ? { paidById } : undefined,
@@ -63,9 +68,10 @@ export default async function ManagerPeriodPage({
     netCommission: Number(a.netCommission),
     cancellationRate: Number(a.cancellationRate),
     dismissed: dismissedKeys.has(dismissalKey(a.agentName)),
+    excluded: excludedKeys.has(exclusionKey(a.agentName)),
   }));
 
-  const activeRows = tableRows.filter((r) => !r.dismissed);
+  const activeRows = tableRows.filter((r) => !r.dismissed && !r.excluded);
   const activeTotals = activeRows.reduce(
     (acc, a) => {
       acc.units += a.unitsCleared;
@@ -138,8 +144,10 @@ export default async function ManagerPeriodPage({
       ) : (
         <PeriodAgentsGustoTable
           periodId={period.id}
+          periodLabel={period.periodLabel}
           agents={tableRows}
           dismissedCount={0}
+          excludedCount={0}
           readOnly
         />
       )}
