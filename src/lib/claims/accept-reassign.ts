@@ -392,6 +392,20 @@ async function recomputeAgentPeriodAfterReassign(
     Math.round(
       bonusEntries.filter((e) => !e.reversedBy).reduce((s, e) => s + Number(e.amount), 0) * 100,
     ) / 100;
+  const teamLeadEntries = await tx.ledgerEntry.findMany({
+    where: {
+      agentPeriodId,
+      type: LedgerType.team_lead_bonus,
+      reversesEntryId: null,
+    },
+    include: { reversedBy: true },
+  });
+  const teamLeadBonusAmount =
+    Math.round(
+      teamLeadEntries
+        .filter((e) => !e.reversedBy)
+        .reduce((s, e) => s + Number(e.amount), 0) * 100,
+    ) / 100;
   const advancePaidEntries = await tx.ledgerEntry.findMany({
     where: {
       agentPeriodId,
@@ -427,6 +441,7 @@ async function recomputeAgentPeriodAfterReassign(
     manualBonusAmount,
     advancePaidAmount,
     advanceRepayAmount,
+    teamLeadBonusAmount,
   );
 
   const noteBit = `file claim reassign ${movedCrmId}`;
@@ -447,6 +462,7 @@ async function recomputeAgentPeriodAfterReassign(
       grossCommission: dec(gross),
       clawbackAmount: dec(clawbackAmount),
       manualBonusAmount: dec(manualBonusAmount),
+      teamLeadBonusAmount: dec(teamLeadBonusAmount),
       advancePaidAmount: dec(advancePaidAmount),
       advanceRepayAmount: dec(advanceRepayAmount),
       netCommission: dec(netCommission),

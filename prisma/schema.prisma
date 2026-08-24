@@ -60,6 +60,7 @@ model Agent {
   advancesCreated       CommissionAdvance[]  @relation("AdvanceCreatedBy")
   advancesReceived      CommissionAdvance[]  @relation("AdvanceAgent")
   periodExclusionsCreated PeriodAgentExclusion[] @relation("PeriodExclusionCreatedBy")
+  teamLeads             TeamLead[]
 
   @@index([suspendedAt])
   @@index([lastLoginAt])
@@ -239,6 +240,45 @@ model PeriodAgentExclusion {
   @@index([agentNameKey])
 }
 
+/// How a team-lead bonus counts units for a period.
+enum TeamLeadBonusScope {
+  /// Sum of selected teammates’ unitsCleared.
+  roster
+  /// Sum of every agent’s unitsCleared on the period (period “Units cleared” total).
+  all_period_units
+}
+
+/// Portal agent who earns a per-unit bonus on teammates’ cleared files.
+model TeamLead {
+  id            String             @id @default(cuid())
+  leadAgentId   String
+  /// CRM Sales Rep spelling for the AgentPeriod / ledger row that receives the bonus.
+  leadAgentName String
+  ratePerUnit   Decimal            @default(5) @db.Decimal(8, 2)
+  bonusScope    TeamLeadBonusScope @default(roster)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  leadAgent Agent        @relation(fields: [leadAgentId], references: [id], onDelete: Cascade)
+  members   TeamMember[]
+
+  @@unique([leadAgentId])
+  @@index([leadAgentName])
+}
+
+model TeamMember {
+  id                 String @id @default(cuid())
+  teamLeadId         String
+  memberAgentName    String
+  memberAgentNameKey String
+  createdAt          DateTime @default(now())
+
+  teamLead TeamLead @relation(fields: [teamLeadId], references: [id], onDelete: Cascade)
+
+  @@unique([teamLeadId, memberAgentNameKey])
+  @@index([memberAgentNameKey])
+}
+
 // ─── Periods ──────────────────────────────────────────────────────────────────
 
 enum PeriodSource {
@@ -286,6 +326,8 @@ model AgentPeriod {
   clawbackAmount           Decimal @default(0) @db.Decimal(14, 2)
   /// Sum of approved manual bonuses (ledger type manual_bonus).
   manualBonusAmount        Decimal @default(0) @db.Decimal(14, 2)
+  /// Team-lead per-unit bonus from teammate clears (ledger team_lead_bonus).
+  teamLeadBonusAmount      Decimal @default(0) @db.Decimal(14, 2)
   /// Advances paid out on this period's paycheck (ledger advance_paid).
   advancePaidAmount        Decimal @default(0) @db.Decimal(14, 2)
   /// Advances recovered on this period (ledger advance_repay).
@@ -445,6 +487,8 @@ enum LedgerType {
   clawback_history
   /// Super-admin–approved manager manual bonus (added into net).
   manual_bonus
+  /// Team-lead bonus: rate × teammate cleared units (added into net).
+  team_lead_bonus
   /// Company advance included on this period's paycheck.
   advance_paid
   /// Company advance recovered from this period's paycheck.

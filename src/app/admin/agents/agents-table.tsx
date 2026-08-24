@@ -248,7 +248,7 @@ export function AgentsUsersTable({
                         {a.hasPassword ? "Google · Password" : "Google"}
                       </TableCell>
                       <TableCell>
-                        <MoreActionsMenu estimatedHeight={200} menuWidth={180}>
+                        <MoreActionsMenu estimatedHeight={230} menuWidth={180}>
                           {(close) => (
                             <div className="py-1 text-sm">
                               <button
@@ -261,6 +261,14 @@ export function AgentsUsersTable({
                               >
                                 {expanded ? "Hide details" : "Edit details"}
                               </button>
+                              <a
+                                role="menuitem"
+                                href={`/admin/teams?agentId=${a.id}`}
+                                className="block w-full px-3 py-1.5 text-left hover:bg-muted"
+                                onClick={close}
+                              >
+                                Team lead
+                              </a>
                               {!isSelf && !suspended ? (
                                 <button
                                   type="button"
@@ -356,6 +364,12 @@ function AgentDetailPanel({
           )}
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
+          <a
+            href={`/admin/teams?agentId=${agent.id}`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+          >
+            Team lead
+          </a>
           {!isSelf ? (
             suspended ? (
               <Button

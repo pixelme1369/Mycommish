@@ -240,6 +240,12 @@ export default async function PeriodDetailPage({
                 danger
               />
             ) : null}
+            {Number(row.teamLeadBonusAmount) > 0 ? (
+              <Metric
+                label="Team lead bonus"
+                value={`+${money(row.teamLeadBonusAmount)}`}
+              />
+            ) : null}
             <Metric label="Cancel rate" value={cancelRatePercent(row.cancellationRate)} />
             <Metric label="Pending cancellations" value={String(row.pendingUnits)} />
             <Metric label="Cleared debt" value={money(row.totalClearedDebt)} />

@@ -136,13 +136,21 @@ export default async function AdminHome() {
               Users
             </Link>
             {superAdmin ? (
-              <Link
-                href="/superadmin/manual-bonuses"
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-              >
-                Manual bonuses
-                {pendingManualBonusCount > 0 ? ` (${pendingManualBonusCount})` : ""}
-              </Link>
+              <>
+                <Link
+                  href="/superadmin/team-leads"
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                >
+                  Team leads
+                </Link>
+                <Link
+                  href="/superadmin/manual-bonuses"
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                >
+                  Manual bonuses
+                  {pendingManualBonusCount > 0 ? ` (${pendingManualBonusCount})` : ""}
+                </Link>
+              </>
             ) : (
               <Link
                 href="/portal"

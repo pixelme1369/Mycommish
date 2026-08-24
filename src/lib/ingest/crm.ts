@@ -13,6 +13,7 @@ import { loadAcceptedSalesRepOverrides } from "@/lib/claims/sales-rep-overrides"
 import { relinkCommissionStatements } from "@/lib/statements";
 import { relinkManualBonuses } from "@/lib/manual-bonuses";
 import { relinkAdvances } from "@/lib/advances";
+import { applyTeamLeadBonusesForPeriod } from "@/lib/teams/team-lead-bonus";
 import {
   ClientEventKind,
   LedgerType,
@@ -458,6 +459,11 @@ async function createFullPeriod(
   } catch (err) {
     console.error("relinkAdvances failed", err);
   }
+  try {
+    await applyTeamLeadBonusesForPeriod(periodRow.id);
+  } catch (err) {
+    console.error("applyTeamLeadBonusesForPeriod failed", err);
+  }
 }
 
 async function applyClawbacksOnly(
@@ -541,6 +547,7 @@ async function applyClawbacksOnly(
       const newCb = Number(agentPeriod.clawbackAmount) + added;
       const gross = Number(agentPeriod.grossCommission);
       const manualBonus = Number(agentPeriod.manualBonusAmount);
+      const teamLeadBonus = Number(agentPeriod.teamLeadBonusAmount);
       const advancePaid = Number(agentPeriod.advancePaidAmount);
       const advanceRepay = Number(agentPeriod.advanceRepayAmount);
       await prisma.agentPeriod.update({
@@ -548,7 +555,14 @@ async function applyClawbacksOnly(
         data: {
           clawbackAmount: dec(Math.round(newCb * 100) / 100),
           netCommission: dec(
-            computeNetCommission(gross, newCb, manualBonus, advancePaid, advanceRepay),
+            computeNetCommission(
+              gross,
+              newCb,
+              manualBonus,
+              advancePaid,
+              advanceRepay,
+              teamLeadBonus,
+            ),
           ),
           notes: agentPeriod.notes
             ? `${agentPeriod.notes} | CRM clawback +$${added.toFixed(2)}`
