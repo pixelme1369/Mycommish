@@ -266,7 +266,7 @@ export default async function PeriodDetailPage({
         periodId={periodId}
         agentPeriodId={row.id}
         role={signRole}
-        defaultName={session.user.displayName || ""}
+        lockedName={session.user.displayName || ""}
         status={statement?.status ?? "unsigned"}
         agentSignedAt={statement?.agentSignedAt?.toISOString() ?? null}
         agentTypedName={statement?.agentTypedName ?? null}

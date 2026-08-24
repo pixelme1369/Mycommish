@@ -66,7 +66,7 @@ export function StatementSignPanel({
   periodId,
   agentPeriodId,
   role,
-  defaultName,
+  lockedName,
   status,
   agentSignedAt,
   agentTypedName,
@@ -78,7 +78,8 @@ export function StatementSignPanel({
   periodId: string;
   agentPeriodId: string;
   role: Role;
-  defaultName: string;
+  /** Account display name — not editable; stamped on the PDF. */
+  lockedName: string;
   status: "unsigned" | "agent_signed" | "fully_signed";
   agentSignedAt: string | null;
   agentTypedName: string | null;
@@ -89,7 +90,6 @@ export function StatementSignPanel({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [typedName, setTypedName] = useState(defaultName);
   const [mode, setMode] = useState<SignMode>("style");
   const [selectedStyle, setSelectedStyle] = useState<string>(SIGNATURE_STYLES[0].id);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +102,8 @@ export function StatementSignPanel({
   const canManagerSign = role === "manager" && status === "agent_signed";
   const canSign = canAgentSign || canManagerSign;
   const showReset = canReset && status !== "unsigned";
-  const previewName = typedName.trim() || "Your name";
+  const signerName = lockedName.trim();
+  const previewName = signerName || "Your name";
 
   useEffect(() => {
     if (!open || mode !== "draw") return;
@@ -168,8 +169,8 @@ export function StatementSignPanel({
   function submit() {
     setError(null);
     start(async () => {
-      if (typedName.trim().length < 2) {
-        setError("Type your full name to sign.");
+      if (signerName.length < 2) {
+        setError("Your account needs a full name before you can sign.");
         return;
       }
 
@@ -189,7 +190,7 @@ export function StatementSignPanel({
           return;
         }
         signatureDataUrl = await renderTypedSignaturePng(
-          typedName,
+          signerName,
           style.family,
           style.size,
         );
@@ -204,7 +205,6 @@ export function StatementSignPanel({
       const res = await action({
         periodId,
         agentPeriodId,
-        typedName,
         signatureDataUrl,
       });
       if (!res.ok) {
@@ -316,18 +316,20 @@ export function StatementSignPanel({
               {role === "agent" ? "Sign your commission statement" : "Manager countersignature"}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Type your name, then click a style — like DocuSign — or draw instead.
+              Your account name is locked for this signature. Choose a style or draw.
             </p>
 
             <div className="mt-4 space-y-1.5">
               <Label htmlFor="sig-name">Full name</Label>
               <Input
                 id="sig-name"
-                value={typedName}
-                onChange={(e) => setTypedName(e.target.value)}
-                placeholder="Type your name"
-                className="h-9"
+                value={signerName}
+                readOnly
+                className="h-9 bg-muted/40 text-foreground"
               />
+              <p className="text-xs text-muted-foreground">
+                Locked to the name on your login account.
+              </p>
             </div>
 
             <div className="mt-4 flex gap-1 rounded-lg bg-muted/50 p-1">

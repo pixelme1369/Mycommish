@@ -30,19 +30,27 @@ async function loadCalculatedAgentPeriod(periodId: string, agentPeriodId: string
   });
 }
 
+/** Legal name on the PDF — always the signed-in account display name (not client-typed). */
+function lockedSignerName(session: Awaited<ReturnType<typeof requireSession>>) {
+  return (session.user.displayName || "").trim();
+}
+
 /** Agent e-signs their own period statement (first signature). */
 export async function signStatementAsAgentAction(input: {
   periodId: string;
   agentPeriodId: string;
-  typedName: string;
+  /** Ignored — name is locked to the signed-in account. */
+  typedName?: string;
   signatureDataUrl?: string | null;
 }): Promise<SignResult> {
   const session = await requireSession();
   const agentId = session.user.agentId;
   if (!agentId) return { ok: false, error: "Not signed in." };
 
-  const typedName = input.typedName.trim();
-  if (typedName.length < 2) return { ok: false, error: "Type your full name to sign." };
+  const typedName = lockedSignerName(session);
+  if (typedName.length < 2) {
+    return { ok: false, error: "Your account needs a full name before you can sign." };
+  }
 
   const row = await loadCalculatedAgentPeriod(input.periodId, input.agentPeriodId);
   if (!row) return { ok: false, error: "Period not found." };
@@ -110,7 +118,8 @@ export async function signStatementAsAgentAction(input: {
 export async function signStatementAsManagerAction(input: {
   periodId: string;
   agentPeriodId: string;
-  typedName: string;
+  /** Ignored — name is locked to the signed-in account. */
+  typedName?: string;
   signatureDataUrl?: string | null;
 }): Promise<SignResult> {
   const session = await requireSession();
@@ -120,8 +129,10 @@ export async function signStatementAsManagerAction(input: {
   const agentId = session.user.agentId;
   if (!agentId) return { ok: false, error: "Not signed in." };
 
-  const typedName = input.typedName.trim();
-  if (typedName.length < 2) return { ok: false, error: "Type your full name to sign." };
+  const typedName = lockedSignerName(session);
+  if (typedName.length < 2) {
+    return { ok: false, error: "Your account needs a full name before you can sign." };
+  }
 
   const row = await loadCalculatedAgentPeriod(input.periodId, input.agentPeriodId);
   if (!row) return { ok: false, error: "Period not found." };
