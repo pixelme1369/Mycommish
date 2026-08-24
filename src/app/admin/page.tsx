@@ -10,17 +10,12 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
 import { buttonVariants } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { AdminCalculatedPeriods } from "./admin-calculated-periods";
 import { AdminImportSection } from "./admin-import-section";
 import { AdminSecondarySections } from "./admin-secondary-sections";
 import { StatementsAwaitingManager } from "@/components/statements-awaiting-manager";
-import {
-  listStatementsAwaitingManager,
-} from "@/lib/statements";
-import { prisma } from "@/lib/db";
-import { FileClaimStatus } from "@/generated/prisma/client";
+import { listStatementsAwaitingManager } from "@/lib/statements";
 import { countPendingManualBonuses } from "@/lib/manual-bonuses";
 
 export const dynamic = "force-dynamic";
@@ -69,17 +64,6 @@ function toDashboardRow(p: PeriodRow) {
   };
 }
 
-function formatUploadDay(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
-
-function lastOfType(
-  uploads: Awaited<ReturnType<typeof listRecentUploads>>,
-  type: string,
-) {
-  return uploads.find((u) => u.type === type) ?? null;
-}
-
 export default async function AdminHome() {
   const session = await requireAdmin();
   const superAdmin = isSuperAdminUser(session);
@@ -87,21 +71,13 @@ export default async function AdminHome() {
     periodsRaw,
     historyPeriodsRaw,
     uploads,
-    pendingClaims,
     awaitingManager,
-    fullySignedCount,
     pendingManualBonusCount,
   ] = await Promise.all([
     listCalculatedPeriods().catch(() => []),
     listHistoryPeriods().catch(() => []),
     listRecentUploads().catch(() => []),
-    prisma.fileClaim
-      .count({ where: { status: FileClaimStatus.pending } })
-      .catch(() => 0),
     listStatementsAwaitingManager().catch(() => []),
-    prisma.commissionStatement
-      .count({ where: { status: "fully_signed" } })
-      .catch(() => 0),
     superAdmin ? countPendingManualBonuses().catch(() => 0) : Promise.resolve(0),
   ]);
   const periods = sortPeriodsForDashboard(periodsRaw);
@@ -121,30 +97,6 @@ export default async function AdminHome() {
       agentCount: p._count.agentPeriods,
     })),
   }));
-
-  const lastCrm = lastOfType(uploads, "crm");
-  const lastCordoba = lastOfType(uploads, "cordoba");
-  const lastHistory = lastOfType(uploads, "history");
-  const newestOpen = openPeriods[0]?.periodLabel ?? null;
-
-  const statusParts = [
-    `${openPeriods.length} open`,
-    `${closedPeriods.length} closed`,
-    newestOpen ? `current ${newestOpen}` : null,
-    pendingClaims > 0 ? `${pendingClaims} file claim${pendingClaims === 1 ? "" : "s"}` : null,
-    awaitingManager.length > 0
-      ? `${awaitingManager.length} statement${awaitingManager.length === 1 ? "" : "s"} awaiting manager`
-      : null,
-    fullySignedCount > 0
-      ? `${fullySignedCount} signed PDF${fullySignedCount === 1 ? "" : "s"}`
-      : null,
-    pendingManualBonusCount > 0
-      ? `${pendingManualBonusCount} manual bonus${pendingManualBonusCount === 1 ? "" : "es"} pending`
-      : null,
-    lastCrm ? `CRM ${formatUploadDay(lastCrm.createdAt)}` : null,
-    lastCordoba ? `Cordoba ${formatUploadDay(lastCordoba.createdAt)}` : null,
-    lastHistory ? `History ${formatUploadDay(lastHistory.createdAt)}` : null,
-  ].filter(Boolean);
 
   return (
     <AppShell wide>
@@ -209,14 +161,6 @@ export default async function AdminHome() {
           </>
         }
       />
-
-      <Card className="glass-panel mt-8 px-4 py-3">
-        <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">Status</span>
-          <span className="mx-2 text-border">·</span>
-          {statusParts.join(" · ")}
-        </p>
-      </Card>
 
       <div className="mt-8">
         <StatementsAwaitingManager rows={awaitingManager} viewBase="/admin" />
