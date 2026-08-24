@@ -15,6 +15,7 @@ import { listStatementsAwaitingManager } from "@/lib/statements";
 import { StatementsAwaitingManager } from "@/components/statements-awaiting-manager";
 import { sumMyOwedBonuses } from "@/lib/manager-bonuses";
 import { money } from "@/lib/format";
+import { countActiveAgentsByPeriod } from "@/lib/agents/active-period-counts";
 
 export const dynamic = "force-dynamic";
 
@@ -32,31 +33,25 @@ export default async function ManagerHome() {
   ]);
   const periodIds = windowPeriods.map((p) => p.id);
 
-  const agentCounts =
-    periodIds.length === 0
-      ? []
-      : await prisma.agentPeriod.groupBy({
-          by: ["periodId"],
-          where: { periodId: { in: periodIds } },
-          _count: { _all: true },
-        });
-  const countByPeriod = new Map(agentCounts.map((c) => [c.periodId, c._count._all]));
-
-  // Also list any other open calculated periods (beyond latest 2) for managers.
-  const openExtras = await prisma.commissionPeriod.findMany({
-    where: {
-      source: PeriodSource.calculated,
-      status: PeriodStatus.open,
-      ...(periodIds.length ? { id: { notIn: periodIds } } : {}),
-    },
-    orderBy: { periodLabel: "desc" },
-    take: 12,
-  });
+  const [activeCounts, openExtras] = await Promise.all([
+    countActiveAgentsByPeriod(
+      windowPeriods.map((p) => ({ id: p.id, periodLabel: p.periodLabel })),
+    ),
+    prisma.commissionPeriod.findMany({
+      where: {
+        source: PeriodSource.calculated,
+        status: PeriodStatus.open,
+        ...(periodIds.length ? { id: { notIn: periodIds } } : {}),
+      },
+      orderBy: { periodLabel: "desc" },
+      take: 12,
+    }),
+  ]);
 
   const listed = [
     ...windowPeriods.map((p) => ({
       ...p,
-      agentCount: countByPeriod.get(p.id) ?? 0,
+      agentCount: activeCounts.get(p.id) ?? 0,
       upcoming: true as const,
     })),
     ...openExtras.map((p) => ({ ...p, agentCount: null as number | null, upcoming: false as const })),

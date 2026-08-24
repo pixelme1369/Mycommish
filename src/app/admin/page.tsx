@@ -17,6 +17,7 @@ import { AdminSecondarySections } from "./admin-secondary-sections";
 import { StatementsAwaitingManager } from "@/components/statements-awaiting-manager";
 import { listStatementsAwaitingManager } from "@/lib/statements";
 import { countPendingManualBonuses } from "@/lib/manual-bonuses";
+import { countActiveAgentsByPeriod } from "@/lib/agents/active-period-counts";
 
 export const dynamic = "force-dynamic";
 
@@ -54,12 +55,12 @@ function groupByFilename(periods: PeriodRow[]) {
     });
 }
 
-function toDashboardRow(p: PeriodRow) {
+function toDashboardRow(p: PeriodRow, agentCount: number) {
   return {
     id: p.id,
     periodLabel: p.periodLabel,
     status: p.status,
-    agentCount: p._count.agentPeriods,
+    agentCount,
     filename: p.filename,
   };
 }
@@ -81,10 +82,15 @@ export default async function AdminHome() {
     superAdmin ? countPendingManualBonuses().catch(() => 0) : Promise.resolve(0),
   ]);
   const periods = sortPeriodsForDashboard(periodsRaw);
-  const openPeriods = periods.filter((p) => p.status === "open").map(toDashboardRow);
+  const activeCounts = await countActiveAgentsByPeriod(
+    periods.map((p) => ({ id: p.id, periodLabel: p.periodLabel })),
+  );
+  const openPeriods = periods
+    .filter((p) => p.status === "open")
+    .map((p) => toDashboardRow(p, activeCounts.get(p.id) ?? 0));
   const closedPeriods = periods
     .filter((p) => p.status !== "open")
-    .map(toDashboardRow);
+    .map((p) => toDashboardRow(p, activeCounts.get(p.id) ?? 0));
 
   const historyPeriods = [...historyPeriodsRaw].sort((a, b) =>
     a.periodLabel < b.periodLabel ? 1 : a.periodLabel > b.periodLabel ? -1 : 0,
