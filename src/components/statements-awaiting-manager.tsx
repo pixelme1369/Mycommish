@@ -15,7 +15,10 @@ export function StatementsAwaitingManager({
 }) {
   return (
     <section>
-      <h2 className="font-heading text-xl tracking-tight">Awaiting manager signature</h2>
+      <h2 className="font-heading text-xl tracking-tight">
+        Awaiting manager signature
+        {rows.length > 0 ? ` (${rows.length})` : ""}
+      </h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Agents who signed their commission statement and need a countersignature.
       </p>
