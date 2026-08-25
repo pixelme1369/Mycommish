@@ -1,31 +1,61 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { MoreActionsMenu, menuItemClass } from "@/components/more-actions-menu";
 import { closeCalculatedPeriodAction } from "./actions";
 import { deleteCalculatedPeriodAction } from "./actions";
 import { deleteHistoryPeriodAction } from "./actions";
+import { LogAsPaidConfirm } from "./log-as-paid-button";
 
 export function CalculatedPeriodRowMenu({
   periodId,
   periodLabel,
   status,
+  historyPeriodId,
 }: {
   periodId: string;
   periodLabel: string;
   status: string;
+  historyPeriodId?: string | null;
 }) {
   const router = useRouter();
   const [closeOpen, setCloseOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
 
   return (
     <>
-      <MoreActionsMenu label="Period actions" estimatedHeight={status === "open" ? 80 : 44}>
+      <MoreActionsMenu
+        label="Period actions"
+        estimatedHeight={status === "open" ? 120 : 88}
+      >
         {(close) => (
           <>
+            {historyPeriodId ? (
+              <Link
+                href={`/admin/history/${historyPeriodId}`}
+                role="menuitem"
+                className={menuItemClass()}
+                onClick={() => close()}
+              >
+                View paid History
+              </Link>
+            ) : (
+              <button
+                type="button"
+                role="menuitem"
+                className={menuItemClass()}
+                onClick={() => {
+                  close();
+                  setLogOpen(true);
+                }}
+              >
+                Log as paid
+              </button>
+            )}
             {status === "open" ? (
               <button
                 type="button"
@@ -54,6 +84,12 @@ export function CalculatedPeriodRowMenu({
         )}
       </MoreActionsMenu>
 
+      <LogAsPaidConfirm
+        periodId={periodId}
+        periodLabel={periodLabel}
+        open={logOpen}
+        onOpenChange={setLogOpen}
+      />
       <ConfirmDelete
         hideTrigger
         open={closeOpen}

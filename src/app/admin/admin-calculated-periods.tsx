@@ -15,6 +15,7 @@ export type DashboardPeriodRow = {
   status: string;
   agentCount: number;
   filename: string | null;
+  historyPeriodId?: string | null;
 };
 
 export function AdminCalculatedPeriods({
@@ -124,6 +125,7 @@ function PeriodList({
                 periodId={p.id}
                 periodLabel={p.periodLabel}
                 status={p.status}
+                historyPeriodId={p.historyPeriodId}
               />
             </div>
           </li>

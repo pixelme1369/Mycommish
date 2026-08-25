@@ -15,6 +15,7 @@ import {
   listExcludedKeysForPeriod,
 } from "@/lib/agents/period-exclusion";
 import { DeletePeriodButton } from "@/app/admin/delete-period-button";
+import { LogAsPaidButton } from "@/app/admin/log-as-paid-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
@@ -38,6 +39,11 @@ export default async function AdminPeriodPage({
     where: { id: periodId, source: PeriodSource.calculated },
   });
   if (!period) notFound();
+
+  const existingHistory = await prisma.commissionPeriod.findFirst({
+    where: { periodLabel: period.periodLabel, source: PeriodSource.history },
+    select: { id: true },
+  });
 
   const [agents, dismissedKeys, excludedKeys, bonusRows, signedByName] =
     await Promise.all([
@@ -101,6 +107,11 @@ export default async function AdminPeriodPage({
         description={<>Status: {period.status === "open" ? "Open" : "Closed"}</>}
         actions={
           <>
+            <LogAsPaidButton
+              periodId={period.id}
+              periodLabel={period.periodLabel}
+              historyPeriodId={existingHistory?.id}
+            />
             <DeletePeriodButton periodId={period.id} periodLabel={period.periodLabel} />
             <SignOutButton />
           </>

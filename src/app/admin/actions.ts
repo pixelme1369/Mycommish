@@ -3,8 +3,10 @@
 import { ingestCrmUpload, type SaveCrmSummary } from "@/lib/ingest/crm";
 import { ingestCordobaUpload, type SaveCordobaSummary } from "@/lib/ingest/cordoba";
 import { ingestHistoryUpload, type SaveHistorySummary } from "@/lib/ingest/history";
+import { promoteCalculatedPeriodToHistory } from "@/lib/ingest/promote-to-history";
 import { prisma } from "@/lib/db";
 import { PeriodSource, PeriodStatus } from "@/generated/prisma/client";
+import { requireAdmin } from "@/lib/auth-guards";
 
 export type UploadCrmState =
   | { ok: true; summary: SaveCrmSummary }
@@ -270,6 +272,17 @@ export async function closeCalculatedPeriodAction(periodId: string) {
     data: { status: PeriodStatus.closed, closedAt: new Date() },
   });
   return { ok: true as const, periodLabel: period.periodLabel };
+}
+
+/**
+ * Archive a calculated month as History (per-file paid amounts + paidRate)
+ * for anti-double-pay / later clawbacks — without spreadsheet export/re-upload.
+ */
+export async function promoteCalculatedPeriodToHistoryAction(periodId: string) {
+  const session = await requireAdmin();
+  return promoteCalculatedPeriodToHistory(periodId, {
+    uploadedById: session.user.id,
+  });
 }
 
 export async function getUploadBatch(batchId: string) {

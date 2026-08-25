@@ -55,13 +55,18 @@ function groupByFilename(periods: PeriodRow[]) {
     });
 }
 
-function toDashboardRow(p: PeriodRow, agentCount: number) {
+function toDashboardRow(
+  p: PeriodRow,
+  agentCount: number,
+  historyPeriodId?: string | null,
+) {
   return {
     id: p.id,
     periodLabel: p.periodLabel,
     status: p.status,
     agentCount,
     filename: p.filename,
+    historyPeriodId: historyPeriodId ?? null,
   };
 }
 
@@ -85,12 +90,27 @@ export default async function AdminHome() {
   const activeCounts = await countActiveAgentsByPeriod(
     periods.map((p) => ({ id: p.id, periodLabel: p.periodLabel })),
   );
+  const historyIdByLabel = new Map(
+    historyPeriodsRaw.map((h) => [h.periodLabel, h.id] as const),
+  );
   const openPeriods = periods
     .filter((p) => p.status === "open")
-    .map((p) => toDashboardRow(p, activeCounts.get(p.id) ?? 0));
+    .map((p) =>
+      toDashboardRow(
+        p,
+        activeCounts.get(p.id) ?? 0,
+        historyIdByLabel.get(p.periodLabel),
+      ),
+    );
   const closedPeriods = periods
     .filter((p) => p.status !== "open")
-    .map((p) => toDashboardRow(p, activeCounts.get(p.id) ?? 0));
+    .map((p) =>
+      toDashboardRow(
+        p,
+        activeCounts.get(p.id) ?? 0,
+        historyIdByLabel.get(p.periodLabel),
+      ),
+    );
 
   const historyPeriods = [...historyPeriodsRaw].sort((a, b) =>
     a.periodLabel < b.periodLabel ? 1 : a.periodLabel > b.periodLabel ? -1 : 0,
