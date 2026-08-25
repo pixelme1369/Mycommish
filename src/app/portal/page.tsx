@@ -76,14 +76,14 @@ export default async function PortalHome() {
             <span>· portal</span>
           </span>
         }
-        title="Upcoming commissions"
+        title="My commissions"
         description={
           <>
             {session.user.displayName}
             {windowLabels.length > 0 ? (
               <>
                 {" "}
-                · latest 2 calculated:{" "}
+                · latest 2 periods:{" "}
                 <span className="font-medium text-foreground">{windowLabels.join(", ")}</span>
               </>
             ) : null}
