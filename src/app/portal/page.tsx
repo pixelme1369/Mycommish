@@ -77,18 +77,7 @@ export default async function PortalHome() {
           </span>
         }
         title="My commissions"
-        description={
-          <>
-            {session.user.displayName}
-            {windowLabels.length > 0 ? (
-              <>
-                {" "}
-                · latest 2 periods:{" "}
-                <span className="font-medium text-foreground">{windowLabels.join(", ")}</span>
-              </>
-            ) : null}
-          </>
-        }
+        description={session.user.displayName}
         actions={
           <>
             <Link

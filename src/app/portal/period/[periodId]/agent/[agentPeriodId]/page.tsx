@@ -363,16 +363,8 @@ export default async function PeriodDetailPage({
       />
       <WaitingFirstPaymentSection rows={waitingFirstPayment} />
       <ClawbackSection rows={mergedClawbacks} />
-      <ClientSection
-        title="Pending cancellations"
-        clients={pending}
-        empty="No pending cancellations."
-      />
-      <ClientSection
-        title="Cancelled (not clawed)"
-        clients={cancelled}
-        empty="No same-month cancels."
-      />
+      <ClientSection title="Pending cancellations" clients={pending} />
+      <ClientSection title="Cancelled (not clawed)" clients={cancelled} />
       <CancelRateBreakdownSection
         breakdown={cancelRateBreakdown}
         storedRatePct={Number(row.cancellationRate)}
@@ -515,6 +507,8 @@ function ClearedSection({
 }
 
 function ClawbackSection({ rows }: { rows: MergedClawbackRow[] }) {
+  if (rows.length === 0) return null;
+
   return (
     <section className="mt-8">
       <h2 className="font-heading text-base tracking-tight">
@@ -527,49 +521,45 @@ function ClawbackSection({ rows }: { rows: MergedClawbackRow[] }) {
         Cordoba Charge back is Yes when Cordoba also lists the client. A $0.00 row with Yes means
         flagged but not deducted yet.
       </p>
-      {rows.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">No clawbacks.</p>
-      ) : (
-        <Card className="glass-panel mt-3 overflow-x-auto py-0">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-border bg-muted/40 text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">AMOD</th>
-                <th className="px-3 py-2 font-medium">Name</th>
-                <th className="px-3 py-2 font-medium">Enrolled debt</th>
-                <th className="px-3 py-2 font-medium">Cleared</th>
-                <th className="px-3 py-2 font-medium">Dropped</th>
-                <th className="px-3 py-2 font-medium">Clawback</th>
-                <th className="px-3 py-2 font-medium">Cordoba Charge back</th>
-                <th className="px-3 py-2 font-medium">Kind</th>
+      <Card className="glass-panel mt-3 overflow-x-auto py-0">
+        <table className="min-w-full text-left text-sm">
+          <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 font-medium">AMOD</th>
+              <th className="px-3 py-2 font-medium">Name</th>
+              <th className="px-3 py-2 font-medium">Enrolled debt</th>
+              <th className="px-3 py-2 font-medium">Cleared</th>
+              <th className="px-3 py-2 font-medium">Dropped</th>
+              <th className="px-3 py-2 font-medium">Clawback</th>
+              <th className="px-3 py-2 font-medium">Cordoba Charge back</th>
+              <th className="px-3 py-2 font-medium">Kind</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/70">
+            {rows.map((c) => (
+              <tr key={c.id} className={c.cordobaOnly ? "bg-muted/30" : undefined}>
+                <td className="px-3 py-2 font-mono text-xs">{externalIdOf(c)}</td>
+                <td className="px-3 py-2">
+                  {c.clientName || "—"}
+                  {c.isLowCredit ? (
+                    <span className="ml-2 text-xs text-amber-700">$0 credit</span>
+                  ) : null}
+                </td>
+                <td className="px-3 py-2">{money(c.enrolledDebt)}</td>
+                <td className="px-3 py-2">{c.firstPaymentClearedDate || "—"}</td>
+                <td className="px-3 py-2">{c.droppedDate || "—"}</td>
+                <td className="px-3 py-2">
+                  <span className="text-destructive">-{money(c.clawbackAmount)}</span>
+                </td>
+                <td className="px-3 py-2">
+                  <YesNo yes={c.cordobaChargeBack} tone="red" />
+                </td>
+                <td className="px-3 py-2 text-muted-foreground">{c.kind}</td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-border/70">
-              {rows.map((c) => (
-                <tr key={c.id} className={c.cordobaOnly ? "bg-muted/30" : undefined}>
-                  <td className="px-3 py-2 font-mono text-xs">{externalIdOf(c)}</td>
-                  <td className="px-3 py-2">
-                    {c.clientName || "—"}
-                    {c.isLowCredit ? (
-                      <span className="ml-2 text-xs text-amber-700">$0 credit</span>
-                    ) : null}
-                  </td>
-                  <td className="px-3 py-2">{money(c.enrolledDebt)}</td>
-                  <td className="px-3 py-2">{c.firstPaymentClearedDate || "—"}</td>
-                  <td className="px-3 py-2">{c.droppedDate || "—"}</td>
-                  <td className="px-3 py-2">
-                    <span className="text-destructive">-{money(c.clawbackAmount)}</span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <YesNo yes={c.cordobaChargeBack} tone="red" />
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">{c.kind}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
+            ))}
+          </tbody>
+        </table>
+      </Card>
     </section>
   );
 }
@@ -577,12 +567,12 @@ function ClawbackSection({ rows }: { rows: MergedClawbackRow[] }) {
 function ClientSection({
   title,
   clients,
-  empty,
 }: {
   title: string;
   clients: PortalClientEvent[];
-  empty: string;
 }) {
+  if (clients.length === 0) return null;
+
   return (
     <section className="mt-8">
       <h2 className="font-heading text-base tracking-tight">
@@ -591,43 +581,39 @@ function ClientSection({
           ({clients.length})
         </span>
       </h2>
-      {clients.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">{empty}</p>
-      ) : (
-        <Card className="glass-panel mt-3 overflow-x-auto py-0">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-border bg-muted/40 text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">AMOD</th>
-                <th className="px-3 py-2 font-medium">Name</th>
-                <th className="px-3 py-2 font-medium">Enrolled debt</th>
-                <th className="px-3 py-2 font-medium">Cleared</th>
-                <th className="px-3 py-2 font-medium">Dropped</th>
-                <th className="px-3 py-2 font-medium">Commission</th>
-                <th className="px-3 py-2 font-medium">Kind</th>
+      <Card className="glass-panel mt-3 overflow-x-auto py-0">
+        <table className="min-w-full text-left text-sm">
+          <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 font-medium">AMOD</th>
+              <th className="px-3 py-2 font-medium">Name</th>
+              <th className="px-3 py-2 font-medium">Enrolled debt</th>
+              <th className="px-3 py-2 font-medium">Cleared</th>
+              <th className="px-3 py-2 font-medium">Dropped</th>
+              <th className="px-3 py-2 font-medium">Commission</th>
+              <th className="px-3 py-2 font-medium">Kind</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/70">
+            {clients.map((c) => (
+              <tr key={c.id}>
+                <td className="px-3 py-2 font-mono text-xs">{externalIdOf(c)}</td>
+                <td className="px-3 py-2">
+                  {c.clientName || "—"}
+                  {c.isLowCredit ? (
+                    <span className="ml-2 text-xs text-amber-700">$0 credit</span>
+                  ) : null}
+                </td>
+                <td className="px-3 py-2">{money(c.enrolledDebt)}</td>
+                <td className="px-3 py-2">{c.firstPaymentClearedDate || "—"}</td>
+                <td className="px-3 py-2">{c.droppedDate || "—"}</td>
+                <td className="px-3 py-2">{money(c.commissionOnClient)}</td>
+                <td className="px-3 py-2 text-muted-foreground">{c.kind}</td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-border/70">
-              {clients.map((c) => (
-                <tr key={c.id}>
-                  <td className="px-3 py-2 font-mono text-xs">{externalIdOf(c)}</td>
-                  <td className="px-3 py-2">
-                    {c.clientName || "—"}
-                    {c.isLowCredit ? (
-                      <span className="ml-2 text-xs text-amber-700">$0 credit</span>
-                    ) : null}
-                  </td>
-                  <td className="px-3 py-2">{money(c.enrolledDebt)}</td>
-                  <td className="px-3 py-2">{c.firstPaymentClearedDate || "—"}</td>
-                  <td className="px-3 py-2">{c.droppedDate || "—"}</td>
-                  <td className="px-3 py-2">{money(c.commissionOnClient)}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{c.kind}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
+            ))}
+          </tbody>
+        </table>
+      </Card>
     </section>
   );
 }
