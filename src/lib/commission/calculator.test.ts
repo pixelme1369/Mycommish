@@ -43,6 +43,47 @@ describe("fixed rates", () => {
   });
 });
 
+describe("Artin Namjoo legacy tiers", () => {
+  it("uses grandfathered unit bands", () => {
+    expect(getTier(15, "Artin Namjoo")).toEqual({
+      tier: 1,
+      rate: 0.01,
+      label: "Legacy Tier 1",
+    });
+    expect(getTier(16, "Artin Namjoo").rate).toBe(0.0125);
+    expect(getTier(22, "Artin Namjoo").rate).toBe(0.015);
+    expect(getTier(30, "Artin Namjoo").rate).toBe(0.0175);
+    expect(getTier(36, "Artin Namjoo").rate).toBe(0.02);
+    expect(getTier(41, "Artin Namjoo").rate).toBe(0.0225);
+  });
+
+  it("does not use standard bands for Artin", () => {
+    // 20 units: Artin = Legacy Tier 2 (1.25%); standard = Tier 1 (1%)
+    expect(getTier(20, "Artin Namjoo").rate).toBe(0.0125);
+    expect(getTier(20).rate).toBe(0.01);
+  });
+
+  it("applies cancellation penalty on his ladder", () => {
+    const r = calculateAgentCommission({
+      agentName: "Artin Namjoo",
+      unitsCleared: 20, // Legacy Tier 2 @ 1.25%
+      totalClearedDebt: 100_000,
+      cancellationRatePct: 30,
+    });
+    expect(r.rawTier).toBe(2);
+    expect(r.adjustedTier).toBe(1);
+    expect(r.tierRate).toBe(0.01);
+    expect(r.cancellationPenaltyApplied).toBe(true);
+    expect(r.notes).toMatch(/grandfathered ladder/i);
+  });
+
+  it("units to next follows legacy thresholds", () => {
+    expect(unitsToNextTier(15, "Artin Namjoo")).toBe(1); // → 16
+    expect(unitsToNextTier(21, "Artin Namjoo")).toBe(1); // → 22
+    expect(unitsToNextTier(41, "Artin Namjoo")).toBeNull();
+  });
+});
+
 describe("cancellation penalty", () => {
   it("exactly 25% does not drop", () => {
     const r = calculateAgentCommission({

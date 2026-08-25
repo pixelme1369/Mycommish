@@ -6,6 +6,7 @@
 import PDFDocument from "pdfkit";
 import { prisma } from "@/lib/db";
 import { ClientEventKind, PeriodSource } from "@/generated/prisma/client";
+import { getTeamLeadBonusBreakdown } from "@/lib/teams/team-lead-bonus";
 
 function num(n: unknown) {
   return Number(n) || 0;
@@ -124,6 +125,12 @@ export async function buildAgentCommissionStatementPdf(
   const periodName = periodDisplayLabel(row.period.periodLabel);
   const gross = num(row.grossCommission);
   const clawbackTotal = num(row.clawbackAmount);
+  const manualBonus = num(row.manualBonusAmount);
+  const advancePaid = num(row.advancePaidAmount);
+  const advanceRepay = num(row.advanceRepayAmount);
+  const teamLeadBonus = num(row.teamLeadBonusAmount);
+  const tlbBreakdown =
+    teamLeadBonus > 0 ? await getTeamLeadBonusBreakdown(row.id) : null;
   const net = num(row.netCommission);
   const debt = num(row.totalClearedDebt);
   const rate = num(row.tierRate);
@@ -167,16 +174,55 @@ export async function buildAgentCommissionStatementPdf(
   let y = doc.y;
 
   doc.fillColor("#111827").font("Helvetica").fontSize(9);
-  const summary = [
+  const summary: [string, string][] = [
     [`Commission Rate:`, ratePct(rate)],
     [`Enrolled Debt:`, money(debt)],
     [`Commission on Enrolled Debt:`, money(gross)],
     [`Chargeback Deduction:`, money(clawbackTotal)],
   ];
+  if (manualBonus > 0) {
+    summary.push([`Manual Bonus:`, money(manualBonus)]);
+  }
+  if (teamLeadBonus > 0) {
+    const rateLabel = (tlbBreakdown?.ratePerUnit ?? 0).toFixed(2).replace(/\.00$/, "");
+    const units = tlbBreakdown?.teamUnits;
+    const detail =
+      units != null && units > 0 && tlbBreakdown?.ratePerUnit
+        ? ` (${units.toLocaleString("en-US")} units × $${rateLabel})`
+        : tlbBreakdown?.note
+          ? ` (${tlbBreakdown.note})`
+          : "";
+    summary.push([`Team Lead Bonus:`, `${money(teamLeadBonus)}${detail}`]);
+  }
+  if (advancePaid > 0) {
+    summary.push([`Advance Paid:`, money(advancePaid)]);
+  }
+  if (advanceRepay > 0) {
+    summary.push([`Advance Repayment:`, money(advanceRepay)]);
+  }
   for (const [label, value] of summary) {
     doc.font("Helvetica").text(label, left, y, { continued: true });
     doc.font("Helvetica-Bold").text(`  ${value}`);
     y = doc.y + 2;
+  }
+
+  if (tlbBreakdown?.members.length) {
+    doc
+      .fillColor("#4b5563")
+      .font("Helvetica")
+      .fontSize(8)
+      .text("Team roster units:", left + 12, y);
+    y = doc.y + 1;
+    for (const m of tlbBreakdown.members) {
+      doc.text(
+        `  ${m.agentName}: ${m.units} unit${m.units === 1 ? "" : "s"}`,
+        left + 12,
+        y,
+      );
+      y = doc.y + 1;
+    }
+    y += 2;
+    doc.fillColor("#111827").fontSize(9);
   }
 
   y += 4;
@@ -216,7 +262,7 @@ export async function buildAgentCommissionStatementPdf(
   };
 
   const rowH = 12;
-  const footerNeed = 110;
+  const footerNeed = 130;
   y = drawHeader(y);
 
   let sumDebt = 0;
@@ -295,7 +341,9 @@ export async function buildAgentCommissionStatementPdf(
     .font("Helvetica-Oblique")
     .fontSize(8)
     .text(
-      `I have reviewed the commission detail above for ${periodName} (including any chargeback deductions) and confirm it is accurate.`,
+      `I have reviewed the commission detail above for ${periodName} (including any chargeback deductions${
+        teamLeadBonus > 0 ? " and team lead bonus" : ""
+      }) and confirm it is accurate.`,
       left,
       y,
       { width: usable },

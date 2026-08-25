@@ -1,14 +1,20 @@
 /**
  * Pure commission math — no DB / framework deps.
  * Faithful port of agent_portal/commission_core/calculator.py (owner-locked).
+ *
+ * Standard TIERS apply to all agents unless overridden by:
+ * - AGENT_FIXED_RATES (flat contract %, ignores unit ladder)
+ * - AGENT_CUSTOM_TIERS (alternate unit ladder; Artin Namjoo only today)
  */
 
-export const TIERS: ReadonlyArray<{
+export type TierBand = {
   low: number;
   high: number | null;
   rate: number;
   label: string;
-}> = [
+};
+
+export const TIERS: ReadonlyArray<TierBand> = [
   { low: 1, high: 20, rate: 0.01, label: "Tier 1" },
   { low: 21, high: 31, rate: 0.0125, label: "Tier 2" },
   { low: 32, high: 39, rate: 0.015, label: "Tier 3" },
@@ -17,12 +23,30 @@ export const TIERS: ReadonlyArray<{
   { low: 61, high: null, rate: 0.0225, label: "Tier 6 – Legacy Club" },
 ];
 
+/**
+ * Artin Namjoo — grandfathered unit ladder (only agent on this table).
+ * 1–15 1% · 16–21 1.25% · 22–29 1.5% · 30–35 1.75% · 36–40 2% · 41+ 2.25%
+ */
+export const ARTIN_LEGACY_TIERS: ReadonlyArray<TierBand> = [
+  { low: 1, high: 15, rate: 0.01, label: "Legacy Tier 1" },
+  { low: 16, high: 21, rate: 0.0125, label: "Legacy Tier 2" },
+  { low: 22, high: 29, rate: 0.015, label: "Legacy Tier 3" },
+  { low: 30, high: 35, rate: 0.0175, label: "Legacy Tier 4" },
+  { low: 36, high: 40, rate: 0.02, label: "Legacy Tier 5" },
+  { low: 41, high: null, rate: 0.0225, label: "Legacy Tier 6" },
+];
+
 export const CANCELLATION_PENALTY_THRESHOLD = 25;
 export const QUALITY_BONUS_THRESHOLD = 10;
 
 export const AGENT_FIXED_RATES: Record<string, number> = {
   "alex tambouly": 0.02,
   "peter godwin": 0.0175,
+};
+
+/** CRM identity key → alternate unit ladder (not fixed %). */
+export const AGENT_CUSTOM_TIERS: Record<string, ReadonlyArray<TierBand>> = {
+  "artin namjoo": ARTIN_LEGACY_TIERS,
 };
 
 export function agentIdentityKey(agentName: string): string {
@@ -34,12 +58,26 @@ export function getFixedRate(agentName: string | null | undefined): number | nul
   return rate === undefined ? null : rate;
 }
 
-export function getTier(units: number): { tier: number; rate: number; label: string } {
+/** Tier bands for this agent (custom ladder or standard). */
+export function getTierTable(agentName?: string | null): ReadonlyArray<TierBand> {
+  const custom = AGENT_CUSTOM_TIERS[agentIdentityKey(agentName || "")];
+  return custom ?? TIERS;
+}
+
+export function usesCustomTier(agentName?: string | null): boolean {
+  return Boolean(AGENT_CUSTOM_TIERS[agentIdentityKey(agentName || "")]);
+}
+
+export function getTier(
+  units: number,
+  agentName?: string | null,
+): { tier: number; rate: number; label: string } {
   if (units < 1) {
     throw new Error(`Units ${units} out of valid range (must be >= 1)`);
   }
-  for (let i = 0; i < TIERS.length; i++) {
-    const t = TIERS[i];
+  const table = getTierTable(agentName);
+  for (let i = 0; i < table.length; i++) {
+    const t = table[i];
     if (units >= t.low && (t.high === null || units <= t.high)) {
       return { tier: i + 1, rate: t.rate, label: t.label };
     }
@@ -121,12 +159,13 @@ export function calculateAgentCommission(opts: {
 }): AgentCommissionResult {
   const { agentName, unitsCleared, totalClearedDebt, cancellationRatePct } = opts;
   const hourlyDraw = opts.hourlyDraw ?? 0;
+  const table = getTierTable(agentName);
 
-  const raw = getTier(unitsCleared);
+  const raw = getTier(unitsCleared, agentName);
   let penaltyApplied = cancellationRatePct > CANCELLATION_PENALTY_THRESHOLD;
   let adjustedTier = penaltyApplied ? Math.max(1, raw.tier - 1) : raw.tier;
-  let tierRate = TIERS[adjustedTier - 1].rate;
-  let tierLabel = TIERS[adjustedTier - 1].label;
+  let tierRate = table[adjustedTier - 1].rate;
+  let tierLabel = table[adjustedTier - 1].label;
 
   const fixedRate = getFixedRate(agentName);
   if (fixedRate !== null) {
@@ -146,7 +185,10 @@ export function calculateAgentCommission(opts: {
   if (fixedRate !== null) {
     notesParts.push(`Fixed rate ${(tierRate * 100).toFixed(2)}% (contract override, tier table not applied)`);
   } else {
-    notesParts.push(`Tier ${adjustedTier} (${tierLabel}) @ ${(tierRate * 100).toFixed(2)}%`);
+    const ladderNote = usesCustomTier(agentName) ? " · grandfathered ladder" : "";
+    notesParts.push(
+      `Tier ${adjustedTier} (${tierLabel}) @ ${(tierRate * 100).toFixed(2)}%${ladderNote}`,
+    );
     if (penaltyApplied) {
       notesParts.push(
         `Tier dropped from ${raw.tier} due to cancellation rate ${cancellationRatePct.toFixed(1)}% > ${CANCELLATION_PENALTY_THRESHOLD}%`,
@@ -185,14 +227,15 @@ export function getAdjustedTierRate(
 ): { tier: number; rate: number } {
   const fixed = getFixedRate(agentName);
   if (fixed !== null) {
-    const rawTier = units > 0 ? getTier(units).tier : 0;
+    const rawTier = units > 0 ? getTier(units, agentName).tier : 0;
     return { tier: rawTier, rate: fixed };
   }
   if (units <= 0) return { tier: 0, rate: 0 };
-  const raw = getTier(units);
+  const table = getTierTable(agentName);
+  const raw = getTier(units, agentName);
   const penalty = cancellationRatePct > CANCELLATION_PENALTY_THRESHOLD;
   const adjusted = penalty ? Math.max(1, raw.tier - 1) : raw.tier;
-  return { tier: adjusted, rate: TIERS[adjusted - 1].rate };
+  return { tier: adjusted, rate: table[adjusted - 1].rate };
 }
 
 export function calculateClawbackAmount(
@@ -212,8 +255,16 @@ export function calculateClawbackAmount(
   }
   const newUnits = origUnits - 1;
   const newDebt = origTotalDebt - clientDebt;
-  const { rate: newRate } = getAdjustedTierRate(newUnits, origCancellationRatePct);
-  const { rate: origRate } = getAdjustedTierRate(origUnits, origCancellationRatePct);
+  const { rate: newRate } = getAdjustedTierRate(
+    newUnits,
+    origCancellationRatePct,
+    agentName,
+  );
+  const { rate: origRate } = getAdjustedTierRate(
+    origUnits,
+    origCancellationRatePct,
+    agentName,
+  );
   let cb: number;
   if (newRate !== origRate) {
     cb = origGrossCommission - newRate * newDebt;
@@ -253,17 +304,18 @@ export function canAgentSignStatementForPeriod(
 
 /**
  * Units still needed this period to reach the next tier's low threshold.
- * null for fixed-rate agents (Alex/Peter) or already at Tier 6.
+ * null for fixed-rate agents (Alex/Peter) or already at top tier.
  */
 export function unitsToNextTier(
   unitsCleared: number,
   agentName?: string | null,
 ): number | null {
   if (getFixedRate(agentName) !== null) return null;
-  if (unitsCleared < 1) return TIERS[0].low - unitsCleared;
-  const { tier } = getTier(unitsCleared);
-  if (tier >= TIERS.length) return null;
-  const nextLow = TIERS[tier].low; // next tier (0-indexed: current tier index = tier-1, next = tier)
+  const table = getTierTable(agentName);
+  if (unitsCleared < 1) return table[0].low - unitsCleared;
+  const { tier } = getTier(unitsCleared, agentName);
+  if (tier >= table.length) return null;
+  const nextLow = table[tier].low; // next tier (0-indexed: current = tier-1, next = tier)
   return nextLow - unitsCleared;
 }
 
@@ -278,8 +330,9 @@ export function commissionGainAtNextTier(
   agentName?: string | null,
 ): number | null {
   if (getFixedRate(agentName) !== null) return null;
-  if (adjustedTier < 1 || adjustedTier >= TIERS.length) return null;
-  const nextRate = TIERS[adjustedTier].rate; // next tier (0-indexed)
+  const table = getTierTable(agentName);
+  if (adjustedTier < 1 || adjustedTier >= table.length) return null;
+  const nextRate = table[adjustedTier].rate; // next tier (0-indexed)
   const potentialGross = totalClearedDebt * nextRate;
   return Math.round((potentialGross - grossCommission) * 100) / 100;
 }

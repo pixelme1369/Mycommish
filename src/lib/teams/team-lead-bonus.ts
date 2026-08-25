@@ -13,7 +13,7 @@ import {
 import { listDismissedKeys } from "@/lib/agents/dismissal";
 import { listExcludedKeysForPeriod } from "@/lib/agents/period-exclusion";
 import { agentIdentityKey } from "@/lib/commission/calculator";
-import { computeTeamLeadBonusAmount } from "@/lib/commission/net";
+import { computeTeamLeadBonusAmount, parseTeamLeadBonusNote } from "@/lib/commission/net";
 import { recomputeAgentPeriodClawbacks } from "@/lib/ingest/recompute-agent-period";
 
 function dec(n: number) {
@@ -337,4 +337,114 @@ async function setTeamLeadBonus(opts: {
   }
 
   await recomputeAgentPeriodClawbacks(ap.id);
+}
+
+export type TeamLeadBonusBreakdown = {
+  amount: number;
+  teamUnits: number;
+  ratePerUnit: number;
+  /** Human label for what the units count covers. */
+  scopeLabel: string;
+  note: string | null;
+  /** Roster-scope member lines (omitted for all-period-units). */
+  members: { agentName: string; units: number }[];
+};
+
+export { parseTeamLeadBonusNote };
+
+/**
+ * Live breakdown for an agent period’s team-lead bonus (ledger note + optional roster lines).
+ * Returns null when there is no active team_lead_bonus credit.
+ */
+export async function getTeamLeadBonusBreakdown(
+  agentPeriodId: string,
+): Promise<TeamLeadBonusBreakdown | null> {
+  const entry = await prisma.ledgerEntry.findFirst({
+    where: {
+      agentPeriodId,
+      type: LedgerType.team_lead_bonus,
+      reversesEntryId: null,
+    },
+    include: { reversedBy: true },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!entry || entry.reversedBy) return null;
+  const amount = Math.round(Number(entry.amount) * 100) / 100;
+  if (amount <= 0) return null;
+
+  const parsed = parseTeamLeadBonusNote(entry.note);
+  let teamUnits = parsed?.teamUnits ?? 0;
+  let ratePerUnit = parsed?.ratePerUnit ?? 0;
+  let scopeLabel = parsed?.scopeLabel ?? "Team lead bonus";
+  const members: { agentName: string; units: number }[] = [];
+
+  const ap = await prisma.agentPeriod.findUnique({
+    where: { id: agentPeriodId },
+    select: {
+      periodId: true,
+      agentName: true,
+      period: { select: { periodLabel: true } },
+    },
+  });
+  if (ap) {
+    const lead = await prisma.teamLead.findFirst({
+      where: {
+        leadAgentName: { equals: ap.agentName, mode: "insensitive" },
+      },
+      include: { members: { orderBy: { memberAgentName: "asc" } } },
+    });
+    if (lead) {
+      ratePerUnit = ratePerUnit || Number(lead.ratePerUnit);
+      const [agentPeriods, dismissedKeys, excludedKeys] = await Promise.all([
+        prisma.agentPeriod.findMany({
+          where: { periodId: ap.periodId },
+          select: { agentName: true, unitsCleared: true },
+        }),
+        listDismissedKeys(),
+        listExcludedKeysForPeriod(ap.period.periodLabel),
+      ]);
+      const unitsByKey = new Map<string, number>();
+      let periodUnitsTotal = 0;
+      for (const row of agentPeriods) {
+        const key = agentIdentityKey(row.agentName);
+        if (dismissedKeys.has(key) || excludedKeys.has(key)) continue;
+        unitsByKey.set(key, row.unitsCleared);
+        periodUnitsTotal += row.unitsCleared;
+      }
+
+      if (lead.bonusScope === "all_period_units") {
+        scopeLabel = "All period units";
+        if (!teamUnits) teamUnits = periodUnitsTotal;
+      } else {
+        scopeLabel = "Team roster units";
+        let sum = 0;
+        for (const m of lead.members) {
+          if (
+            dismissedKeys.has(m.memberAgentNameKey) ||
+            excludedKeys.has(m.memberAgentNameKey)
+          ) {
+            continue;
+          }
+          const units = unitsByKey.get(m.memberAgentNameKey) ?? 0;
+          members.push({ agentName: m.memberAgentName, units });
+          sum += units;
+        }
+        if (!teamUnits) teamUnits = sum;
+      }
+      if (!ratePerUnit) ratePerUnit = Number(lead.ratePerUnit);
+    }
+  }
+
+  if (!teamUnits && ratePerUnit > 0) {
+    teamUnits = Math.round(amount / ratePerUnit);
+  }
+
+  return {
+    amount,
+    teamUnits,
+    ratePerUnit,
+    scopeLabel,
+    note: entry.note,
+    members,
+  };
 }

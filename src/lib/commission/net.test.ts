@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeNetCommission, computeTeamLeadBonusAmount } from "./net";
+import { computeNetCommission, computeTeamLeadBonusAmount, parseTeamLeadBonusNote } from "./net";
 
 describe("computeNetCommission", () => {
   it("adds advances paid and subtracts repayments", () => {
@@ -33,5 +33,21 @@ describe("computeTeamLeadBonusAmount", () => {
     expect(computeTeamLeadBonusAmount(0, 5)).toBe(0);
     expect(computeTeamLeadBonusAmount(10, 0)).toBe(0);
     expect(computeTeamLeadBonusAmount(-1, 5)).toBe(0);
+  });
+});
+
+describe("parseTeamLeadBonusNote", () => {
+  it("parses period-units and roster notes", () => {
+    expect(parseTeamLeadBonusNote("Period units bonus: 778 units × $15")).toEqual({
+      teamUnits: 778,
+      ratePerUnit: 15,
+      scopeLabel: "All period units",
+    });
+    expect(parseTeamLeadBonusNote("Team bonus: 1 unit × $5")).toEqual({
+      teamUnits: 1,
+      ratePerUnit: 5,
+      scopeLabel: "Team roster units",
+    });
+    expect(parseTeamLeadBonusNote(null)).toBeNull();
   });
 });

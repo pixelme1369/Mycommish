@@ -36,9 +36,11 @@ import { StatementSignPanel } from "./statement-sign-panel";
 import { WaitingFirstPaymentSection } from "./waiting-first-payment-section";
 import { CancelRateBreakdownSection } from "./cancel-rate-breakdown";
 import { ManualBonusSection } from "./manual-bonus-section";
+import { TeamLeadBonusMetric } from "./team-lead-bonus-metric";
 import { listManualBonusesForAgentPeriod } from "@/lib/manual-bonuses";
 import { listAdvancesForAgentPeriod } from "@/lib/advances";
 import { getStatementForAgentPeriodRow } from "@/lib/statements";
+import { getTeamLeadBonusBreakdown } from "@/lib/teams/team-lead-bonus";
 import type { ClientEvent } from "@/generated/prisma/client";
 type PortalClientEvent = ClientEvent & {
   identity?: { externalId: string | null } | null;
@@ -134,6 +136,10 @@ export default async function PeriodDetailPage({
     agentName: row.agentName,
     periodLabel: row.period.periodLabel,
   });
+  const teamLeadBonusBreakdown =
+    Number(row.teamLeadBonusAmount) > 0
+      ? await getTeamLeadBonusBreakdown(row.id)
+      : null;
   const pendingManualBonusTotal = manualBonuses
     .filter((b) => b.status === "pending")
     .reduce((s, b) => s + b.amount, 0);
@@ -241,10 +247,14 @@ export default async function PeriodDetailPage({
               />
             ) : null}
             {Number(row.teamLeadBonusAmount) > 0 ? (
-              <Metric
-                label="Team lead bonus"
-                value={`+${money(row.teamLeadBonusAmount)}`}
-              />
+              teamLeadBonusBreakdown ? (
+                <TeamLeadBonusMetric breakdown={teamLeadBonusBreakdown} />
+              ) : (
+                <Metric
+                  label="Team lead bonus"
+                  value={`+${money(row.teamLeadBonusAmount)}`}
+                />
+              )
             ) : null}
             <Metric label="Cancel rate" value={cancelRatePercent(row.cancellationRate)} />
             <Metric label="Pending cancellations" value={String(row.pendingUnits)} />

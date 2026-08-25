@@ -31,3 +31,25 @@ export function computeTeamLeadBonusAmount(
   if (units <= 0 || rate <= 0) return 0;
   return Math.round(units * rate * 100) / 100;
 }
+
+/** Parse `Team bonus: 778 units × $15` / `Period units bonus: …` from ledger note. */
+export function parseTeamLeadBonusNote(note: string | null | undefined): {
+  teamUnits: number;
+  ratePerUnit: number;
+  scopeLabel: string;
+} | null {
+  if (!note) return null;
+  const m = note.match(
+    /^(Team bonus|Period units bonus):\s*(\d+)\s+units?\s*×\s*\$([\d.]+)\s*$/i,
+  );
+  if (!m) return null;
+  const scopeLabel =
+    m[1].toLowerCase().startsWith("period")
+      ? "All period units"
+      : "Team roster units";
+  return {
+    teamUnits: Number(m[2]),
+    ratePerUnit: Number(m[3]),
+    scopeLabel,
+  };
+}
