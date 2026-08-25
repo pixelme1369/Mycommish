@@ -117,6 +117,52 @@ export function statementStatusLabel(status: StatementSignStatus | undefined | n
 }
 
 /**
+ * AgentPeriod ids whose statements are fully signed (agent + manager).
+ * Matches by live agentPeriodId and durable periodLabel + agentName.
+ */
+export async function fullySignedAgentPeriodIds(
+  rows: Array<{ id: string; agentName: string; periodLabel: string }>,
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (!rows.length) return out;
+
+  const ids = rows.map((r) => r.id);
+  const byLink = await prisma.commissionStatement.findMany({
+    where: {
+      status: StatementSignStatus.fully_signed,
+      agentPeriodId: { in: ids },
+    },
+    select: { agentPeriodId: true },
+  });
+  for (const r of byLink) {
+    if (r.agentPeriodId) out.add(r.agentPeriodId);
+  }
+
+  const remaining = rows.filter((r) => !out.has(r.id));
+  if (!remaining.length) return out;
+
+  const durable = await prisma.commissionStatement.findMany({
+    where: {
+      status: StatementSignStatus.fully_signed,
+      OR: remaining.map((r) => ({
+        periodLabel: r.periodLabel,
+        agentName: r.agentName,
+      })),
+    },
+    select: { periodLabel: true, agentName: true },
+  });
+  const durableKeys = new Set(
+    durable.map((r) => `${r.periodLabel}\0${r.agentName}`),
+  );
+  for (const r of remaining) {
+    if (durableKeys.has(`${r.periodLabel}\0${r.agentName}`)) {
+      out.add(r.id);
+    }
+  }
+  return out;
+}
+
+/**
  * Map CRM agent name → whether the agent has signed (agent or fully signed).
  * Looks up by periodLabel (durable across CRM re-upload).
  */

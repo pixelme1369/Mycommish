@@ -23,6 +23,7 @@ import {
   getCancelRateBreakdownForAgent,
   mergeClawbacksWithCordoba,
   money,
+  paidPeriodLabels,
   ratePercent,
   type MergedClawbackRow,
 } from "@/lib/portal/queries";
@@ -37,10 +38,12 @@ import { WaitingFirstPaymentSection } from "./waiting-first-payment-section";
 import { CancelRateBreakdownSection } from "./cancel-rate-breakdown";
 import { ManualBonusSection } from "./manual-bonus-section";
 import { TeamLeadBonusMetric } from "./team-lead-bonus-metric";
+import { PeriodPayStatusChip } from "@/components/period-pay-status-chip";
 import { listManualBonusesForAgentPeriod } from "@/lib/manual-bonuses";
 import { listAdvancesForAgentPeriod } from "@/lib/advances";
 import { getStatementForAgentPeriodRow } from "@/lib/statements";
 import { getTeamLeadBonusBreakdown } from "@/lib/teams/team-lead-bonus";
+import { StatementSignStatus } from "@/generated/prisma/client";
 import type { ClientEvent } from "@/generated/prisma/client";
 type PortalClientEvent = ClientEvent & {
   identity?: { externalId: string | null } | null;
@@ -140,6 +143,11 @@ export default async function PeriodDetailPage({
     Number(row.teamLeadBonusAmount) > 0
       ? await getTeamLeadBonusBreakdown(row.id)
       : null;
+  const periodIsPaid = (
+    await paidPeriodLabels([row.period.periodLabel])
+  ).has(row.period.periodLabel);
+  const pendingPayout =
+    !periodIsPaid && statement?.status === StatementSignStatus.fully_signed;
   const pendingManualBonusTotal = manualBonuses
     .filter((b) => b.status === "pending")
     .reduce((s, b) => s + b.amount, 0);
@@ -170,7 +178,14 @@ export default async function PeriodDetailPage({
             {backLabel}
           </Link>
         }
-        title={`${row.agentName} · ${row.period.periodLabel}`}
+        title={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <span>
+              {row.agentName} · {row.period.periodLabel}
+            </span>
+            <PeriodPayStatusChip paid={periodIsPaid} pendingPayout={pendingPayout} />
+          </span>
+        }
         description={`Status: ${row.period.status} · source: calculated`}
         actions={
           <>

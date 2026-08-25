@@ -12,6 +12,20 @@ export async function latestCalculatedPeriods(limit = LATEST_PERIODS_SHOWN) {
   });
 }
 
+/**
+ * Period labels that have a History archive (admin “Log as paid”).
+ * Used to show agents a Paid chip next to those months.
+ */
+export async function paidPeriodLabels(periodLabels: string[]): Promise<Set<string>> {
+  const unique = [...new Set(periodLabels.filter(Boolean))];
+  if (!unique.length) return new Set();
+  const rows = await prisma.commissionPeriod.findMany({
+    where: { source: PeriodSource.history, periodLabel: { in: unique } },
+    select: { periodLabel: true },
+  });
+  return new Set(rows.map((r) => r.periodLabel));
+}
+
 /** Agent names that appear in the latest-2 calculated window only. */
 export async function listAgentNamesInLatestPeriods() {
   const periods = await latestCalculatedPeriods();

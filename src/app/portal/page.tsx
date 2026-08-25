@@ -23,8 +23,11 @@ import {
   cancelRatePercent,
   latestCalculatedPeriods,
   money,
+  paidPeriodLabels,
   ratePercent,
 } from "@/lib/portal/queries";
+import { fullySignedAgentPeriodIds } from "@/lib/statements";
+import { PeriodPayStatusChip } from "@/components/period-pay-status-chip";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +57,15 @@ export default async function PortalHome() {
       return true;
     })
     .sort((a, b) => b.period.periodLabel.localeCompare(a.period.periodLabel));
+
+  const paidLabels = await paidPeriodLabels(unique.map((r) => r.period.periodLabel));
+  const fullySignedIds = await fullySignedAgentPeriodIds(
+    unique.map((r) => ({
+      id: r.id,
+      agentName: r.agentName,
+      periodLabel: r.period.periodLabel,
+    })),
+  );
 
   return (
     <AppShell wide>
@@ -137,7 +149,15 @@ export default async function PortalHome() {
               <TableBody>
                 {unique.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.period.periodLabel}</TableCell>
+                    <TableCell className="font-medium">
+                      <span className="inline-flex flex-wrap items-center gap-2">
+                        {r.period.periodLabel}
+                        <PeriodPayStatusChip
+                          paid={paidLabels.has(r.period.periodLabel)}
+                          pendingPayout={fullySignedIds.has(r.id)}
+                        />
+                      </span>
+                    </TableCell>
                     <TableCell>{formatPayDate(r.period.periodLabel)}</TableCell>
                     <TableCell>{r.agentName}</TableCell>
                     <TableCell>{r.unitsCleared}</TableCell>
