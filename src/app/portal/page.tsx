@@ -28,6 +28,8 @@ import {
 } from "@/lib/portal/queries";
 import { fullySignedAgentPeriodIds } from "@/lib/statements";
 import { PeriodPayStatusChip } from "@/components/period-pay-status-chip";
+import { AgentPhoneForm } from "@/app/portal/agent-phone-form";
+import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +48,15 @@ export default async function PortalHome() {
   const aliasNames = session.user.aliasNames || [];
   const windowPeriods = await latestCalculatedPeriods();
   const windowLabels = windowPeriods.map((p) => p.periodLabel);
+
+  const agentProfile = session.user.agentId
+    ? await prisma.agent.findUnique({
+        where: { id: session.user.agentId },
+        select: { phone: true },
+      })
+    : null;
+  const phone = agentProfile?.phone?.trim() || null;
+  const needsPhone = !phone;
 
   const rowSets = await Promise.all(aliasNames.map((n) => agentRowsForLatestPeriods(n)));
   const rows = rowSets.flatMap((s) => s.rows);
@@ -105,6 +116,8 @@ export default async function PortalHome() {
           </>
         }
       />
+
+      <AgentPhoneForm currentPhone={phone} required={needsPhone} />
 
       {!aliasNames.length ? (
         <Card className="glass-panel mt-10 p-6 text-sm text-muted-foreground">

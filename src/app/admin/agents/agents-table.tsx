@@ -29,6 +29,8 @@ import {
   updateGustoProfileAction,
   updateRoleAction,
 } from "./actions";
+import { updateAgentPhoneAction } from "@/app/portal/phone-actions";
+import { formatPhoneForDisplay } from "@/lib/agents/phone";
 
 export type AgentRoleView = "super_admin" | "admin" | "manager" | "agent";
 export type EmploymentTypeView = "employee" | "contractor";
@@ -43,6 +45,7 @@ export type AgentRowView = {
   gustoFirstName: string | null;
   gustoLastName: string | null;
   gustoEmployeeId: string | null;
+  phone: string | null;
   hasPassword: boolean;
   lastLoginAt: string | null;
   suspendedAt: string | null;
@@ -527,6 +530,38 @@ function AgentDetailPanel({
           </Button>
         </form>
       </details>
+
+      <div className="rounded-lg bg-background p-3 ring-1 ring-border/60">
+        <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+          Mobile
+        </p>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Agents can set this from the portal. Edit here if needed.
+        </p>
+        <form
+          key={`phone-${agent.id}-${agent.phone || ""}`}
+          action={updateAgentPhoneAction}
+          className="mt-3 flex flex-wrap items-end gap-2"
+        >
+          <input type="hidden" name="agentId" value={agent.id} />
+          <div className="min-w-[12rem] flex-1 space-y-1">
+            <Label htmlFor={`phone-${agent.id}`} className="text-xs text-muted-foreground">
+              Phone
+            </Label>
+            <Input
+              id={`phone-${agent.id}`}
+              name="phone"
+              type="tel"
+              defaultValue={formatPhoneForDisplay(agent.phone)}
+              placeholder="(555) 123-4567"
+              className="h-9"
+            />
+          </div>
+          <Button type="submit" size="sm" variant="outline" className="h-8">
+            Save phone
+          </Button>
+        </form>
+      </div>
 
       <div className="rounded-lg bg-background p-3 ring-1 ring-border/60">
         <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">

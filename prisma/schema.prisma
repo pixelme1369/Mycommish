@@ -42,6 +42,8 @@ model Agent {
   gustoFirstName   String?
   gustoLastName    String?
   gustoEmployeeId  String?
+  /// Agent mobile (self-serve from portal; admin can edit on Users).
+  phone            String?
   lastLoginAt    DateTime?
   /// When set, portal login is blocked (separate from SalesRepDismissal).
   suspendedAt    DateTime?

@@ -46,6 +46,7 @@ export default async function ManageAgentsPage() {
     gustoFirstName: a.gustoFirstName,
     gustoLastName: a.gustoLastName,
     gustoEmployeeId: a.gustoEmployeeId,
+    phone: a.phone,
     hasPassword: Boolean(a.passwordHash),
     lastLoginAt: a.lastLoginAt?.toISOString() ?? null,
     suspendedAt: a.suspendedAt?.toISOString() ?? null,
