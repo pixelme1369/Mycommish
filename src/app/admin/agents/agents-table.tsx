@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition, Fragment } from "react";
+import {
+  useMemo,
+  useState,
+  useTransition,
+  Fragment,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -332,6 +338,52 @@ export function AgentsUsersTable({
   );
 }
 
+function DetailSection({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-lg ring-1 ring-border/60">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b border-border/50 bg-muted/40 px-3 py-1.5">
+        <h3 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          {title}
+        </h3>
+        {hint ? <p className="text-[11px] text-muted-foreground">{hint}</p> : null}
+      </div>
+      <div className="bg-background px-3 py-2.5">{children}</div>
+    </section>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  className,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn("min-w-0 space-y-1", className)}>
+      <Label
+        htmlFor={htmlFor}
+        className="text-[11px] font-medium text-muted-foreground"
+      >
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
 function AgentDetailPanel({
   agent,
   salesReps,
@@ -351,29 +403,23 @@ function AgentDetailPanel({
   const isContractor = agent.employmentType === "contractor";
 
   return (
-    <div className="space-y-4 border-t border-border/60 px-4 py-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="text-xs text-muted-foreground">
+    <div className="space-y-2.5 border-t border-border/60 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] text-muted-foreground">
           {suspended ? (
-            <p>
+            <>
               Suspended
-              {agent.suspendedAt
-                ? ` ${formatLastLogin(agent.suspendedAt)}`
-                : ""}
-              {agent.suspendedByName ? ` by ${agent.suspendedByName}` : ""}
-              . Portal login is blocked.
-            </p>
+              {agent.suspendedAt ? ` ${formatLastLogin(agent.suspendedAt)}` : ""}
+              {agent.suspendedByName ? ` by ${agent.suspendedByName}` : ""}. Login blocked.
+            </>
           ) : (
-            <p>
-              Google sign-in works with this email when Google OAuth is enabled. Password is
-              optional.
-            </p>
+            <>Google OAuth uses this email · password optional</>
           )}
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
+        </p>
+        <div className="flex shrink-0 flex-wrap gap-1.5">
           <a
             href={`/admin/teams?agentId=${agent.id}`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7")}
           >
             Team lead
           </a>
@@ -383,7 +429,7 @@ function AgentDetailPanel({
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8"
+                className="h-7"
                 disabled={busy}
                 onClick={onActivate}
               >
@@ -394,7 +440,7 @@ function AgentDetailPanel({
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8"
+                className="h-7"
                 disabled={busy}
                 onClick={onSuspend}
               >
@@ -405,73 +451,88 @@ function AgentDetailPanel({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
-        <form
-          key={`name-${agent.id}-${agent.displayName}`}
-          action={updateDisplayNameAction}
-          className="flex min-w-0 flex-col gap-2 rounded-lg bg-background p-3 ring-1 ring-border/60"
-        >
-          <input type="hidden" name="agentId" value={agent.id} />
-          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            Display name
-          </p>
-          <Input
-            name="displayName"
-            required
-            defaultValue={agent.displayName}
-            placeholder="Display name"
-            className="h-9 min-w-0"
-          />
-          <Button type="submit" size="sm" variant="outline" className="mt-auto h-8 w-fit">
-            Save name
-          </Button>
-        </form>
-
-        <form
-          key={`role-${agent.id}-${agent.role}`}
-          action={updateRoleAction}
-          className="flex min-w-0 flex-col gap-2 rounded-lg bg-background p-3 ring-1 ring-border/60"
-        >
-          <input type="hidden" name="agentId" value={agent.id} />
-          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            Role
-          </p>
-          <select
-            name="role"
-            defaultValue={agent.role}
-            className="flex h-9 w-full min-w-0 rounded-lg border border-input bg-transparent px-2 text-sm"
+      <DetailSection title="Profile">
+        <div className="flex flex-wrap items-end gap-x-2 gap-y-2">
+          <form
+            key={`name-${agent.id}-${agent.displayName}`}
+            action={updateDisplayNameAction}
+            className="flex min-w-[10rem] flex-[1.2] items-end gap-1.5"
           >
-            <option value="agent">Agent</option>
-            <option value="manager">Manager</option>
-            <option value="admin">Admin</option>
-            <option value="super_admin">Super admin</option>
-          </select>
-          <Button type="submit" size="sm" variant="outline" className="mt-auto h-8 w-fit">
-            Save role
-          </Button>
-        </form>
+            <input type="hidden" name="agentId" value={agent.id} />
+            <Field label="Display name" className="flex-1">
+              <Input
+                name="displayName"
+                required
+                defaultValue={agent.displayName}
+                placeholder="Display name"
+                className="h-8"
+              />
+            </Field>
+            <Button type="submit" size="sm" variant="outline" className="h-8 shrink-0 px-2.5">
+              Save
+            </Button>
+          </form>
 
-        <form
-          action={setPasswordAction}
-          className="flex min-w-0 flex-col gap-2 rounded-lg bg-background p-3 ring-1 ring-border/60"
-        >
-          <input type="hidden" name="agentId" value={agent.id} />
-          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-            Password (optional)
-          </p>
-          <p className="text-[11px] text-muted-foreground">
-            Leave unset to use Google only. Setting a password does not disable Google.
-          </p>
-          <Input
-            name="password"
-            type="password"
-            required
-            minLength={6}
-            placeholder={agent.hasPassword ? "New password (min 6)" : "Set password (min 6)"}
-            className="h-9 min-w-0"
-          />
-          <div className="mt-auto flex flex-wrap gap-2">
-            <Button type="submit" size="sm" variant="outline" className="h-8">
+          <form
+            key={`role-${agent.id}-${agent.role}`}
+            action={updateRoleAction}
+            className="flex min-w-[8rem] flex-1 items-end gap-1.5"
+          >
+            <input type="hidden" name="agentId" value={agent.id} />
+            <Field label="Role" className="flex-1">
+              <select
+                name="role"
+                defaultValue={agent.role}
+                className="flex h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2 text-sm"
+              >
+                <option value="agent">Agent</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+                <option value="super_admin">Super admin</option>
+              </select>
+            </Field>
+            <Button type="submit" size="sm" variant="outline" className="h-8 shrink-0 px-2.5">
+              Save
+            </Button>
+          </form>
+
+          <form
+            key={`phone-${agent.id}-${agent.phone || ""}`}
+            action={updateAgentPhoneAction}
+            className="flex min-w-[9rem] flex-1 items-end gap-1.5"
+          >
+            <input type="hidden" name="agentId" value={agent.id} />
+            <Field label="Mobile" htmlFor={`phone-${agent.id}`} className="flex-1">
+              <Input
+                id={`phone-${agent.id}`}
+                name="phone"
+                type="tel"
+                defaultValue={formatPhoneForDisplay(agent.phone)}
+                placeholder="(555) 123-4567"
+                className="h-8"
+              />
+            </Field>
+            <Button type="submit" size="sm" variant="outline" className="h-8 shrink-0 px-2.5">
+              Save
+            </Button>
+          </form>
+
+          <form
+            action={setPasswordAction}
+            className="flex min-w-[11rem] flex-[1.1] items-end gap-1.5"
+          >
+            <input type="hidden" name="agentId" value={agent.id} />
+            <Field label="Password" className="flex-1">
+              <Input
+                name="password"
+                type="password"
+                required
+                minLength={6}
+                placeholder={agent.hasPassword ? "New (min 6)" : "Set (min 6)"}
+                className="h-8"
+              />
+            </Field>
+            <Button type="submit" size="sm" variant="outline" className="h-8 shrink-0 px-2.5">
               {agent.hasPassword ? "Update" : "Set"}
             </Button>
             {agent.hasPassword ? (
@@ -479,38 +540,32 @@ function AgentDetailPanel({
                 formAction={clearPasswordAction}
                 formNoValidate
                 type="submit"
-                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-8")}
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-8 px-2")}
               >
                 Clear
               </button>
             ) : null}
-          </div>
-        </form>
-      </div>
+          </form>
+        </div>
+      </DetailSection>
 
-      <details className="rounded-lg bg-background px-3 py-2 ring-1 ring-border/60">
-        <summary className="cursor-pointer list-none text-[11px] font-medium tracking-wide text-muted-foreground uppercase marker:content-none [&::-webkit-details-marker]:hidden">
-          <span className="inline-flex flex-wrap items-center gap-2">
-            <span>Employment</span>
-            <span className="font-normal normal-case tracking-normal text-foreground/70">
-              {isContractor
-                ? agent.companyName
-                  ? `1099 · ${agent.companyName}`
-                  : "1099 contractor"
-                : "Employee"}
-            </span>
-            <span className="font-normal normal-case tracking-normal text-muted-foreground">
-              · edit
-            </span>
-          </span>
-        </summary>
+      <DetailSection
+        title="Employment"
+        hint={
+          isContractor
+            ? agent.companyName
+              ? `1099 · ${agent.companyName}`
+              : "1099 contractor"
+            : "Employee"
+        }
+      >
         <form
           key={`employment-${agent.id}-${agent.employmentType}-${agent.companyName || ""}`}
           action={updateEmploymentAction}
-          className="mt-2 flex flex-wrap items-end gap-2 border-t border-border/50 pt-2"
+          className="flex flex-wrap items-end gap-2"
         >
           <input type="hidden" name="agentId" value={agent.id} />
-          <label className="flex h-9 items-center gap-2 text-sm">
+          <label className="flex h-8 items-center gap-2 text-sm">
             <input
               name="isContractor"
               type="checkbox"
@@ -519,132 +574,100 @@ function AgentDetailPanel({
             />
             1099
           </label>
-          <Input
-            name="companyName"
-            defaultValue={agent.companyName || ""}
-            placeholder="Company (optional)"
-            className="h-9 min-w-[12rem] flex-1"
-          />
-          <Button type="submit" size="sm" variant="outline" className="h-8">
+          <Field label="Company" className="min-w-[12rem] flex-1">
+            <Input
+              name="companyName"
+              defaultValue={agent.companyName || ""}
+              placeholder="Optional"
+              className="h-8"
+            />
+          </Field>
+          <Button type="submit" size="sm" variant="outline" className="h-8 shrink-0 px-2.5">
             Save
           </Button>
         </form>
-      </details>
+      </DetailSection>
 
-      <div className="rounded-lg bg-background p-3 ring-1 ring-border/60">
-        <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-          Mobile
-        </p>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Agents can set this from the portal. Edit here if needed.
-        </p>
-        <form
-          key={`phone-${agent.id}-${agent.phone || ""}`}
-          action={updateAgentPhoneAction}
-          className="mt-3 flex flex-wrap items-end gap-2"
-        >
-          <input type="hidden" name="agentId" value={agent.id} />
-          <div className="min-w-[12rem] flex-1 space-y-1">
-            <Label htmlFor={`phone-${agent.id}`} className="text-xs text-muted-foreground">
-              Phone
-            </Label>
-            <Input
-              id={`phone-${agent.id}`}
-              name="phone"
-              type="tel"
-              defaultValue={formatPhoneForDisplay(agent.phone)}
-              placeholder="(555) 123-4567"
-              className="h-9"
-            />
-          </div>
-          <Button type="submit" size="sm" variant="outline" className="h-8">
-            Save phone
-          </Button>
-        </form>
-      </div>
-
-      <div className="rounded-lg bg-background p-3 ring-1 ring-border/60">
-        <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-          Gusto payroll
-        </p>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Legal name + employee ID for the Gusto export. Prefills from roster when we can match
-          a CRM alias — edit anytime.
-        </p>
+      <DetailSection title="Gusto payroll" hint="Legal name + employee ID for export">
         <form
           key={`gusto-${agent.id}-${agent.gustoEmployeeId || ""}-${agent.gustoFirstName || ""}-${agent.gustoLastName || ""}`}
           action={updateGustoProfileAction}
-          className="mt-3 grid gap-2 sm:grid-cols-3"
+          className="flex flex-wrap items-end gap-2"
         >
           <input type="hidden" name="agentId" value={agent.id} />
-          <div className="space-y-1">
-            <Label htmlFor={`gusto-first-${agent.id}`} className="text-xs text-muted-foreground">
-              First name
-            </Label>
+          <Field
+            label="First name"
+            htmlFor={`gusto-first-${agent.id}`}
+            className="min-w-[8rem] flex-1"
+          >
             <Input
               id={`gusto-first-${agent.id}`}
               name="gustoFirstName"
               defaultValue={agent.gustoFirstName || ""}
-              placeholder="Gusto first name"
-              className="h-9"
+              placeholder="First"
+              className="h-8"
             />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor={`gusto-last-${agent.id}`} className="text-xs text-muted-foreground">
-              Last name
-            </Label>
+          </Field>
+          <Field
+            label="Last name"
+            htmlFor={`gusto-last-${agent.id}`}
+            className="min-w-[8rem] flex-1"
+          >
             <Input
               id={`gusto-last-${agent.id}`}
               name="gustoLastName"
               defaultValue={agent.gustoLastName || ""}
-              placeholder="Gusto last name"
-              className="h-9"
+              placeholder="Last"
+              className="h-8"
             />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor={`gusto-id-${agent.id}`} className="text-xs text-muted-foreground">
-              Employee ID
-            </Label>
+          </Field>
+          <Field
+            label="Employee ID"
+            htmlFor={`gusto-id-${agent.id}`}
+            className="min-w-[7rem] flex-1"
+          >
             <Input
               id={`gusto-id-${agent.id}`}
               name="gustoEmployeeId"
               defaultValue={agent.gustoEmployeeId || ""}
               placeholder="e.g. 85260d"
-              className="h-9 font-mono text-xs"
+              className="h-8 font-mono text-xs"
+            />
+          </Field>
+          <Button type="submit" size="sm" variant="outline" className="h-8 shrink-0 px-2.5">
+            Save
+          </Button>
+        </form>
+      </DetailSection>
+
+      <DetailSection title="CRM aliases">
+        <div className="flex flex-wrap items-start gap-3">
+          <ul className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+            {agent.aliases.length === 0 ? (
+              <li className="text-[11px] text-muted-foreground">None yet</li>
+            ) : (
+              agent.aliases.map((al) => (
+                <li
+                  key={al.id}
+                  className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1 ring-1 ring-border/50"
+                >
+                  <span className="font-mono text-xs">{al.agentName}</span>
+                  <DeleteAliasButton aliasId={al.id} agentName={al.agentName} />
+                </li>
+              ))
+            )}
+          </ul>
+          <div className="min-w-[14rem] flex-[1.2]">
+            <AliasAutocomplete
+              agentId={agent.id}
+              suggestions={salesReps}
+              excludeNames={agent.aliases.map((al) => al.agentName)}
             />
           </div>
-          <div className="sm:col-span-3">
-            <Button type="submit" size="sm" variant="outline" className="h-8">
-              Save Gusto
-            </Button>
-          </div>
-        </form>
-      </div>
+        </div>
+      </DetailSection>
 
-      <div className="rounded-lg bg-background p-3 ring-1 ring-border/60">
-        <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-          CRM aliases
-        </p>
-        <ul className="mt-2 space-y-1 text-sm">
-          {agent.aliases.length === 0 ? (
-            <li className="text-xs text-muted-foreground">No aliases yet</li>
-          ) : (
-            agent.aliases.map((al) => (
-              <li key={al.id} className="flex items-center justify-between gap-2">
-                <span className="font-mono text-xs">{al.agentName}</span>
-                <DeleteAliasButton aliasId={al.id} agentName={al.agentName} />
-              </li>
-            ))
-          )}
-        </ul>
-        <AliasAutocomplete
-          agentId={agent.id}
-          suggestions={salesReps}
-          excludeNames={agent.aliases.map((al) => al.agentName)}
-        />
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         {!isSelf && !suspended ? (
           <LoginAsUserButton agentId={agent.id} displayName={agent.displayName} />
         ) : (

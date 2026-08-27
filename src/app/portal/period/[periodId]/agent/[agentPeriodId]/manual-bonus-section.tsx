@@ -54,6 +54,7 @@ export function ManualBonusSection({
               agentPeriodId={agentPeriodId}
               canManage={false}
               canApprove={false}
+              hideInternalNote
             />
           ))}
           {approved.map((b) => (
@@ -64,6 +65,7 @@ export function ManualBonusSection({
               agentPeriodId={agentPeriodId}
               canManage={false}
               canApprove={false}
+              hideInternalNote
             />
           ))}
         </ul>
@@ -174,12 +176,15 @@ function ManualBonusRow({
   agentPeriodId,
   canManage,
   canApprove,
+  hideInternalNote = false,
 }: {
   bonus: ManualBonusView;
   periodId: string;
   agentPeriodId: string;
   canManage: boolean;
   canApprove: boolean;
+  /** Agents see amount/status only — note is for managers / super admins. */
+  hideInternalNote?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [state, action, pending] = useActionState(
@@ -255,13 +260,17 @@ function ManualBonusRow({
               </Badge>
             )}
           </div>
-          <p className="text-sm text-foreground">{bonus.note}</p>
-          <p className="text-[11px] text-muted-foreground">
-            Logged by {bonus.createdByName}
-            {bonus.status === "approved" && bonus.approvedByName
-              ? ` · approved by ${bonus.approvedByName}`
-              : null}
-          </p>
+          {!hideInternalNote ? (
+            <>
+              <p className="text-sm text-foreground">{bonus.note}</p>
+              <p className="text-[11px] text-muted-foreground">
+                Logged by {bonus.createdByName}
+                {bonus.status === "approved" && bonus.approvedByName
+                  ? ` · approved by ${bonus.approvedByName}`
+                  : null}
+              </p>
+            </>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {canApprove && bonus.status === "pending" ? (

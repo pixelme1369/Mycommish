@@ -172,11 +172,20 @@ export default async function PeriodDetailPage({
     staffView ? `← ${row.period.periodLabel} agents` : "← My commissions";
 
   const statement = await getStatementForAgentPeriodRow(row);
-  const manualBonuses = await listManualBonusesForAgentPeriod({
+  const manualBonusesRaw = await listManualBonusesForAgentPeriod({
     agentPeriodId: row.id,
     periodLabel: row.period.periodLabel,
     agentName: row.agentName,
   });
+  // Agents: amount/status only — manager notes are for staff / super-admin review.
+  const manualBonuses = isAgentView
+    ? manualBonusesRaw.map((b) => ({
+        ...b,
+        note: "",
+        createdByName: "",
+        approvedByName: null,
+      }))
+    : manualBonusesRaw;
   const advances = await listAdvancesForAgentPeriod({
     agentName: row.agentName,
     periodLabel: row.period.periodLabel,

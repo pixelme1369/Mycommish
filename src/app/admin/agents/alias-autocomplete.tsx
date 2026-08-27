@@ -46,7 +46,7 @@ export function AliasAutocomplete({
   }
 
   return (
-    <div className="mt-3 space-y-2">
+    <div className="space-y-2">
       <form action={action} className="relative flex gap-2">
         <input type="hidden" name="agentId" value={agentId} />
         <div className="relative min-w-0 flex-1">
