@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   canActAsManager,
   canViewAllCommissions,
@@ -81,13 +81,55 @@ export default async function PeriodDetailPage({
       },
       include: { period: true },
     });
+    // Staff deep-link after CRM re-upload: remap by periodLabel + agent name.
+    if (!row) {
+      const [period, stale] = await Promise.all([
+        prisma.commissionPeriod.findFirst({
+          where: { id: periodId, source: PeriodSource.calculated },
+          select: { periodLabel: true },
+        }),
+        prisma.agentPeriod.findFirst({
+          where: { id: agentPeriodId },
+          select: { agentName: true },
+        }),
+      ]);
+      if (period && stale) {
+        row = await prisma.agentPeriod.findFirst({
+          where: {
+            agentName: stale.agentName,
+            period: {
+              source: PeriodSource.calculated,
+              periodLabel: period.periodLabel,
+            },
+          },
+          include: { period: true },
+        });
+      }
+      if (!row && periodId) {
+        // Last resort: agent period id still valid under a different period id.
+        row = await prisma.agentPeriod.findFirst({
+          where: {
+            id: agentPeriodId,
+            period: { source: PeriodSource.calculated },
+          },
+          include: { period: true },
+        });
+      }
+    }
   } else {
     for (const name of aliases) {
       row = await getScopedAgentPeriod(periodId, agentPeriodId, name);
       if (row) break;
     }
+    // Outside latest-2 / no remap — send home instead of a blank 404.
+    if (!row) redirect("/portal");
   }
   if (!row) notFound();
+
+  // Keep the URL in sync after a remap so refresh stays stable.
+  if (row.id !== agentPeriodId || row.periodId !== periodId) {
+    redirect(`/portal/period/${row.periodId}/agent/${row.id}`);
+  }
 
   const { cleared, clawbacks, pending, cancelled, all } = await getClientsForAgentPeriod(
     row.id,

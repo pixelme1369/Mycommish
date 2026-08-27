@@ -78,18 +78,54 @@ async function fetchRows(agentName: string, periodIds: string[]) {
   });
 }
 
-export async function getScopedAgentPeriod(periodId: string, agentPeriodId: string, agentName: string) {
+/**
+ * Resolve an agent’s calculated AgentPeriod for portal detail.
+ * Tolerant of stale URL ids after CRM re-upload: falls back by periodLabel + agentName
+ * within the latest-2 calculated window.
+ */
+export async function getScopedAgentPeriod(
+  periodId: string,
+  agentPeriodId: string,
+  agentName: string,
+) {
   if (await isNameDismissed(agentName)) return null;
 
   const latest = await latestCalculatedPeriods();
+  if (!latest.length) return null;
   const latestIds = new Set(latest.map((p) => p.id));
-  if (!latestIds.has(periodId)) return null;
+  const latestLabels = new Set(latest.map((p) => p.periodLabel));
 
-  const row = await prisma.agentPeriod.findFirst({
-    where: { id: agentPeriodId, periodId, agentName },
+  // Exact match (happy path).
+  if (latestIds.has(periodId)) {
+    const exact = await prisma.agentPeriod.findFirst({
+      where: { id: agentPeriodId, periodId, agentName },
+      include: { period: true },
+    });
+    if (exact) return exact;
+
+    // Stale agentPeriodId after re-upload — same period row, new agent row.
+    const byPeriod = await prisma.agentPeriod.findFirst({
+      where: { periodId, agentName },
+      include: { period: true },
+    });
+    if (byPeriod) return byPeriod;
+  }
+
+  // Stale periodId (period deleted/recreated) — remap via label still in latest 2.
+  const stalePeriod = await prisma.commissionPeriod.findFirst({
+    where: { id: periodId, source: PeriodSource.calculated },
+    select: { periodLabel: true },
+  });
+  const label = stalePeriod?.periodLabel;
+  if (!label || !latestLabels.has(label)) return null;
+
+  const livePeriod = latest.find((p) => p.periodLabel === label);
+  if (!livePeriod) return null;
+
+  return prisma.agentPeriod.findFirst({
+    where: { periodId: livePeriod.id, agentName },
     include: { period: true },
   });
-  return row;
 }
 
 export async function getClientsForAgentPeriod(agentPeriodId: string) {
