@@ -67,6 +67,7 @@ model Agent {
   advancesReceived      CommissionAdvance[]  @relation("AdvanceAgent")
   periodExclusionsCreated PeriodAgentExclusion[] @relation("PeriodExclusionCreatedBy")
   teamLeads             TeamLead[]
+  dailyTaskCompletions  DailyTaskCompletion[]
 
   @@index([suspendedAt])
   @@index([lastLoginAt])
@@ -110,6 +111,36 @@ model FileClaim {
 
   @@index([agentId, status])
   @@index([status, createdAt])
+  @@index([crmId])
+}
+
+/// Day-3 / day-10 follow-up checklist (Email, SMS, Call) for portal Daily Tasks.
+enum DailyFollowUpDay {
+  day3
+  day10
+}
+
+model DailyTaskCompletion {
+  id          String           @id @default(cuid())
+  agentId     String
+  crmId       String
+  followUp    DailyFollowUpDay
+  /// Enrollment calendar day as YYYY-MM-DD (from CRM Enrolled Date parse).
+  enrolledYmd String
+  emailDone   Boolean          @default(false)
+  smsDone     Boolean          @default(false)
+  callDone    Boolean          @default(false)
+  emailDoneAt DateTime?
+  smsDoneAt   DateTime?
+  callDoneAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  agent    Agent          @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  identity ClientIdentity @relation(fields: [crmId], references: [crmId], onDelete: Cascade)
+
+  @@unique([agentId, crmId, followUp, enrolledYmd])
+  @@index([agentId, followUp])
   @@index([crmId])
 }
 
@@ -428,6 +459,7 @@ model ClientIdentity {
   cordobaPaid   CordobaPaid?
   chargebackSeen CordobaChargebackSeen?
   chargebackSnapshot CordobaChargebackSnapshot?
+  dailyTaskCompletions DailyTaskCompletion[]
 
   @@index([externalId])
   @@index([clientName])

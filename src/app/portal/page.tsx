@@ -92,6 +92,12 @@ export default async function PortalHome() {
         actions={
           <>
             <Link
+              href="/portal/daily-tasks"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Daily Tasks
+            </Link>
+            <Link
               href="/portal/files"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >

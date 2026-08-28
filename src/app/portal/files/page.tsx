@@ -47,6 +47,12 @@ export default async function PortalFilesPage() {
             >
               Commissions
             </Link>
+            <Link
+              href="/portal/daily-tasks"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Daily Tasks
+            </Link>
             {session.user.isAdmin ? (
               <Link
                 href="/admin"
