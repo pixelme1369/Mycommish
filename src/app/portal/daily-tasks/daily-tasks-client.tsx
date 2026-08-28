@@ -326,8 +326,8 @@ export function DailyTasksWorkspace({
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        Enrolled + 3 or + 10 calendar days · if that day is a weekend or US federal holiday, the
-        file appears on the next business day · dropped files excluded · mark Email, SMS, and Call
+        Enrolled + 3 or + 10 calendar days · weekends/US federal holidays roll forward · dropped
+        files and Active files with 1st payment cleared are excluded · mark Email, SMS, and Call
       </p>
     </div>
   );

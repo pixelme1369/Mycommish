@@ -123,7 +123,9 @@ export default async function PortalHome() {
         }
       />
 
-      <AgentPhoneForm currentPhone={phone} required={needsPhone} />
+      {needsPhone ? (
+        <AgentPhoneForm currentPhone={phone} required />
+      ) : null}
 
       {!aliasNames.length ? (
         <Card className="glass-panel mt-10 p-6 text-sm text-muted-foreground">

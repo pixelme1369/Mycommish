@@ -46,6 +46,12 @@ export default async function ManagerFilesPage() {
               Commissions
             </Link>
             <Link
+              href="/portal/daily-tasks"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Daily Tasks
+            </Link>
+            <Link
               href="/manager/claims"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >

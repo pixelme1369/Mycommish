@@ -41,13 +41,121 @@ function hasRealDroppedDate(droppedDate: string | null | undefined): boolean {
   return Boolean(parseDate(raw));
 }
 
+/** Paid + Active — no day-3/10 outreach needed. */
+function isClearedActiveFile(row: {
+  firstPaymentClearedDate: string | null;
+  crmStatus: string | null;
+}): boolean {
+  const cleared = (row.firstPaymentClearedDate || "").trim();
+  if (!cleared) return false;
+  const status = (row.crmStatus || "").trim().toLowerCase();
+  return status === "active";
+}
+
 function emptyChecklist(): DailyTaskChecklist {
   return { emailDone: false, smsDone: false, callDone: false };
 }
 
+type IdentityRow = {
+  crmId: string;
+  externalId: string | null;
+  clientName: string | null;
+  phone: string | null;
+  enrolledDebt: { toString(): string } | number | null;
+  enrolledDate: string | null;
+  firstPaymentDate: string | null;
+  firstPaymentClearedDate: string | null;
+  payFreq: string | null;
+  crmStatus: string | null;
+  salesRep: string | null;
+  droppedDate: string | null;
+};
+
+function collectDueFiles(
+  identities: IdentityRow[],
+  todayYmd: string,
+  enrolledFrom: string,
+): DailyTaskFile[] {
+  const out: DailyTaskFile[] = [];
+  for (const row of identities) {
+    if (hasRealDroppedDate(row.droppedDate)) continue;
+    if (isClearedActiveFile(row)) continue;
+    const parsed = parseDate(row.enrolledDate || "");
+    if (!parsed) continue;
+    const enrolledYmd = ymdFromParsed(parsed);
+    if (enrolledYmd < enrolledFrom) continue;
+
+    const baseFields = {
+      crmId: row.crmId,
+      externalId: row.externalId,
+      clientName: row.clientName,
+      phone: row.phone,
+      enrolledDebt: row.enrolledDebt != null ? Number(row.enrolledDebt) : null,
+      enrolledDate: row.enrolledDate,
+      enrolledYmd,
+      firstPaymentDate: row.firstPaymentDate,
+      firstPaymentClearedDate: row.firstPaymentClearedDate,
+      payFreq: row.payFreq,
+      crmStatus: row.crmStatus,
+      salesRep: row.salesRep,
+      checklist: emptyChecklist(),
+    };
+
+    if (followUpDueYmd(enrolledYmd, 3) === todayYmd) {
+      out.push({ ...baseFields, followUp: "day3" });
+    }
+    if (followUpDueYmd(enrolledYmd, 10) === todayYmd) {
+      out.push({ ...baseFields, followUp: "day10" });
+    }
+  }
+  return out;
+}
+
+async function attachCompletions(
+  files: DailyTaskFile[],
+  opts: { agentId?: string },
+): Promise<DailyTaskFile[]> {
+  if (files.length === 0) return files;
+  const crmIds = [...new Set(files.map((f) => f.crmId))];
+  const completions = await prisma.dailyTaskCompletion.findMany({
+    where: {
+      crmId: { in: crmIds },
+      followUp: { in: [DailyFollowUpDay.day3, DailyFollowUpDay.day10] },
+      ...(opts.agentId ? { agentId: opts.agentId } : {}),
+    },
+    include: opts.agentId
+      ? undefined
+      : { agent: { select: { id: true, displayName: true } } },
+  });
+
+  const byKey = new Map(
+    completions.map((c) => [
+      `${c.agentId}:${c.crmId}:${c.followUp}:${c.enrolledYmd}`,
+      c,
+    ]),
+  );
+
+  return files.map((file) => {
+    const agentId = file.agentId || opts.agentId;
+    if (!agentId) return file;
+    const hit = byKey.get(
+      `${agentId}:${file.crmId}:${file.followUp}:${file.enrolledYmd}`,
+    );
+    if (!hit) return file;
+    return {
+      ...file,
+      checklist: {
+        emailDone: hit.emailDone,
+        smsDone: hit.smsDone,
+        callDone: hit.callDone,
+      },
+    };
+  });
+}
+
 /**
- * Exact-day follow-ups: files enrolled exactly 3 or 10 Pacific calendar days ago.
- * Excludes files with a real Dropped Date. Scoped to agent CRM aliases.
+ * Day-3 / day-10 follow-ups for one portal login (their CRM aliases).
+ * Excludes dropped + Active-with-1st-cleared. Weekends/holidays roll forward.
  */
 export async function listDailyTasksForAgent(opts: {
   agentId: string;
@@ -73,7 +181,6 @@ export async function listDailyTasksForAgent(opts: {
     return { todayYmd, day3Ymd, day10Ymd, day3: [], day10: [] };
   }
 
-  // Window wide enough for day-10 + holiday roll-forward (~2 weeks).
   const enrolledFrom = shiftYmd(todayYmd, -24);
   const identities = await prisma.clientIdentity.findMany({
     where: {
@@ -96,88 +203,110 @@ export async function listDailyTasksForAgent(opts: {
     },
   });
 
-  const day3: DailyTaskFile[] = [];
-  const day10: DailyTaskFile[] = [];
+  const due = collectDueFiles(identities, todayYmd, enrolledFrom).map((f) => ({
+    ...f,
+    agentId: opts.agentId,
+  }));
+  const withChecks = await attachCompletions(due, { agentId: opts.agentId });
 
-  for (const row of identities) {
-    if (hasRealDroppedDate(row.droppedDate)) continue;
-    const parsed = parseDate(row.enrolledDate || "");
-    if (!parsed) continue;
-    const enrolledYmd = ymdFromParsed(parsed);
-    // Cheap prefilter — skip ancient enrollments before holiday math.
-    if (enrolledYmd < enrolledFrom) continue;
+  const day3 = withChecks
+    .filter((f) => f.followUp === "day3")
+    .sort((a, b) =>
+      (a.clientName || a.crmId).localeCompare(b.clientName || b.crmId),
+    );
+  const day10 = withChecks
+    .filter((f) => f.followUp === "day10")
+    .sort((a, b) =>
+      (a.clientName || a.crmId).localeCompare(b.clientName || b.crmId),
+    );
 
-    const due3 = followUpDueYmd(enrolledYmd, 3);
-    const due10 = followUpDueYmd(enrolledYmd, 10);
+  return { todayYmd, day3Ymd, day10Ymd, day3, day10 };
+}
 
-    const baseFields = {
-      crmId: row.crmId,
-      externalId: row.externalId,
-      clientName: row.clientName,
-      phone: row.phone,
-      enrolledDebt: row.enrolledDebt != null ? Number(row.enrolledDebt) : null,
-      enrolledDate: row.enrolledDate,
-      enrolledYmd,
-      firstPaymentDate: row.firstPaymentDate,
-      firstPaymentClearedDate: row.firstPaymentClearedDate,
-      payFreq: row.payFreq,
-      crmStatus: row.crmStatus,
-      salesRep: row.salesRep,
-      checklist: emptyChecklist(),
-    };
+/**
+ * Admin team view: all due day-3/10 files across sales reps, with portal agent
+ * + Email/SMS/Call completion when the rep is mapped to a login.
+ */
+export async function listDailyTasksForAdmin(opts?: { now?: Date }): Promise<{
+  todayYmd: string;
+  day3Ymd: string;
+  day10Ymd: string;
+  day3: DailyTaskFile[];
+  day10: DailyTaskFile[];
+}> {
+  const { todayYmd, day3Ymd, day10Ymd } = followUpTargets(opts?.now);
+  const enrolledFrom = shiftYmd(todayYmd, -24);
+  const dismissed = await listDismissedKeys();
 
-    if (due3 === todayYmd) {
-      day3.push({ ...baseFields, followUp: "day3" });
-    }
-    if (due10 === todayYmd) {
-      day10.push({ ...baseFields, followUp: "day10" });
-    }
-  }
-
-  const sortKey = (a: DailyTaskFile, b: DailyTaskFile) =>
-    (a.clientName || a.crmId).localeCompare(b.clientName || b.crmId);
-  day3.sort(sortKey);
-  day10.sort(sortKey);
-
-  const crmIds = [...new Set([...day3, ...day10].map((f) => f.crmId))];
-  if (crmIds.length === 0) {
-    return { todayYmd, day3Ymd, day10Ymd, day3, day10 };
-  }
-
-  const completions = await prisma.dailyTaskCompletion.findMany({
-    where: {
-      agentId: opts.agentId,
-      crmId: { in: crmIds },
-      followUp: { in: [DailyFollowUpDay.day3, DailyFollowUpDay.day10] },
-    },
-  });
-  const byKey = new Map(
-    completions.map((c) => [
-      `${c.crmId}:${c.followUp}:${c.enrolledYmd}`,
-      c,
-    ]),
-  );
-
-  const apply = (file: DailyTaskFile) => {
-    const hit = byKey.get(`${file.crmId}:${file.followUp}:${file.enrolledYmd}`);
-    if (!hit) return file;
-    return {
-      ...file,
-      checklist: {
-        emailDone: hit.emailDone,
-        smsDone: hit.smsDone,
-        callDone: hit.callDone,
+  const [identities, aliases] = await Promise.all([
+    prisma.clientIdentity.findMany({
+      where: { enrolledDate: { not: null } },
+      select: {
+        crmId: true,
+        externalId: true,
+        clientName: true,
+        phone: true,
+        enrolledDebt: true,
+        enrolledDate: true,
+        firstPaymentDate: true,
+        firstPaymentClearedDate: true,
+        payFreq: true,
+        crmStatus: true,
+        salesRep: true,
+        droppedDate: true,
       },
+    }),
+    prisma.agentAlias.findMany({
+      include: {
+        agent: { select: { id: true, displayName: true, suspendedAt: true } },
+      },
+    }),
+  ]);
+
+  const aliasToAgent = new Map<
+    string,
+    { id: string; displayName: string }
+  >();
+  for (const a of aliases) {
+    if (a.agent.suspendedAt) continue;
+    if (dismissed.has(dismissalKey(a.agentName))) continue;
+    aliasToAgent.set(a.agentName, {
+      id: a.agent.id,
+      displayName: a.agent.displayName,
+    });
+  }
+
+  const scoped = identities.filter((row) => {
+    const rep = (row.salesRep || "").trim();
+    if (!rep) return false;
+    if (dismissed.has(dismissalKey(rep))) return false;
+    return true;
+  });
+
+  const due = collectDueFiles(scoped, todayYmd, enrolledFrom).map((f) => {
+    const rep = (f.salesRep || "").trim();
+    const agent = aliasToAgent.get(rep);
+    return {
+      ...f,
+      agentId: agent?.id ?? null,
+      agentDisplayName: agent?.displayName ?? null,
     };
+  });
+
+  const withChecks = await attachCompletions(due, {});
+
+  const sortKey = (a: DailyTaskFile, b: DailyTaskFile) => {
+    const an = (a.agentDisplayName || a.salesRep || "").localeCompare(
+      b.agentDisplayName || b.salesRep || "",
+    );
+    if (an !== 0) return an;
+    return (a.clientName || a.crmId).localeCompare(b.clientName || b.crmId);
   };
 
-  return {
-    todayYmd,
-    day3Ymd,
-    day10Ymd,
-    day3: day3.map(apply),
-    day10: day10.map(apply),
-  };
+  const day3 = withChecks.filter((f) => f.followUp === "day3").sort(sortKey);
+  const day10 = withChecks.filter((f) => f.followUp === "day10").sort(sortKey);
+
+  return { todayYmd, day3Ymd, day10Ymd, day3, day10 };
 }
 
 export async function setDailyTaskChannel(opts: {

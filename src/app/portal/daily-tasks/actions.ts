@@ -32,4 +32,5 @@ export async function toggleDailyTaskChannelAction(formData: FormData) {
     done,
   });
   revalidatePath("/portal/daily-tasks");
+  revalidatePath("/manager");
 }

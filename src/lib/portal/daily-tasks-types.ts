@@ -21,6 +21,9 @@ export type DailyTaskFile = {
   salesRep: string | null;
   followUp: FollowUpKind;
   checklist: DailyTaskChecklist;
+  /** Portal login that owns this sales-rep alias (admin team view). */
+  agentId?: string | null;
+  agentDisplayName?: string | null;
 };
 
 export type DailyTaskChannel = "email" | "sms" | "call";

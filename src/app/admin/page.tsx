@@ -138,6 +138,12 @@ export default async function AdminHome() {
         actions={
           <>
             <Link
+              href="/admin/daily-tasks"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Daily Tasks
+            </Link>
+            <Link
               href="/manager/advances"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
