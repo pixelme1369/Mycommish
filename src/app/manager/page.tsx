@@ -142,48 +142,62 @@ export default async function ManagerHome() {
       </div>
 
       <section className="mt-8">
-        <h2 className="font-heading text-xl tracking-tight">Upcoming periods</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Same team view as admin — without delete, Gusto export, or dismiss.
-        </p>
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 className="font-heading text-xl tracking-tight">Upcoming periods</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Latest calculated months · open a period to review the team
+            </p>
+          </div>
+        </div>
 
         {listed.length === 0 ? (
-          <p className="mt-4 text-sm text-muted-foreground">No calculated periods yet.</p>
+          <p className="text-sm text-muted-foreground">No calculated periods yet.</p>
         ) : (
-          <ul className="mt-4 space-y-2">
-            {listed.map((p) => (
-              <li key={p.id}>
-                <Card className="glass-panel flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Link
-                        href={`/manager/periods/${p.id}`}
-                        className="font-medium underline-offset-2 hover:underline"
-                      >
-                        {p.periodLabel}
-                      </Link>
-                      <Badge variant="secondary" className="capitalize">
-                        {p.status}
+          <Card className="glass-panel overflow-hidden py-0">
+            <ul className="divide-y divide-border/70">
+              {listed.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
+                >
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <Link
+                      href={`/manager/periods/${p.id}`}
+                      className="font-medium tabular-nums hover:underline"
+                    >
+                      {p.periodLabel}
+                    </Link>
+                    <Badge
+                      variant={p.status === "open" ? "secondary" : "outline"}
+                      className="font-normal capitalize"
+                    >
+                      {p.status}
+                    </Badge>
+                    {p.upcoming ? (
+                      <Badge variant="outline" className="font-normal">
+                        Latest
                       </Badge>
-                      {p.upcoming ? (
-                        <Badge variant="outline">Latest window</Badge>
-                      ) : null}
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {p.filename || "CRM calculated"}
-                      {p.agentCount != null ? ` · ${p.agentCount} agents` : ""}
-                    </p>
+                    ) : null}
+                    {p.agentCount != null ? (
+                      <span className="text-muted-foreground tabular-nums">
+                        {p.agentCount} agents
+                      </span>
+                    ) : null}
                   </div>
                   <Link
                     href={`/manager/periods/${p.id}`}
-                    className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                    className={cn(
+                      buttonVariants({ variant: "ghost", size: "sm" }),
+                      "shrink-0 text-muted-foreground",
+                    )}
                   >
-                    View team
+                    Open
                   </Link>
-                </Card>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          </Card>
         )}
       </section>
     </AppShell>
