@@ -6,7 +6,9 @@ import {
 import { dismissalKey, listDismissedKeys } from "@/lib/agents/dismissal";
 import { DailyFollowUpDay } from "@/generated/prisma/client";
 import {
+  followUpDueYmd,
   followUpTargets,
+  shiftYmd,
   ymdFromParsed,
 } from "@/lib/portal/daily-tasks-dates";
 import type {
@@ -17,7 +19,9 @@ import type {
 } from "@/lib/portal/daily-tasks-types";
 
 export {
+  followUpDueYmd,
   followUpTargets,
+  nextBusinessDayOnOrAfter,
   pacificTodayYmd,
   shiftYmd,
   ymdFromParsed,
@@ -69,6 +73,8 @@ export async function listDailyTasksForAgent(opts: {
     return { todayYmd, day3Ymd, day10Ymd, day3: [], day10: [] };
   }
 
+  // Window wide enough for day-10 + holiday roll-forward (~2 weeks).
+  const enrolledFrom = shiftYmd(todayYmd, -24);
   const identities = await prisma.clientIdentity.findMany({
     where: {
       salesRep: { in: names },
@@ -98,12 +104,13 @@ export async function listDailyTasksForAgent(opts: {
     const parsed = parseDate(row.enrolledDate || "");
     if (!parsed) continue;
     const enrolledYmd = ymdFromParsed(parsed);
-    let followUp: FollowUpKind | null = null;
-    if (enrolledYmd === day3Ymd) followUp = "day3";
-    else if (enrolledYmd === day10Ymd) followUp = "day10";
-    if (!followUp) continue;
+    // Cheap prefilter — skip ancient enrollments before holiday math.
+    if (enrolledYmd < enrolledFrom) continue;
 
-    const base: DailyTaskFile = {
+    const due3 = followUpDueYmd(enrolledYmd, 3);
+    const due10 = followUpDueYmd(enrolledYmd, 10);
+
+    const baseFields = {
       crmId: row.crmId,
       externalId: row.externalId,
       clientName: row.clientName,
@@ -116,11 +123,15 @@ export async function listDailyTasksForAgent(opts: {
       payFreq: row.payFreq,
       crmStatus: row.crmStatus,
       salesRep: row.salesRep,
-      followUp,
       checklist: emptyChecklist(),
     };
-    if (followUp === "day3") day3.push(base);
-    else day10.push(base);
+
+    if (due3 === todayYmd) {
+      day3.push({ ...baseFields, followUp: "day3" });
+    }
+    if (due10 === todayYmd) {
+      day10.push({ ...baseFields, followUp: "day10" });
+    }
   }
 
   const sortKey = (a: DailyTaskFile, b: DailyTaskFile) =>
@@ -137,10 +148,7 @@ export async function listDailyTasksForAgent(opts: {
     where: {
       agentId: opts.agentId,
       crmId: { in: crmIds },
-      OR: [
-        { followUp: DailyFollowUpDay.day3, enrolledYmd: day3Ymd },
-        { followUp: DailyFollowUpDay.day10, enrolledYmd: day10Ymd },
-      ],
+      followUp: { in: [DailyFollowUpDay.day3, DailyFollowUpDay.day10] },
     },
   });
   const byKey = new Map(

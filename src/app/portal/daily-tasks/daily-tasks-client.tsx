@@ -219,20 +219,17 @@ function TasksTable({ files }: { files: DailyTaskFile[] }) {
 export function DailyTasksWorkspace({
   day3,
   day10,
-  day3Ymd,
-  day10Ymd,
   todayYmd,
 }: {
   day3: DailyTaskFile[];
   day10: DailyTaskFile[];
-  day3Ymd: string;
-  day10Ymd: string;
+  day3Ymd?: string;
+  day10Ymd?: string;
   todayYmd: string;
 }) {
   const [tab, setTab] = useState<FollowUpKind>("day3");
 
   const active = tab === "day3" ? day3 : day10;
-  const enrolledLabel = tab === "day3" ? day3Ymd : day10Ymd;
 
   const stats = useMemo(() => {
     const all = [...day3, ...day10];
@@ -246,10 +243,9 @@ export function DailyTasksWorkspace({
     id: FollowUpKind;
     label: string;
     count: number;
-    enrolled: string;
   }> = [
-    { id: "day3", label: "Day 3", count: day3.length, enrolled: day3Ymd },
-    { id: "day10", label: "Day 10", count: day10.length, enrolled: day10Ymd },
+    { id: "day3", label: "Day 3", count: day3.length },
+    { id: "day10", label: "Day 10", count: day10.length },
   ];
 
   return (
@@ -314,10 +310,14 @@ export function DailyTasksWorkspace({
           </div>
           <div className="text-right text-xs text-muted-foreground">
             <p>
-              Enrolled <span className="tabular-nums text-foreground">{enrolledLabel}</span>
+              Due{" "}
+              <span className="tabular-nums text-foreground">{todayYmd}</span>{" "}
+              PT
             </p>
             <p className="mt-0.5">
-              Queue date <span className="tabular-nums">{todayYmd}</span> PT
+              {tab === "day3" ? "Enrolled + 3 days" : "Enrolled + 10 days"}
+              {" · "}
+              weekends/holidays roll forward
             </p>
           </div>
         </div>
@@ -326,8 +326,8 @@ export function DailyTasksWorkspace({
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        Exact enrollment match only · dropped files excluded · mark Email, SMS, and Call when
-        complete
+        Enrolled + 3 or + 10 calendar days · if that day is a weekend or US federal holiday, the
+        file appears on the next business day · dropped files excluded · mark Email, SMS, and Call
       </p>
     </div>
   );

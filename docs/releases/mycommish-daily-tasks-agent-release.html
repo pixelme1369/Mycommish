@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>mycommish — Daily Tasks · Agent Release</title>
+  <style>
+    @page { size: letter; margin: 0; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 28px 32px 32px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      color: #1a2e24;
+      background: #fff;
+      font-size: 11pt;
+      line-height: 1.45;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 16px;
+      background: #1b4d3e;
+      color: #fff;
+      padding: 28px 32px 24px;
+      margin-bottom: 22px;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      top: -60px;
+      right: -40px;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(61, 168, 110, 0.45), transparent 70%);
+      pointer-events: none;
+    }
+    .hero-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      position: relative;
+      z-index: 1;
+    }
+    .eyebrow {
+      font-size: 9.5pt;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.85;
+      margin: 0 0 10px;
+      font-weight: 600;
+    }
+    .hero h1 {
+      margin: 0;
+      font-size: 28pt;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      font-weight: 700;
+    }
+    .hero .sub {
+      margin: 4px 0 0;
+      font-size: 16pt;
+      font-weight: 650;
+    }
+    .hero .lead {
+      margin: 12px 0 0;
+      max-width: 36em;
+      font-size: 11pt;
+      opacity: 0.95;
+      line-height: 1.4;
+    }
+    .hero .meta {
+      margin-top: 18px;
+      font-size: 9.5pt;
+      opacity: 0.8;
+    }
+    .logo {
+      height: 56px;
+      width: auto;
+      display: block;
+      filter: drop-shadow(0 1px 0 rgba(0,0,0,0.15));
+    }
+    .card {
+      border: 1.5px solid #c8e6d4;
+      border-radius: 14px;
+      padding: 18px 20px 16px;
+      background: #fff;
+      margin-bottom: 16px;
+    }
+    .badge {
+      display: inline-block;
+      background: #228b4e;
+      color: #fff;
+      font-size: 8.5pt;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-bottom: 10px;
+    }
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 16pt;
+      color: #1b4d3e;
+      letter-spacing: -0.01em;
+    }
+    .card p { margin: 0 0 8px; color: #2c3a33; }
+    .card p:last-child { margin-bottom: 0; }
+    .rule {
+      margin: 12px 0;
+      padding: 12px 14px;
+      background: #f0faf4;
+      border-left: 3px solid #228b4e;
+      border-radius: 0 8px 8px 0;
+      font-size: 11pt;
+      color: #1a2e24;
+    }
+    .rule strong { color: #1b4d3e; }
+    h3 {
+      margin: 16px 0 6px;
+      font-size: 11.5pt;
+      color: #1b4d3e;
+    }
+    ul {
+      margin: 0 0 4px;
+      padding-left: 1.15em;
+      color: #2c3a33;
+    }
+    li { margin: 0 0 5px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 4px;
+    }
+    .mini {
+      border: 1px solid #e5ebe7;
+      border-radius: 12px;
+      padding: 14px 14px 12px;
+      background: #f7f9f8;
+    }
+    .mini h4 {
+      margin: 0 0 6px;
+      font-size: 11pt;
+      color: #1b4d3e;
+    }
+    .mini p {
+      margin: 0;
+      font-size: 10pt;
+      color: #2c3a33;
+      line-height: 1.4;
+    }
+    .also-title {
+      margin: 4px 0 10px;
+      font-size: 12pt;
+      font-weight: 700;
+      color: #1b4d3e;
+      letter-spacing: -0.01em;
+    }
+    .footer {
+      margin-top: 8px;
+      padding: 12px 14px;
+      background: #f3f5f4;
+      border-radius: 10px;
+      border-left: 4px solid #1b4d3e;
+      font-size: 10.5pt;
+      color: #2c3a33;
+    }
+    .footer strong { color: #1b4d3e; }
+    .steps {
+      margin: 10px 0 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: step;
+    }
+    .steps li {
+      counter-increment: step;
+      position: relative;
+      padding-left: 2.1em;
+      margin: 0 0 8px;
+    }
+    .steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1.45em;
+      height: 1.45em;
+      border-radius: 999px;
+      background: #1b4d3e;
+      color: #fff;
+      font-size: 9pt;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.45em;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-top">
+      <div>
+        <p class="eyebrow">American Debt Protection · Agent Portal</p>
+        <h1>mycommish</h1>
+        <p class="sub">Daily Tasks</p>
+        <p class="lead">
+          A new daily follow-up queue for files enrolled exactly 3 or 10 days ago —
+          with home phone, payment details, and Email / SMS / Call checklists.
+        </p>
+        <p class="meta">August 2026 · Share with your team</p>
+      </div>
+      <img class="logo" src="../../public/brand/mycommish-logo-v4.png" alt="mycommish" />
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="badge">New</div>
+    <h2>Daily Tasks</h2>
+    <p>
+      From <strong>My commissions</strong> or <strong>My files</strong>, open
+      <strong>Daily Tasks</strong>. You’ll see today’s due count, remaining, and completed —
+      then a clean table for Day 3 and Day 10 follow-ups.
+    </p>
+
+    <div class="rule">
+      <strong>Who appears today:</strong>
+      files enrolled <strong>3</strong> or <strong>10</strong> calendar days ago (US Pacific).
+      If that day is a <strong>weekend or US federal holiday</strong>, the file rolls forward to the
+      <strong>next business day</strong>. Dropped files are excluded.
+    </div>
+
+    <h3>How to use it</h3>
+    <ol class="steps">
+      <li>Sign in to <strong>mycommish.app</strong> and click <strong>Daily Tasks</strong>.</li>
+      <li>Switch between the <strong>Day 3</strong> and <strong>Day 10</strong> tabs.</li>
+      <li>Call the <strong>Home phone</strong> on each row (click the number).</li>
+      <li>Mark <strong>Email</strong>, <strong>SMS</strong>, and <strong>Call</strong> when each is done (all three required).</li>
+    </ol>
+
+    <h3>Columns on each file</h3>
+    <ul>
+      <li><strong>Client</strong> name + External ID (AMOD)</li>
+      <li><strong>Home phone</strong></li>
+      <li><strong>Enrolled debt</strong> · <strong>Enrolled date</strong></li>
+      <li><strong>1st payment</strong> (scheduled) · <strong>1st cleared</strong> (if they paid)</li>
+      <li><strong>Pay freq</strong> (Monthly, Bi-Weekly, etc.)</li>
+      <li><strong>Status</strong> — including <em>Pending Affiliate Cancellation</em> when applicable</li>
+    </ul>
+  </section>
+
+  <p class="also-title">Also worth knowing</p>
+  <div class="grid">
+    <div class="mini">
+      <h4>Weekends & holidays</h4>
+      <p>If day 3 or day 10 lands on Sat/Sun or a US federal holiday, the file shows on the next business day.</p>
+    </div>
+    <div class="mini">
+      <h4>Pending cancellation</h4>
+      <p>Still appears if not dropped yet. Status shows Pending Affiliate Cancellation so you can see risk early.</p>
+    </div>
+    <div class="mini">
+      <h4>Checklist saved</h4>
+      <p>Email / SMS / Call checks save to your login. Progress shows 0/3 → Done. Refresh keeps your marks.</p>
+    </div>
+    <div class="mini">
+      <h4>Your book only</h4>
+      <p>Scoped to your CRM Sales Rep alias(es). Ask an admin if names aren’t mapped.</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <strong>Unchanged:</strong>
+    Commissions, tiers, and clawback math are the same. Daily Tasks is about follow-up visibility —
+    not payout calculation.
+    Questions? Ask your manager or admin. · <strong>mycommish.app</strong>
+  </div>
+</body>
+</html>
