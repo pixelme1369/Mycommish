@@ -33,6 +33,7 @@ import {
   unitsToNextTier,
 } from "@/lib/commission/calculator";
 import { NextTierCard } from "@/components/next-tier-card";
+import { ClawbackPaidRateEditor } from "./clawback-paid-rate-editor";
 import { StatementSignPanel } from "./statement-sign-panel";
 import { WaitingFirstPaymentSection } from "./waiting-first-payment-section";
 import { CancelRateBreakdownSection } from "./cancel-rate-breakdown";
@@ -413,7 +414,12 @@ export default async function PeriodDetailPage({
         showCordobaClawback={showAdminCordobaClawback}
       />
       <WaitingFirstPaymentSection rows={waitingFirstPayment} />
-      <ClawbackSection rows={mergedClawbacks} />
+      <ClawbackSection
+        rows={mergedClawbacks}
+        canEditPaidRate={superAdmin}
+        periodId={row.periodId}
+        agentPeriodId={row.id}
+      />
       <ClientSection title="Pending cancellations" clients={pending} />
       <ClientSection title="Cancelled (not clawed)" clients={cancelled} />
       <CancelRateBreakdownSection
@@ -557,7 +563,17 @@ function ClearedSection({
   );
 }
 
-function ClawbackSection({ rows }: { rows: MergedClawbackRow[] }) {
+function ClawbackSection({
+  rows,
+  canEditPaidRate,
+  periodId,
+  agentPeriodId,
+}: {
+  rows: MergedClawbackRow[];
+  canEditPaidRate: boolean;
+  periodId: string;
+  agentPeriodId: string;
+}) {
   if (rows.length === 0) return null;
 
   return (
@@ -571,6 +587,9 @@ function ClawbackSection({ rows }: { rows: MergedClawbackRow[] }) {
       <p className="mt-1 text-xs text-muted-foreground">
         Cordoba Charge back is Yes when Cordoba also lists the client. A $0.00 row with Yes means
         flagged but not deducted yet.
+        {canEditPaidRate
+          ? " Super admin: set Paid rate % when history Rate is missing (e.g. 2025 clears) — clawback becomes debt × rate."
+          : null}
       </p>
       <Card className="glass-panel mt-3 overflow-x-auto py-0">
         <table className="min-w-full text-left text-sm">
@@ -582,6 +601,9 @@ function ClawbackSection({ rows }: { rows: MergedClawbackRow[] }) {
               <th className="px-3 py-2 font-medium">Cleared</th>
               <th className="px-3 py-2 font-medium">Dropped</th>
               <th className="px-3 py-2 font-medium">Clawback</th>
+              {canEditPaidRate ? (
+                <th className="px-3 py-2 font-medium">Paid rate</th>
+              ) : null}
               <th className="px-3 py-2 font-medium">Cordoba Charge back</th>
               <th className="px-3 py-2 font-medium">Kind</th>
             </tr>
@@ -602,6 +624,18 @@ function ClawbackSection({ rows }: { rows: MergedClawbackRow[] }) {
                 <td className="px-3 py-2">
                   <span className="text-destructive">-{money(c.clawbackAmount)}</span>
                 </td>
+                {canEditPaidRate ? (
+                  <td className="px-3 py-2 align-top">
+                    <ClawbackPaidRateEditor
+                      clientEventId={c.cordobaOnly ? "" : c.id}
+                      crmId={c.crmId}
+                      cordobaOnly={c.cordobaOnly}
+                      paidRate={c.paidRate}
+                      periodId={periodId}
+                      agentPeriodId={agentPeriodId}
+                    />
+                  </td>
+                ) : null}
                 <td className="px-3 py-2">
                   <YesNo yes={c.cordobaChargeBack} tone="red" />
                 </td>

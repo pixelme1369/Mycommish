@@ -16,6 +16,7 @@ import {
 } from "@/lib/commission/calculator";
 import { parseCordobaPayout, type CordobaChargebackRow } from "@/lib/commission/cordoba-parser";
 import { parseDate, periodOf } from "@/lib/commission/crm-parser";
+import { clawbackAmountFromPaidRate } from "@/lib/portal/clawback-paid-rate-math";
 import { recomputeAgentPeriodClawbacks } from "@/lib/ingest/recompute-agent-period";
 import {
   ClientEventKind,
@@ -349,9 +350,16 @@ export async function ingestCordobaUpload(
     const agentName = cleared.agentName;
     const clientDebt = Number(cleared.enrolledDebt) || 0;
     const origAp = cleared.agentPeriod;
+    const knownPaidRate =
+      cleared.paidRate != null && Number(cleared.paidRate) > 0
+        ? Number(cleared.paidRate)
+        : null;
 
     let cb = 0;
-    if (origAp && origAp.unitsCleared > 0) {
+    if (knownPaidRate != null) {
+      // History Rate / super-admin override: debt × paidRate (same as CRM clawbacks).
+      cb = clawbackAmountFromPaidRate(clientDebt, knownPaidRate);
+    } else if (origAp && origAp.unitsCleared > 0) {
       cb = calculateClawbackAmount(
         origAp.unitsCleared,
         Number(origAp.totalClearedDebt),
@@ -386,6 +394,7 @@ export async function ingestCordobaUpload(
         clawbackApplied: true,
         commissionOnClient: dec(0),
         clawbackAmount: dec(cb),
+        paidRate: knownPaidRate != null ? dec(knownPaidRate) : null,
         uploadBatchId: batch.id,
       },
     });

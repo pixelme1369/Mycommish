@@ -78,54 +78,18 @@ async function fetchRows(agentName: string, periodIds: string[]) {
   });
 }
 
-/**
- * Resolve an agent’s calculated AgentPeriod for portal detail.
- * Tolerant of stale URL ids after CRM re-upload: falls back by periodLabel + agentName
- * within the latest-2 calculated window.
- */
-export async function getScopedAgentPeriod(
-  periodId: string,
-  agentPeriodId: string,
-  agentName: string,
-) {
+export async function getScopedAgentPeriod(periodId: string, agentPeriodId: string, agentName: string) {
   if (await isNameDismissed(agentName)) return null;
 
   const latest = await latestCalculatedPeriods();
-  if (!latest.length) return null;
   const latestIds = new Set(latest.map((p) => p.id));
-  const latestLabels = new Set(latest.map((p) => p.periodLabel));
+  if (!latestIds.has(periodId)) return null;
 
-  // Exact match (happy path).
-  if (latestIds.has(periodId)) {
-    const exact = await prisma.agentPeriod.findFirst({
-      where: { id: agentPeriodId, periodId, agentName },
-      include: { period: true },
-    });
-    if (exact) return exact;
-
-    // Stale agentPeriodId after re-upload — same period row, new agent row.
-    const byPeriod = await prisma.agentPeriod.findFirst({
-      where: { periodId, agentName },
-      include: { period: true },
-    });
-    if (byPeriod) return byPeriod;
-  }
-
-  // Stale periodId (period deleted/recreated) — remap via label still in latest 2.
-  const stalePeriod = await prisma.commissionPeriod.findFirst({
-    where: { id: periodId, source: PeriodSource.calculated },
-    select: { periodLabel: true },
-  });
-  const label = stalePeriod?.periodLabel;
-  if (!label || !latestLabels.has(label)) return null;
-
-  const livePeriod = latest.find((p) => p.periodLabel === label);
-  if (!livePeriod) return null;
-
-  return prisma.agentPeriod.findFirst({
-    where: { periodId: livePeriod.id, agentName },
+  const row = await prisma.agentPeriod.findFirst({
+    where: { id: agentPeriodId, periodId, agentName },
     include: { period: true },
   });
+  return row;
 }
 
 export async function getClientsForAgentPeriod(agentPeriodId: string) {
@@ -199,6 +163,8 @@ export type MergedClawbackRow = {
   cordobaChargeBack: boolean;
   /** True when this is a $0 Cordoba-only reconciliation row (not deducted yet). */
   cordobaOnly: boolean;
+  /** Paid rate fraction (history / super-admin). Null when unknown. */
+  paidRate: number | null;
 };
 
 /**
@@ -219,6 +185,7 @@ export async function mergeClawbacksWithCordoba(
     clawbackAmount: { toString(): string } | number;
     kind: string;
     isLowCredit: boolean;
+    paidRate?: { toString(): string } | number | null;
     identity?: { externalId: string | null } | null;
   }>,
 ): Promise<MergedClawbackRow[]> {
@@ -245,6 +212,7 @@ export async function mergeClawbacksWithCordoba(
       isLowCredit: c.isLowCredit,
       cordobaChargeBack: Boolean(c.crmId && entryByCrmId.has(c.crmId)),
       cordobaOnly: false,
+      paidRate: c.paidRate != null ? Number(c.paidRate) : null,
     });
   }
 
@@ -257,6 +225,7 @@ export async function mergeClawbacksWithCordoba(
       firstPaymentClearedDate: string | null;
       droppedDate: string | null;
       isLowCredit: boolean;
+      paidRate: number | null;
     }
   >();
   const externalByCrmId = new Map<string, string | null>();
@@ -271,10 +240,27 @@ export async function mergeClawbacksWithCordoba(
         firstPaymentClearedDate: true,
         droppedDate: true,
         isLowCredit: true,
+        paidRate: true,
+        isCleared: true,
       },
     });
     for (const o of owns) {
-      if (!ownByCrmId.has(o.crmId)) ownByCrmId.set(o.crmId, o);
+      if (!ownByCrmId.has(o.crmId)) {
+        ownByCrmId.set(o.crmId, {
+          clientName: o.clientName,
+          enrolledDebt: o.enrolledDebt,
+          firstPaymentClearedDate: o.firstPaymentClearedDate,
+          droppedDate: o.droppedDate,
+          isLowCredit: o.isLowCredit,
+          paidRate: o.paidRate != null ? Number(o.paidRate) : null,
+        });
+      } else if (
+        ownByCrmId.get(o.crmId)!.paidRate == null &&
+        o.isCleared &&
+        o.paidRate != null
+      ) {
+        ownByCrmId.get(o.crmId)!.paidRate = Number(o.paidRate);
+      }
     }
     const ids = await prisma.clientIdentity.findMany({
       where: { crmId: { in: orphanIds } },
@@ -302,7 +288,36 @@ export async function mergeClawbacksWithCordoba(
       isLowCredit: own?.isLowCredit ?? false,
       cordobaChargeBack: true,
       cordobaOnly: true,
+      paidRate: own?.paidRate ?? null,
     });
+  }
+
+  // Fill missing paidRate from cleared ClientEvents (history / override).
+  const needRate = [
+    ...new Set(
+      merged.filter((m) => m.paidRate == null && m.crmId).map((m) => m.crmId),
+    ),
+  ];
+  if (needRate.length) {
+    const cleared = await prisma.clientEvent.findMany({
+      where: {
+        crmId: { in: needRate },
+        isCleared: true,
+        paidRate: { not: null },
+      },
+      orderBy: { id: "desc" },
+      select: { crmId: true, paidRate: true },
+    });
+    const rateByCrm = new Map<string, number>();
+    for (const c of cleared) {
+      if (c.paidRate == null || rateByCrm.has(c.crmId)) continue;
+      rateByCrm.set(c.crmId, Number(c.paidRate));
+    }
+    for (const row of merged) {
+      if (row.paidRate != null) continue;
+      const hit = rateByCrm.get(row.crmId);
+      if (hit != null) row.paidRate = hit;
+    }
   }
 
   return merged;

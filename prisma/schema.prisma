@@ -499,7 +499,7 @@ model ClientEvent {
   clawbackApplied          Boolean @default(false)
   commissionOnClient       Decimal @default(0) @db.Decimal(14, 2)
   clawbackAmount           Decimal @default(0) @db.Decimal(14, 2)
-  paidRate                 Decimal? @db.Decimal(8, 6) // history Rate column only
+  paidRate                 Decimal? @db.Decimal(8, 6) // history Rate, or super-admin override for clawbacks
   isLateActivation         Boolean @default(false)
   originalClearedPeriod    String?
   uploadBatchId            String?
