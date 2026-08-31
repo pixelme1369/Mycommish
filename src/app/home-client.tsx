@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 export default function HomeClient() {
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-[oklch(0.99_0.005_150)]">
-      {/* Soft brand wash */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -22,12 +21,10 @@ export default function HomeClient() {
         }}
       />
 
-      {/* Interactive Framer-style dot grid in brand green */}
       <div className="pointer-events-none absolute inset-0 opacity-90">
         <DotGridBg className="pointer-events-auto" />
       </div>
 
-      {/* Readability vignette over the grid */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -43,7 +40,10 @@ export default function HomeClient() {
         <FadeIn delay={0.06} y={8}>
           <Link
             href="/login"
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "bg-background/70 backdrop-blur-sm")}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "bg-background/70 backdrop-blur-sm",
+            )}
           >
             Sign in
           </Link>
@@ -58,7 +58,12 @@ export default function HomeClient() {
         </FadeIn>
 
         <FadeIn delay={0.1} className="mt-5">
-          <BrandMark size="hero" variant="full" href="/login" className="max-w-[16rem] sm:max-w-[20rem]" />
+          <BrandMark
+            size="hero"
+            variant="full"
+            href="/login"
+            className="max-w-[16rem] sm:max-w-[20rem]"
+          />
         </FadeIn>
 
         <FadeIn delay={0.18} className="mt-8 max-w-xl">
@@ -82,9 +87,7 @@ export default function HomeClient() {
 
       <footer className="relative z-10 mx-auto w-full max-w-5xl px-6 pb-8">
         <FadeIn delay={0.35} y={6}>
-          <p className="text-xs text-muted-foreground/80">
-            Secure access · mycommish
-          </p>
+          <p className="text-xs text-muted-foreground/80">Secure access · mycommish</p>
         </FadeIn>
       </footer>
     </div>

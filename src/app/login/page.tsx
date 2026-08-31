@@ -2,7 +2,7 @@ import { googleAuthEnabled } from "@/auth";
 import { LoginClient } from "./login-client";
 
 const ERROR_HELP: Record<string, string> = {
-  AccessDenied: "No portal account for that email. Ask an admin to add you.",
+  AccessDenied: "No account for that email. Ask an admin to add you.",
   CredentialsSignin: "Invalid email or password.",
   Configuration: "Auth is misconfigured. Check AUTH_SECRET / Google OAuth and restart the server.",
   OAuthAccountNotLinked: "Use the same sign-in method you used before, or ask an admin for help.",
