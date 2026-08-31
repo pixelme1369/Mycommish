@@ -38,7 +38,7 @@ export default function HomeClient() {
 
       <header className="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
         <FadeIn y={8}>
-          <BrandMark size="sm" variant="mark" href="/" />
+          <BrandMark size="sm" variant="full" href="/" className="max-w-[9.5rem]" />
         </FadeIn>
         <FadeIn delay={0.06} y={8}>
           <Link
@@ -53,7 +53,7 @@ export default function HomeClient() {
       <main className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-6 pb-24 pt-10 sm:pb-28 sm:pt-6">
         <FadeIn delay={0.04}>
           <p className="text-xs font-medium tracking-[0.22em] text-primary uppercase">
-            American Debt Protection
+            Commission software
           </p>
         </FadeIn>
 
@@ -83,7 +83,7 @@ export default function HomeClient() {
       <footer className="relative z-10 mx-auto w-full max-w-5xl px-6 pb-8">
         <FadeIn delay={0.35} y={6}>
           <p className="text-xs text-muted-foreground/80">
-            Secure access · ADP commission portal
+            Secure access · mycommish
           </p>
         </FadeIn>
       </footer>

@@ -32,17 +32,14 @@ export function LoginClient({
 
         <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-10 text-center">
           <FadeIn y={16} className="flex w-full flex-col items-center">
-            <p className="text-xs font-medium tracking-[0.2em] text-[oklch(0.82_0.08_150)] uppercase">
-              American Debt Protection
-            </p>
             <BrandMark
               size="hero"
               variant="full"
               href="/"
-              className="mt-6 mx-auto w-full max-w-[16rem] sm:max-w-[18rem]"
+              className="mx-auto w-full max-w-[16rem] sm:max-w-[18rem]"
             />
             <p className="mt-5 max-w-sm text-base text-[oklch(0.82_0.02_150)]">
-              Agent commission portal
+              Commission tracking for sales teams
             </p>
           </FadeIn>
 
