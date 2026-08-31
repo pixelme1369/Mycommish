@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   isSuperAdminUser,
@@ -6,14 +5,11 @@ import {
   sessionRole,
 } from "@/lib/auth-guards";
 import { adminNavLabel } from "@/lib/roles";
-import { SignOutButton } from "@/components/sign-out-button";
-import { AppShell, PageHeader } from "@/components/app-shell";
-import { BrandMark } from "@/components/brand-mark";
+import { AppShell } from "@/components/app-shell";
+import { PortalTopBar } from "@/components/portal-top-bar";
 import { Card } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { listDailyTasksForAgent } from "@/lib/portal/daily-tasks";
-import DailyTasksWorkspace from "./daily-tasks-client";
+import { DailyTasksWorkspace } from "./daily-tasks-client";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +22,36 @@ export default async function DailyTasksPage() {
   const role = sessionRole(session);
   const isManagerHome = role === "manager" || role === "admin";
 
+  const staffHref =
+    session.user.isAdmin || role === "admin"
+      ? "/admin"
+      : role === "manager"
+        ? "/manager"
+        : undefined;
+  const staffLabel =
+    session.user.isAdmin || role === "admin"
+      ? `${adminNavLabel(session.user.role)} →`
+      : role === "manager"
+        ? "Manager →"
+        : undefined;
+
+  const topBar = (
+    <PortalTopBar
+      commissionsHref={isManagerHome ? "/manager" : "/portal"}
+      filesHref={isManagerHome ? "/manager/files" : "/portal/files"}
+      staffHref={staffHref}
+      staffLabel={staffLabel}
+    />
+  );
+
   if (!agentId) {
     return (
       <AppShell wide>
-        <PageHeader title="Daily Tasks" description="Sign in required." />
+        {topBar}
+        <header className="mt-8">
+          <h1 className="font-heading text-2xl tracking-tight">Daily Tasks</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Sign in required.</p>
+        </header>
       </AppShell>
     );
   }
@@ -38,48 +60,16 @@ export default async function DailyTasksPage() {
 
   return (
     <AppShell wide>
-      <PageHeader
-        compact
-        eyebrow={
-          <span className="inline-flex items-center gap-2">
-            <BrandMark size="sm" />
-          </span>
-        }
-        title="Daily Tasks"
-        description={`${session.user.displayName} · day-1 and day-5 enrollment follow-ups on your aliases`}
-        actions={
-          <>
-            <Link
-              href={isManagerHome ? "/manager" : "/portal"}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Commissions
-            </Link>
-            <Link
-              href={isManagerHome ? "/manager/files" : "/portal/files"}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              {isManagerHome ? "All files" : "My files"}
-            </Link>
-            {session.user.isAdmin || role === "admin" ? (
-              <Link
-                href="/admin"
-                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-              >
-                {adminNavLabel(session.user.role)}
-              </Link>
-            ) : role === "manager" ? (
-              <Link
-                href="/manager"
-                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-              >
-                Manager
-              </Link>
-            ) : null}
-            <SignOutButton />
-          </>
-        }
-      />
+      {topBar}
+
+      <header className="mt-8">
+        <h1 className="font-heading text-2xl tracking-tight text-foreground sm:text-[1.65rem]">
+          Daily Tasks
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {session.user.displayName} · day-1 and day-5 enrollment follow-ups on your aliases
+        </p>
+      </header>
 
       {!aliasNames.length ? (
         <Card className="glass-panel mt-8 p-6 text-sm text-muted-foreground">
@@ -87,13 +77,15 @@ export default async function DailyTasksPage() {
           Manage Agents — Daily Tasks only lists files enrolled under your aliases.
         </Card>
       ) : (
-        <DailyTasksWorkspace
-          day1={tasks.day1}
-          day5={tasks.day5}
-          day1Ymd={tasks.day1Ymd}
-          day5Ymd={tasks.day5Ymd}
-          todayYmd={tasks.todayYmd}
-        />
+        <div className="mt-6">
+          <DailyTasksWorkspace
+            day1={tasks.day1}
+            day5={tasks.day5}
+            day1Ymd={tasks.day1Ymd}
+            day5Ymd={tasks.day5Ymd}
+            todayYmd={tasks.todayYmd}
+          />
+        </div>
       )}
     </AppShell>
   );

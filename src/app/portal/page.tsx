@@ -2,9 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isSuperAdminUser, requireSession } from "@/lib/auth-guards";
 import { adminNavLabel } from "@/lib/roles";
-import { SignOutButton } from "@/components/sign-out-button";
-import { AppShell, PageHeader } from "@/components/app-shell";
-import { BrandMark } from "@/components/brand-mark";
+import { AppShell } from "@/components/app-shell";
+import { PortalTopBar } from "@/components/portal-top-bar";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -40,6 +39,24 @@ function formatPayDate(periodLabel: string): string {
     day: "numeric",
     timeZone: "UTC",
   });
+}
+
+function firstName(displayName: string): string {
+  const part = displayName.trim().split(/\s+/)[0];
+  return part || displayName || "there";
+}
+
+function dayGreeting(now = new Date()): string {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      hourCycle: "h23",
+      timeZone: "America/Los_Angeles",
+    }).format(now),
+  );
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
 }
 
 export default async function PortalHome() {
@@ -78,57 +95,45 @@ export default async function PortalHome() {
     })),
   );
 
+  const staffHref = session.user.isAdmin
+    ? "/admin"
+    : session.user.role === "manager"
+      ? "/manager"
+      : undefined;
+  const staffLabel = session.user.isAdmin
+    ? `${adminNavLabel(session.user.role)} →`
+    : session.user.role === "manager"
+      ? "Manager →"
+      : undefined;
+
+  const latest = unique[0];
+  let subtitle: string;
+  if (!aliasNames.length) {
+    subtitle = "Ask an admin to map your Sales Rep name(s) to see commissions.";
+  } else if (!latest) {
+    subtitle = `No activity in ${windowLabels.join(" / ") || "the latest 2 periods"}.`;
+  } else {
+    subtitle = `${latest.period.periodLabel} · Net ${money(latest.netCommission)}`;
+  }
+
   return (
     <AppShell wide>
-      <PageHeader
-        eyebrow={
-          <span className="inline-flex items-center gap-2">
-            <BrandMark size="sm" />
-          </span>
-        }
-        title="My commissions"
-        description={session.user.displayName}
-        actions={
-          <>
-            <Link
-              href="/portal/daily-tasks"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Daily Tasks
-            </Link>
-            <Link
-              href="/portal/files"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              My files
-            </Link>
-            {session.user.isAdmin ? (
-              <Link
-                href="/admin"
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-              >
-                {adminNavLabel(session.user.role)} →
-              </Link>
-            ) : session.user.role === "manager" ? (
-              <Link
-                href="/manager"
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-              >
-                Manager →
-              </Link>
-            ) : null}
-            <SignOutButton />
-          </>
-        }
-      />
+      <PortalTopBar staffHref={staffHref} staffLabel={staffLabel} />
+
+      <header className="mt-8">
+        <h1 className="font-heading text-3xl tracking-tight text-foreground sm:text-4xl">
+          {dayGreeting()}, {firstName(session.user.displayName)}!
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground sm:text-base">{subtitle}</p>
+      </header>
 
       {!aliasNames.length ? (
-        <Card className="glass-panel mt-10 p-6 text-sm text-muted-foreground">
+        <Card className="glass-panel mt-8 p-6 text-sm text-muted-foreground">
           Your login has no CRM name aliases yet. Ask an admin to map your Sales Rep name(s) in
           Manage Agents.
         </Card>
       ) : unique.length === 0 ? (
-        <Card className="glass-panel mt-10 p-6 text-sm text-muted-foreground">
+        <Card className="glass-panel mt-8 p-6 text-sm text-muted-foreground">
           No activity in {windowLabels.join(" / ") || "the latest 2 periods"} for{" "}
           {aliasNames.join(", ")}.
         </Card>

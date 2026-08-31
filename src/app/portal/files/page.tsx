@@ -1,14 +1,10 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isSuperAdminUser, requireSession } from "@/lib/auth-guards";
 import { adminNavLabel } from "@/lib/roles";
-import { SignOutButton } from "@/components/sign-out-button";
-import { AppShell, PageHeader } from "@/components/app-shell";
-import { BrandMark } from "@/components/brand-mark";
+import { AppShell } from "@/components/app-shell";
+import { PortalTopBar } from "@/components/portal-top-bar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { listAgentFiles } from "@/lib/portal/files";
 import { listMyFileClaims } from "./actions";
 import { MissingFileClaimForm } from "./claim-form";
@@ -28,54 +24,35 @@ export default async function PortalFilesPage() {
     agentId ? listMyFileClaims(agentId) : Promise.resolve([]),
   ]);
 
+  const staffHref = session.user.isAdmin
+    ? "/admin"
+    : session.user.role === "manager"
+      ? "/manager"
+      : undefined;
+  const staffLabel = session.user.isAdmin
+    ? `${adminNavLabel(session.user.role)} →`
+    : session.user.role === "manager"
+      ? "Manager →"
+      : undefined;
+
   return (
     <AppShell wide>
-      <PageHeader
-        eyebrow={
-          <span className="inline-flex items-center gap-2">
-            <BrandMark size="sm" />
-          </span>
-        }
-        title="My files"
-        description="CRM files on your latest calculated periods · ask about status · flag missing ones"
-        actions={
-          <>
-            <Link
-              href="/portal"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Commissions
-            </Link>
-            <Link
-              href="/portal/daily-tasks"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Daily Tasks
-            </Link>
-            {session.user.isAdmin ? (
-              <Link
-                href="/admin"
-                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-              >
-                {adminNavLabel(session.user.role)}
-              </Link>
-            ) : session.user.role === "manager" ? (
-              <Link
-                href="/manager"
-                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-              >
-                Manager
-              </Link>
-            ) : null}
-            <SignOutButton />
-          </>
-        }
-      />
+      <PortalTopBar staffHref={staffHref} staffLabel={staffLabel} />
+
+      <header className="mt-8">
+        <h1 className="font-heading text-2xl tracking-tight text-foreground sm:text-[1.65rem]">
+          My files
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          CRM files on your latest calculated periods · ask about status · flag missing ones
+        </p>
+      </header>
 
       <section className="mt-8">
         <h2 className="font-heading text-lg tracking-tight">Ask about a file</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Enter External ID (ADP CRM) or client name — same ID Cordoba uses; answers use CRM data for your aliases.
+          Enter External ID (ADP CRM) or client name — same ID Cordoba uses; answers use CRM data for
+          your aliases.
         </p>
         <Card className="glass-panel mt-3 p-4">
           <FileLookupChat lookupAction={lookupFileChatAction} />
@@ -114,17 +91,18 @@ export default async function PortalFilesPage() {
       </section>
 
       {claims.length > 0 ? (
-        <section className="mt-10 mb-4">
+        <section className="mb-4 mt-10">
           <h2 className="font-heading text-lg tracking-tight">My claims</h2>
           <Card className="glass-panel mt-3 overflow-hidden py-0">
             <ul className="divide-y divide-border/70">
               {claims.map((c) => (
-                <li key={c.id} className="flex flex-wrap items-start justify-between gap-2 px-4 py-3 text-sm">
+                <li
+                  key={c.id}
+                  className="flex flex-wrap items-start justify-between gap-2 px-4 py-3 text-sm"
+                >
                   <div>
                     <p className="font-medium">
-                        <span className="font-mono text-xs">
-                        {c.crmId}
-                      </span>
+                      <span className="font-mono text-xs">{c.crmId}</span>
                       {" · "}
                       {c.clientName}
                     </p>
