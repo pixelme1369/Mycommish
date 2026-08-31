@@ -84,7 +84,6 @@ export default async function PortalHome() {
         eyebrow={
           <span className="inline-flex items-center gap-2">
             <BrandMark size="sm" />
-            <span>· portal</span>
           </span>
         }
         title="My commissions"
@@ -123,10 +122,6 @@ export default async function PortalHome() {
         }
       />
 
-      {needsPhone ? (
-        <AgentPhoneForm currentPhone={phone} required />
-      ) : null}
-
       {!aliasNames.length ? (
         <Card className="glass-panel mt-10 p-6 text-sm text-muted-foreground">
           Your login has no CRM name aliases yet. Ask an admin to map your Sales Rep name(s) in
@@ -138,74 +133,74 @@ export default async function PortalHome() {
           {aliasNames.join(", ")}.
         </Card>
       ) : (
-        <>
-          <Card className="glass-panel mt-8 overflow-hidden py-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead>Period</TableHead>
-                  <TableHead>Pay date</TableHead>
-                  <TableHead>Agent</TableHead>
-                  <TableHead>Units</TableHead>
-                  <TableHead>Tier</TableHead>
-                  <TableHead>Rate</TableHead>
-                  <TableHead>Gross</TableHead>
-                  <TableHead>Clawback</TableHead>
-                  <TableHead>Net</TableHead>
-                  <TableHead>Cancel %</TableHead>
-                  <TableHead />
+        <Card className="glass-panel mt-8 overflow-hidden py-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead>Period</TableHead>
+                <TableHead>Pay date</TableHead>
+                <TableHead>Agent</TableHead>
+                <TableHead>Units</TableHead>
+                <TableHead>Tier</TableHead>
+                <TableHead>Rate</TableHead>
+                <TableHead>Gross</TableHead>
+                <TableHead>Clawback</TableHead>
+                <TableHead>Net</TableHead>
+                <TableHead>Cancel %</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {unique.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="font-medium">
+                    <span className="inline-flex flex-wrap items-center gap-2">
+                      {r.period.periodLabel}
+                      <PeriodPayStatusChip
+                        paid={paidLabels.has(r.period.periodLabel)}
+                        pendingPayout={fullySignedIds.has(r.id)}
+                      />
+                    </span>
+                  </TableCell>
+                  <TableCell>{formatPayDate(r.period.periodLabel)}</TableCell>
+                  <TableCell>{r.agentName}</TableCell>
+                  <TableCell>{r.unitsCleared}</TableCell>
+                  <TableCell>
+                    {r.cancellationPenaltyApplied
+                      ? `${r.rawTier}→${r.adjustedTier}`
+                      : r.adjustedTier || "—"}
+                  </TableCell>
+                  <TableCell>{ratePercent(r.tierRate)}</TableCell>
+                  <TableCell>{money(r.grossCommission)}</TableCell>
+                  <TableCell>
+                    {Number(r.clawbackAmount) > 0 ? (
+                      <span className="text-destructive">-{money(r.clawbackAmount)}</span>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className="bg-money text-money-foreground hover:bg-money/90">
+                      {money(r.netCommission)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{cancelRatePercent(r.cancellationRate)}</TableCell>
+                  <TableCell className="text-right">
+                    <Link
+                      href={`/portal/period/${r.periodId}/agent/${r.id}`}
+                      className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                    >
+                      View →
+                    </Link>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {unique.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">
-                      <span className="inline-flex flex-wrap items-center gap-2">
-                        {r.period.periodLabel}
-                        <PeriodPayStatusChip
-                          paid={paidLabels.has(r.period.periodLabel)}
-                          pendingPayout={fullySignedIds.has(r.id)}
-                        />
-                      </span>
-                    </TableCell>
-                    <TableCell>{formatPayDate(r.period.periodLabel)}</TableCell>
-                    <TableCell>{r.agentName}</TableCell>
-                    <TableCell>{r.unitsCleared}</TableCell>
-                    <TableCell>
-                      {r.cancellationPenaltyApplied
-                        ? `${r.rawTier}→${r.adjustedTier}`
-                        : r.adjustedTier || "—"}
-                    </TableCell>
-                    <TableCell>{ratePercent(r.tierRate)}</TableCell>
-                    <TableCell>{money(r.grossCommission)}</TableCell>
-                    <TableCell>
-                      {Number(r.clawbackAmount) > 0 ? (
-                        <span className="text-destructive">-{money(r.clawbackAmount)}</span>
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className="bg-money text-money-foreground hover:bg-money/90">
-                        {money(r.netCommission)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{cancelRatePercent(r.cancellationRate)}</TableCell>
-                    <TableCell className="text-right">
-                      <Link
-                        href={`/portal/period/${r.periodId}/agent/${r.id}`}
-                        className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                      >
-                        View →
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        </>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
+
+      {needsPhone ? <AgentPhoneForm currentPhone={phone} /> : null}
     </AppShell>
   );
 }

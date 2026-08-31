@@ -43,7 +43,6 @@ export default async function DailyTasksPage() {
         eyebrow={
           <span className="inline-flex items-center gap-2">
             <BrandMark size="sm" />
-            <span>· {isManagerHome ? "manager" : "portal"}</span>
           </span>
         }
         title="Daily Tasks"

@@ -1,69 +1,99 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { saveOwnPhoneAction, type SavePhoneResult } from "@/app/portal/phone-actions";
-import { formatPhoneForDisplay } from "@/lib/agents/phone";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
+const DISMISS_KEY = "mycommish:phone-prompt-dismissed";
+
+/**
+ * Soft, dismissible phone prompt — never blocks the commissions viewport.
+ * Hidden once saved, or when the agent taps “Not now” (persists in localStorage).
+ */
 export function AgentPhoneForm({
   currentPhone,
-  required,
 }: {
   currentPhone: string | null;
-  /** When true, show as a required setup card (missing phone). */
-  required?: boolean;
 }) {
   const [state, action, pending] = useActionState(
     saveOwnPhoneAction,
     null as SavePhoneResult | null,
   );
+  const [dismissed, setDismissed] = useState(true); // start hidden to avoid flash
+  const [ready, setReady] = useState(false);
 
-  const displayDefault = formatPhoneForDisplay(currentPhone);
+  useEffect(() => {
+    try {
+      setDismissed(localStorage.getItem(DISMISS_KEY) === "1");
+    } catch {
+      setDismissed(false);
+    }
+    setReady(true);
+  }, []);
+
+  function dismiss() {
+    try {
+      localStorage.setItem(DISMISS_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setDismissed(true);
+  }
+
+  // Saved in this session — clear dismiss flag so a future clear can re-prompt.
+  useEffect(() => {
+    if (state?.ok) {
+      try {
+        localStorage.removeItem(DISMISS_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [state]);
+
+  if (currentPhone || state?.ok) return null;
+  if (!ready || dismissed) return null;
 
   return (
-    <Card
-      className={
-        required
-          ? "glass-panel mt-6 border-primary/30 p-5 ring-1 ring-primary/20"
-          : "glass-panel mt-6 p-5"
-      }
-    >
-      <h2 className="font-heading text-base tracking-tight">
-        {required ? "Add your mobile number" : "Mobile number"}
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {required
-          ? "We use this to reach you about commissions and payouts. Saved on your agent profile."
-          : "Update anytime. Saved on your agent profile."}
-      </p>
-      <form action={action} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <Label htmlFor="agent-phone">Mobile</Label>
-          <Input
-            id="agent-phone"
-            name="phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            required={Boolean(required)}
-            defaultValue={displayDefault}
-            placeholder="(555) 123-4567"
-            className="h-10"
-          />
+    <div className="mt-8 flex flex-col gap-3 rounded-xl border border-border/70 bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-foreground">Add a mobile number</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Optional — used for commission and payout outreach.
+        </p>
+      </div>
+      <form
+        action={action}
+        className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center"
+      >
+        <Input
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="(555) 123-4567"
+          className="h-8 w-full sm:w-[11rem]"
+          aria-label="Mobile number"
+        />
+        <div className="flex items-center gap-2">
+          <Button type="submit" size="sm" disabled={pending} className="h-8">
+            {pending ? "Saving…" : "Save"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-8 text-muted-foreground"
+            onClick={dismiss}
+          >
+            Not now
+          </Button>
         </div>
-        <Button type="submit" disabled={pending} className="h-10 shrink-0">
-          {pending ? "Saving…" : currentPhone ? "Update phone" : "Save phone"}
-        </Button>
       </form>
       {state?.ok === false ? (
-        <p className="mt-2 text-sm text-destructive">{state.error}</p>
+        <p className="text-xs text-destructive sm:basis-full">{state.error}</p>
       ) : null}
-      {state?.ok === true ? (
-        <p className="mt-2 text-sm text-money">Saved {formatPhoneForDisplay(state.phone)}.</p>
-      ) : null}
-    </Card>
+    </div>
   );
 }

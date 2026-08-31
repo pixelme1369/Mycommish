@@ -34,7 +34,6 @@ export default async function PortalFilesPage() {
         eyebrow={
           <span className="inline-flex items-center gap-2">
             <BrandMark size="sm" />
-            <span>· portal</span>
           </span>
         }
         title="My files"
