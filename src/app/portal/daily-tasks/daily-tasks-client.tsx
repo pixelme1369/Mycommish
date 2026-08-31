@@ -217,35 +217,35 @@ function TasksTable({ files }: { files: DailyTaskFile[] }) {
 }
 
 export function DailyTasksWorkspace({
-  day3,
-  day10,
+  day1,
+  day5,
   todayYmd,
 }: {
-  day3: DailyTaskFile[];
-  day10: DailyTaskFile[];
-  day3Ymd?: string;
-  day10Ymd?: string;
+  day1: DailyTaskFile[];
+  day5: DailyTaskFile[];
+  day1Ymd?: string;
+  day5Ymd?: string;
   todayYmd: string;
 }) {
-  const [tab, setTab] = useState<FollowUpKind>("day3");
+  const [tab, setTab] = useState<FollowUpKind>("day1");
 
-  const active = tab === "day3" ? day3 : day10;
+  const active = tab === "day1" ? day1 : day5;
 
   const stats = useMemo(() => {
-    const all = [...day3, ...day10];
+    const all = [...day1, ...day5];
     const due = all.length;
     const finished = all.filter((f) => doneCount(f.checklist) === 3).length;
     const remaining = due - finished;
     return { due, finished, remaining };
-  }, [day3, day10]);
+  }, [day1, day5]);
 
   const tabs: Array<{
     id: FollowUpKind;
     label: string;
     count: number;
   }> = [
-    { id: "day3", label: "Day 3", count: day3.length },
-    { id: "day10", label: "Day 10", count: day10.length },
+    { id: "day1", label: "Day 1", count: day1.length },
+    { id: "day5", label: "Day 5", count: day5.length },
   ];
 
   return (
@@ -315,7 +315,7 @@ export function DailyTasksWorkspace({
               PT
             </p>
             <p className="mt-0.5">
-              {tab === "day3" ? "Enrolled + 3 days" : "Enrolled + 10 days"}
+              {tab === "day1" ? "Enrolled + 1 day" : "Enrolled + 5 days"}
               {" · "}
               weekends/holidays roll forward
             </p>
@@ -326,7 +326,7 @@ export function DailyTasksWorkspace({
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        Enrolled + 3 or + 10 calendar days · weekends/US federal holidays roll forward · dropped
+        Enrolled + 1 or + 5 calendar days · weekends/US federal holidays roll forward · dropped
         files and Active files with 1st payment cleared are excluded · mark Email, SMS, and Call
       </p>
     </div>

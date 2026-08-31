@@ -41,7 +41,7 @@ function hasRealDroppedDate(droppedDate: string | null | undefined): boolean {
   return Boolean(parseDate(raw));
 }
 
-/** Paid + Active — no day-3/10 outreach needed. */
+/** Paid + Active — no day-1/5 outreach needed. */
 function isClearedActiveFile(row: {
   firstPaymentClearedDate: string | null;
   crmStatus: string | null;
@@ -101,11 +101,11 @@ function collectDueFiles(
       checklist: emptyChecklist(),
     };
 
-    if (followUpDueYmd(enrolledYmd, 3) === todayYmd) {
-      out.push({ ...baseFields, followUp: "day3" });
+    if (followUpDueYmd(enrolledYmd, 1) === todayYmd) {
+      out.push({ ...baseFields, followUp: "day1" });
     }
-    if (followUpDueYmd(enrolledYmd, 10) === todayYmd) {
-      out.push({ ...baseFields, followUp: "day10" });
+    if (followUpDueYmd(enrolledYmd, 5) === todayYmd) {
+      out.push({ ...baseFields, followUp: "day5" });
     }
   }
   return out;
@@ -120,7 +120,7 @@ async function attachCompletions(
   const completions = await prisma.dailyTaskCompletion.findMany({
     where: {
       crmId: { in: crmIds },
-      followUp: { in: [DailyFollowUpDay.day3, DailyFollowUpDay.day10] },
+      followUp: { in: [DailyFollowUpDay.day1, DailyFollowUpDay.day5] },
       ...(opts.agentId ? { agentId: opts.agentId } : {}),
     },
     include: opts.agentId
@@ -154,7 +154,7 @@ async function attachCompletions(
 }
 
 /**
- * Day-3 / day-10 follow-ups for one portal login (their CRM aliases).
+ * Day-1 / day-5 follow-ups for one portal login (their CRM aliases).
  * Excludes dropped + Active-with-1st-cleared. Weekends/holidays roll forward.
  */
 export async function listDailyTasksForAgent(opts: {
@@ -163,12 +163,12 @@ export async function listDailyTasksForAgent(opts: {
   now?: Date;
 }): Promise<{
   todayYmd: string;
-  day3Ymd: string;
-  day10Ymd: string;
-  day3: DailyTaskFile[];
-  day10: DailyTaskFile[];
+  day1Ymd: string;
+  day5Ymd: string;
+  day1: DailyTaskFile[];
+  day5: DailyTaskFile[];
 }> {
-  const { todayYmd, day3Ymd, day10Ymd } = followUpTargets(opts.now);
+  const { todayYmd, day1Ymd, day5Ymd } = followUpTargets(opts.now);
   const dismissed = await listDismissedKeys();
   const names = [
     ...new Set(
@@ -178,7 +178,7 @@ export async function listDailyTasksForAgent(opts: {
     ),
   ];
   if (!names.length) {
-    return { todayYmd, day3Ymd, day10Ymd, day3: [], day10: [] };
+    return { todayYmd, day1Ymd, day5Ymd, day1: [], day5: [] };
   }
 
   const enrolledFrom = shiftYmd(todayYmd, -24);
@@ -209,32 +209,32 @@ export async function listDailyTasksForAgent(opts: {
   }));
   const withChecks = await attachCompletions(due, { agentId: opts.agentId });
 
-  const day3 = withChecks
-    .filter((f) => f.followUp === "day3")
+  const day1 = withChecks
+    .filter((f) => f.followUp === "day1")
     .sort((a, b) =>
       (a.clientName || a.crmId).localeCompare(b.clientName || b.crmId),
     );
-  const day10 = withChecks
-    .filter((f) => f.followUp === "day10")
+  const day5 = withChecks
+    .filter((f) => f.followUp === "day5")
     .sort((a, b) =>
       (a.clientName || a.crmId).localeCompare(b.clientName || b.crmId),
     );
 
-  return { todayYmd, day3Ymd, day10Ymd, day3, day10 };
+  return { todayYmd, day1Ymd, day5Ymd, day1, day5 };
 }
 
 /**
- * Admin team view: all due day-3/10 files across sales reps, with portal agent
+ * Admin team view: all due day-1/5 files across sales reps, with portal agent
  * + Email/SMS/Call completion when the rep is mapped to a login.
  */
 export async function listDailyTasksForAdmin(opts?: { now?: Date }): Promise<{
   todayYmd: string;
-  day3Ymd: string;
-  day10Ymd: string;
-  day3: DailyTaskFile[];
-  day10: DailyTaskFile[];
+  day1Ymd: string;
+  day5Ymd: string;
+  day1: DailyTaskFile[];
+  day5: DailyTaskFile[];
 }> {
-  const { todayYmd, day3Ymd, day10Ymd } = followUpTargets(opts?.now);
+  const { todayYmd, day1Ymd, day5Ymd } = followUpTargets(opts?.now);
   const enrolledFrom = shiftYmd(todayYmd, -24);
   const dismissed = await listDismissedKeys();
 
@@ -303,10 +303,10 @@ export async function listDailyTasksForAdmin(opts?: { now?: Date }): Promise<{
     return (a.clientName || a.crmId).localeCompare(b.clientName || b.crmId);
   };
 
-  const day3 = withChecks.filter((f) => f.followUp === "day3").sort(sortKey);
-  const day10 = withChecks.filter((f) => f.followUp === "day10").sort(sortKey);
+  const day1 = withChecks.filter((f) => f.followUp === "day1").sort(sortKey);
+  const day5 = withChecks.filter((f) => f.followUp === "day5").sort(sortKey);
 
-  return { todayYmd, day3Ymd, day10Ymd, day3, day10 };
+  return { todayYmd, day1Ymd, day5Ymd, day1, day5 };
 }
 
 export async function setDailyTaskChannel(opts: {
@@ -318,7 +318,7 @@ export async function setDailyTaskChannel(opts: {
   done: boolean;
 }): Promise<DailyTaskChecklist> {
   const followUp =
-    opts.followUp === "day3" ? DailyFollowUpDay.day3 : DailyFollowUpDay.day10;
+    opts.followUp === "day1" ? DailyFollowUpDay.day1 : DailyFollowUpDay.day5;
   const now = new Date();
   const patch =
     opts.channel === "email"

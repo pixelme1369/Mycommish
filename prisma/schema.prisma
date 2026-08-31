@@ -114,10 +114,10 @@ model FileClaim {
   @@index([crmId])
 }
 
-/// Day-3 / day-10 follow-up checklist (Email, SMS, Call) for portal Daily Tasks.
+/// Day-1 / day-5 follow-up checklist (Email, SMS, Call) for portal Daily Tasks.
 enum DailyFollowUpDay {
-  day3
-  day10
+  day1
+  day5
 }
 
 model DailyTaskCompletion {

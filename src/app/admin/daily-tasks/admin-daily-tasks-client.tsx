@@ -151,18 +151,18 @@ function AdminTasksTable({ files }: { files: DailyTaskFile[] }) {
 }
 
 export default function AdminDailyTasksWorkspace({
-  day3,
-  day10,
+  day1,
+  day5,
   todayYmd,
 }: {
-  day3: DailyTaskFile[];
-  day10: DailyTaskFile[];
+  day1: DailyTaskFile[];
+  day5: DailyTaskFile[];
   todayYmd: string;
 }) {
-  const [tab, setTab] = useState<FollowUpKind>("day3");
+  const [tab, setTab] = useState<FollowUpKind>("day1");
   const [q, setQ] = useState("");
 
-  const active = tab === "day3" ? day3 : day10;
+  const active = tab === "day1" ? day1 : day5;
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -178,15 +178,15 @@ export default function AdminDailyTasksWorkspace({
   }, [active, q]);
 
   const stats = useMemo(() => {
-    const all = [...day3, ...day10];
+    const all = [...day1, ...day5];
     const due = all.length;
     const finished = all.filter((f) => doneCount(f.checklist) === 3).length;
     return { due, finished, remaining: due - finished };
-  }, [day3, day10]);
+  }, [day1, day5]);
 
   const tabs: Array<{ id: FollowUpKind; label: string; count: number }> = [
-    { id: "day3", label: "Day 3", count: day3.length },
-    { id: "day10", label: "Day 10", count: day10.length },
+    { id: "day1", label: "Day 1", count: day1.length },
+    { id: "day5", label: "Day 5", count: day5.length },
   ];
 
   return (
@@ -269,7 +269,7 @@ export default function AdminDailyTasksWorkspace({
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        Team-wide day-3 / day-10 queue · Email / SMS / Call show what each agent marked · unmapped
+        Team-wide day-1 / day-5 queue · Email / SMS / Call show what each agent marked · unmapped
         sales reps have no checklist until aliased to a login
       </p>
     </div>

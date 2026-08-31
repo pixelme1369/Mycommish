@@ -47,7 +47,7 @@ export default async function DailyTasksPage() {
           </span>
         }
         title="Daily Tasks"
-        description={`${session.user.displayName} · day-3 and day-10 enrollment follow-ups on your aliases`}
+        description={`${session.user.displayName} · day-1 and day-5 enrollment follow-ups on your aliases`}
         actions={
           <>
             <Link
@@ -89,10 +89,10 @@ export default async function DailyTasksPage() {
         </Card>
       ) : (
         <DailyTasksWorkspace
-          day3={tasks.day3}
-          day10={tasks.day10}
-          day3Ymd={tasks.day3Ymd}
-          day10Ymd={tasks.day10Ymd}
+          day1={tasks.day1}
+          day5={tasks.day5}
+          day1Ymd={tasks.day1Ymd}
+          day5Ymd={tasks.day5Ymd}
           todayYmd={tasks.todayYmd}
         />
       )}

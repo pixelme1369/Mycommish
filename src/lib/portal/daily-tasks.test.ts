@@ -14,8 +14,8 @@ import { parseDate } from "@/lib/commission/crm-parser";
 
 describe("daily-tasks dates", () => {
   it("shifts YYYY-MM-DD by whole calendar days", () => {
-    expect(shiftYmd("2026-08-28", -3)).toBe("2026-08-25");
-    expect(shiftYmd("2026-08-28", -10)).toBe("2026-08-18");
+    expect(shiftYmd("2026-08-28", -1)).toBe("2026-08-27");
+    expect(shiftYmd("2026-08-28", -5)).toBe("2026-08-23");
     expect(shiftYmd("2026-03-01", -1)).toBe("2026-02-28");
   });
 
@@ -25,12 +25,12 @@ describe("daily-tasks dates", () => {
     expect(ymdFromParsed(d!)).toBe("2026-08-25");
   });
 
-  it("followUpTargets uses Pacific today minus 3 and 10", () => {
+  it("followUpTargets uses Pacific today minus 1 and 5", () => {
     const now = new Date("2026-08-28T18:00:00.000Z");
     expect(pacificTodayYmd(now)).toBe("2026-08-28");
     const t = followUpTargets(now);
-    expect(t.day3Ymd).toBe("2026-08-25");
-    expect(t.day10Ymd).toBe("2026-08-18");
+    expect(t.day1Ymd).toBe("2026-08-27");
+    expect(t.day5Ymd).toBe("2026-08-23");
   });
 
   it("rolls weekends forward to Monday", () => {
@@ -45,10 +45,12 @@ describe("daily-tasks dates", () => {
     expect(isBusinessDay("2026-07-03")).toBe(false);
   });
 
-  it("rolls day-3 due off a holiday to the next business day", () => {
-    // Enrolled 2026-06-30 → +3 = Jul 3 (observed Independence) → Mon Jul 6
-    expect(followUpDueYmd("2026-06-30", 3)).toBe("2026-07-06");
-    // Enrolled Mon Aug 24 → +3 = Thu Aug 27 (business day)
-    expect(followUpDueYmd("2026-08-24", 3)).toBe("2026-08-27");
+  it("rolls day-1 due off a holiday to the next business day", () => {
+    // Enrolled 2026-07-02 → +1 = Jul 3 (observed Independence) → Mon Jul 6
+    expect(followUpDueYmd("2026-07-02", 1)).toBe("2026-07-06");
+    // Enrolled Mon Aug 24 → +1 = Tue Aug 25 (business day)
+    expect(followUpDueYmd("2026-08-24", 1)).toBe("2026-08-25");
+    // Enrolled Mon Aug 24 → +5 = Sat Aug 29 → Mon Aug 31
+    expect(followUpDueYmd("2026-08-24", 5)).toBe("2026-08-31");
   });
 });

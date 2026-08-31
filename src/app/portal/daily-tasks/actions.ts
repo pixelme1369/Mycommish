@@ -20,7 +20,7 @@ export async function toggleDailyTaskChannelAction(formData: FormData) {
   const done = String(formData.get("done") || "") === "true";
 
   if (!crmId || !enrolledYmd) return;
-  if (followUp !== "day3" && followUp !== "day10") return;
+  if (followUp !== "day1" && followUp !== "day5") return;
   if (channel !== "email" && channel !== "sms" && channel !== "call") return;
 
   await setDailyTaskChannel({

@@ -1,4 +1,4 @@
-export type FollowUpKind = "day3" | "day10";
+export type FollowUpKind = "day1" | "day5";
 
 export type DailyTaskChecklist = {
   emailDone: boolean;

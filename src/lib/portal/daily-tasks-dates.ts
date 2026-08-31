@@ -143,20 +143,20 @@ export function nextBusinessDayOnOrAfter(ymd: string): string {
  * Follow-up due date: enrolled + N calendar days, then roll forward off
  * weekends / US federal holidays.
  */
-export function followUpDueYmd(enrolledYmd: string, afterDays: 3 | 10): string {
+export function followUpDueYmd(enrolledYmd: string, afterDays: 1 | 5): string {
   return nextBusinessDayOnOrAfter(shiftYmd(enrolledYmd, afterDays));
 }
 
 export function followUpTargets(now = new Date()): {
   todayYmd: string;
-  /** Nominal enrolled date for day-3 if no holiday roll (display hint only). */
-  day3Ymd: string;
-  day10Ymd: string;
+  /** Nominal enrolled date for day-1 if no holiday roll (display hint only). */
+  day1Ymd: string;
+  day5Ymd: string;
 } {
   const todayYmd = pacificTodayYmd(now);
   return {
     todayYmd,
-    day3Ymd: shiftYmd(todayYmd, -3),
-    day10Ymd: shiftYmd(todayYmd, -10),
+    day1Ymd: shiftYmd(todayYmd, -1),
+    day5Ymd: shiftYmd(todayYmd, -5),
   };
 }

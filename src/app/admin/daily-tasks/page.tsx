@@ -26,7 +26,7 @@ export default async function AdminDailyTasksPage() {
           </span>
         }
         title="Daily Tasks"
-        description="All agents · day-3 and day-10 follow-ups · who completed Email / SMS / Call"
+        description="All agents · day-1 and day-5 follow-ups · who completed Email / SMS / Call"
         actions={
           <>
             <Link
@@ -49,8 +49,8 @@ export default async function AdminDailyTasksPage() {
       />
 
       <AdminDailyTasksWorkspace
-        day3={tasks.day3}
-        day10={tasks.day10}
+        day1={tasks.day1}
+        day5={tasks.day5}
         todayYmd={tasks.todayYmd}
       />
     </AppShell>
