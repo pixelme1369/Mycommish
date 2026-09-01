@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   averageDeal,
   dailyUnitsPace,
+  enrollToKeepAfterDrops,
   parseDebtInput,
   remainingAgainstGoal,
   sumStage,
@@ -62,6 +63,14 @@ describe("enrolled pace from dollar goal", () => {
     expect(parseDebtInput("$2,000,000")).toBe(2_000_000);
     expect(parseDebtInput("37k")).toBe(37_000);
     expect(parseDebtInput("")).toBeNull();
+  });
+});
+
+describe("enroll to keep after drops", () => {
+  it("turns a $1M keep-goal into $1.25M originated at 20% drops", () => {
+    expect(enrollToKeepAfterDrops(1_000_000)).toBe(1_250_000);
+    expect(enrollToKeepAfterDrops(1_500_000)).toBe(1_875_000);
+    expect(enrollToKeepAfterDrops(0)).toBe(0);
   });
 });
 

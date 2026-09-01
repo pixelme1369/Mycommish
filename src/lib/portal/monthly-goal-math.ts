@@ -83,6 +83,20 @@ export function parseDebtInput(raw: string): number | null {
   return n * mult;
 }
 
+/** Market-average share of enrolled files that drop before they stick. */
+export const MARKET_DROP_RATE = 0.2;
+
+/** Keep-goal / (1 − dropRate). $1M at 20% drops → originate $1.25M. */
+export function enrollToKeepAfterDrops(
+  keepGoal: number,
+  dropRate: number = MARKET_DROP_RATE,
+): number {
+  if (keepGoal <= 0) return 0;
+  const kept = 1 - dropRate;
+  if (kept <= 0 || kept > 1) return keepGoal;
+  return Math.round(keepGoal / kept);
+}
+
 export function parseUnitsPerDay(raw: string): number | null {
   const t = raw.trim();
   if (!t) return null;

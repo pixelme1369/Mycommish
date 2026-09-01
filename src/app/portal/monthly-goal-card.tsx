@@ -13,6 +13,11 @@ import {
   commissionBandsForAgent,
   enrollmentPayPreview,
 } from "@/lib/portal/goal-tier-estimate";
+import {
+  enrollToKeepAfterDrops,
+  MARKET_DROP_RATE,
+  parseDebtInput,
+} from "@/lib/portal/monthly-goal-math";
 
 function moneyHero(n: number) {
   return n.toLocaleString("en-US", {
@@ -89,9 +94,16 @@ function GoalForm({
     saveMonthlyGoalAction,
     null as SaveGoalResult | null,
   );
-  const defaultDebt = view.debtGoal > 0 ? String(view.debtGoal) : "";
-  const defaultDaily =
-    view.enteredDailyUnits != null ? String(view.enteredDailyUnits) : "";
+  const [debtRaw, setDebtRaw] = useState(
+    view.debtGoal > 0 ? String(view.debtGoal) : "",
+  );
+  const [dailyRaw, setDailyRaw] = useState(
+    view.enteredDailyUnits != null ? String(view.enteredDailyUnits) : "",
+  );
+  const keepGoal = parseDebtInput(debtRaw);
+  const enrollNeeded =
+    keepGoal != null && keepGoal > 0 ? enrollToKeepAfterDrops(keepGoal) : 0;
+  const dropPct = Math.round(MARKET_DROP_RATE * 100);
 
   return (
     <form action={action} className={compact ? "mt-6" : "mt-0"}>
@@ -105,7 +117,8 @@ function GoalForm({
             name="debtGoal"
             inputMode="decimal"
             placeholder="2m or 2000000"
-            defaultValue={defaultDebt}
+            value={debtRaw}
+            onChange={(e) => setDebtRaw(e.target.value)}
             className="h-10"
             aria-label="Monthly enrolled dollar goal"
           />
@@ -119,13 +132,20 @@ function GoalForm({
             name="unitsPerDay"
             inputMode="numeric"
             placeholder="Optional — e.g. 2"
-            defaultValue={defaultDaily}
+            value={dailyRaw}
+            onChange={(e) => setDailyRaw(e.target.value)}
             className="h-10"
             aria-label="Units per working day"
           />
         </div>
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+      {enrollNeeded > 0 && keepGoal != null ? (
+        <p className="mt-3 text-sm text-foreground">
+          To keep {moneyHero(keepGoal)} after {dropPct}% drops, enroll{" "}
+          <span className="font-medium tabular-nums">{moneyHero(enrollNeeded)}</span>
+        </p>
+      ) : null}
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
         Dollar goal drives the ring. Units/day is optional — otherwise we size
         units from your average enrolled file and {view.workingDaysTotal} working
         days in {view.monthTitle}.
