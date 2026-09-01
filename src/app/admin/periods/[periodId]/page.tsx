@@ -10,6 +10,7 @@ import {
   dismissalKey,
   listDismissedKeys,
 } from "@/lib/agents/dismissal";
+import { listOpenerAliasKeys } from "@/lib/agents/opener";
 import {
   exclusionKey,
   listExcludedKeysForPeriod,
@@ -45,13 +46,14 @@ export default async function AdminPeriodPage({
     select: { id: true },
   });
 
-  const [agents, dismissedKeys, excludedKeys, bonusRows, signedByName] =
+  const [agents, dismissedKeys, openerKeys, excludedKeys, bonusRows, signedByName] =
     await Promise.all([
       prisma.agentPeriod.findMany({
         where: { periodId },
         orderBy: [{ netCommission: "desc" }, { agentName: "asc" }],
       }),
       listDismissedKeys(),
+      listOpenerAliasKeys(),
       listExcludedKeysForPeriod(period.periodLabel),
       listBonusesForPeriod(period.periodLabel).catch((err) => {
         console.error("listBonusesForPeriod failed", err);
@@ -60,7 +62,9 @@ export default async function AdminPeriodPage({
       agentSignedByNameForPeriod(period.periodLabel),
     ]);
 
-  const tableRows = agents.map((a) => ({
+  const tableRows = agents
+    .filter((a) => !openerKeys.has(dismissalKey(a.agentName)))
+    .map((a) => ({
     id: a.id,
     agentName: a.agentName,
     unitsCleared: a.unitsCleared,

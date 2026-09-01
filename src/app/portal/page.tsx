@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isSuperAdminUser, requireSession } from "@/lib/auth-guards";
-import { adminNavLabel } from "@/lib/roles";
+import { adminNavLabel, isOpenerRole } from "@/lib/roles";
 import { AppShell } from "@/components/app-shell";
 import { PortalTopBar } from "@/components/portal-top-bar";
 import { Badge } from "@/components/ui/badge";
@@ -75,8 +75,11 @@ export default async function PortalHome() {
     : null;
   const phone = agentProfile?.phone?.trim() || null;
   const needsPhone = !phone;
+  const opener = isOpenerRole(session.user.role);
 
-  const rowSets = await Promise.all(aliasNames.map((n) => agentRowsForLatestPeriods(n)));
+  const rowSets = opener
+    ? []
+    : await Promise.all(aliasNames.map((n) => agentRowsForLatestPeriods(n)));
   const rows = rowSets.flatMap((s) => s.rows);
   const seen = new Set<string>();
   const unique = rows
@@ -109,7 +112,9 @@ export default async function PortalHome() {
 
   const latest = unique[0];
   let subtitle: string;
-  if (!aliasNames.length) {
+  if (opener) {
+    subtitle = "Opener pay is calculated separately — agent commission periods don’t apply.";
+  } else if (!aliasNames.length) {
     subtitle = "Ask an admin to map your Sales Rep name(s) to see commissions.";
   } else if (!latest) {
     subtitle = `No activity in ${windowLabels.join(" / ") || "the latest 2 periods"}.`;
@@ -128,7 +133,12 @@ export default async function PortalHome() {
         <p className="mt-2 text-sm text-muted-foreground sm:text-base">{subtitle}</p>
       </header>
 
-      {!aliasNames.length ? (
+      {opener ? (
+        <Card className="glass-panel mt-8 p-6 text-sm text-muted-foreground">
+          Opener commissions use a different plan. This page will show opener pay once that’s
+          wired up — it is not the agent commission ladder.
+        </Card>
+      ) : !aliasNames.length ? (
         <Card className="glass-panel mt-8 p-6 text-sm text-muted-foreground">
           Your login has no CRM name aliases yet. Ask an admin to map your Sales Rep name(s) in
           Manage Agents.

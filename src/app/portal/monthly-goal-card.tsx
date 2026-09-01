@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useId, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { saveMonthlyGoalAction, type SaveGoalResult } from "@/app/portal/goal-actions";
 import type { EnrolledGoalView } from "@/lib/portal/monthly-goal";
 import { money } from "@/lib/format";
@@ -14,9 +15,11 @@ import {
   enrollmentPayPreview,
 } from "@/lib/portal/goal-tier-estimate";
 import {
-  enrollToKeepAfterDrops,
-  MARKET_DROP_RATE,
-  parseDebtInput,
+  applyClearRate,
+  DEBT_GOAL_PRESETS,
+  DEFAULT_CLEAR_RATE_PCT,
+  formatDebtInputDisplay,
+  formatDebtTyping,
 } from "@/lib/portal/monthly-goal-math";
 
 function moneyHero(n: number) {
@@ -36,6 +39,127 @@ function formatPct(n: number) {
 function compactRate(fraction: number) {
   const p = fraction * 100;
   return Number.isInteger(p) ? `${p}%` : `${p.toFixed(2)}%`;
+}
+
+function formatClearPct(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return String(DEFAULT_CLEAR_RATE_PCT);
+  return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+}
+
+function DebtGoalCombobox({
+  id,
+  name,
+  value,
+  onChange,
+}: {
+  id: string;
+  name: string;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const listId = useId();
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+  const [usingKeys, setUsingKeys] = useState(false);
+
+  function pick(amount: number) {
+    onChange(formatDebtInputDisplay(amount));
+    setOpen(false);
+    setUsingKeys(false);
+  }
+
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        name={name}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        autoComplete="off"
+        inputMode="decimal"
+        placeholder="$1,000,000"
+        value={value}
+        onChange={(e) => {
+          onChange(formatDebtTyping(e.target.value));
+          setOpen(true);
+          setHighlight(0);
+          setUsingKeys(false);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => {
+          window.setTimeout(() => setOpen(false), 150);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            setOpen(false);
+            return;
+          }
+          if (!open) {
+            if (e.key === "ArrowDown") setOpen(true);
+            return;
+          }
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setUsingKeys(true);
+            setHighlight((h) => Math.min(h + 1, DEBT_GOAL_PRESETS.length - 1));
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setUsingKeys(true);
+            setHighlight((h) => Math.max(h - 1, 0));
+          } else if (e.key === "Enter" && usingKeys) {
+            const preset = DEBT_GOAL_PRESETS[highlight];
+            if (preset) {
+              e.preventDefault();
+              pick(preset.value);
+            }
+          }
+        }}
+        className="h-10 pr-9 tabular-nums"
+        aria-label="Monthly enrolled dollar goal"
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Show dollar presets"
+        className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-9 items-center justify-center"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
+      </button>
+      {open ? (
+        <ul
+          id={listId}
+          role="listbox"
+          className="bg-popover text-popover-foreground absolute z-50 mt-1 w-full overflow-hidden rounded-xl py-1 shadow-lg ring-1 ring-foreground/10"
+        >
+          {DEBT_GOAL_PRESETS.map((preset, i) => (
+            <li key={preset.value}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={i === highlight}
+                className={cn(
+                  "flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left text-sm tabular-nums",
+                  i === highlight ? "bg-muted text-foreground" : "hover:bg-muted/70",
+                )}
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseEnter={() => setHighlight(i)}
+                onClick={() => pick(preset.value)}
+              >
+                <span>{preset.label}</span>
+                <span className="text-muted-foreground text-xs">
+                  {formatDebtInputDisplay(preset.value)}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
 function Ring({ pct }: { pct: number }) {
@@ -95,15 +219,11 @@ function GoalForm({
     null as SaveGoalResult | null,
   );
   const [debtRaw, setDebtRaw] = useState(
-    view.debtGoal > 0 ? String(view.debtGoal) : "",
+    view.debtGoal > 0 ? formatDebtInputDisplay(view.debtGoal) : "",
   );
   const [dailyRaw, setDailyRaw] = useState(
     view.enteredDailyUnits != null ? String(view.enteredDailyUnits) : "",
   );
-  const keepGoal = parseDebtInput(debtRaw);
-  const enrollNeeded =
-    keepGoal != null && keepGoal > 0 ? enrollToKeepAfterDrops(keepGoal) : 0;
-  const dropPct = Math.round(MARKET_DROP_RATE * 100);
 
   return (
     <form action={action} className={compact ? "mt-6" : "mt-0"}>
@@ -112,15 +232,11 @@ function GoalForm({
           <Label htmlFor="debtGoal" className="text-muted-foreground">
             Enrolled $ this month
           </Label>
-          <Input
+          <DebtGoalCombobox
             id="debtGoal"
             name="debtGoal"
-            inputMode="decimal"
-            placeholder="2m or 2000000"
             value={debtRaw}
-            onChange={(e) => setDebtRaw(e.target.value)}
-            className="h-10"
-            aria-label="Monthly enrolled dollar goal"
+            onChange={setDebtRaw}
           />
         </div>
         <div className="space-y-1.5">
@@ -139,12 +255,6 @@ function GoalForm({
           />
         </div>
       </div>
-      {enrollNeeded > 0 && keepGoal != null ? (
-        <p className="mt-3 text-sm text-foreground">
-          To keep {moneyHero(keepGoal)} after {dropPct}% drops, enroll{" "}
-          <span className="font-medium tabular-nums">{moneyHero(enrollNeeded)}</span>
-        </p>
-      ) : null}
       <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
         Dollar goal drives the ring. Units/day is optional — otherwise we size
         units from your average enrolled file and {view.workingDaysTotal} working
@@ -165,32 +275,41 @@ function GoalForm({
 function GoalTierPanel({
   view,
   agentName,
+  clearPct,
 }: {
   view: EnrolledGoalView;
   agentName: string | null;
+  clearPct: number;
 }) {
-  const now = enrollmentPayPreview(agentName, view.unitsActual, view.debtActual);
-  const atGoal = enrollmentPayPreview(
-    agentName,
+  const enrolledNow = applyClearRate(view.unitsActual, view.debtActual, clearPct);
+  const enrolledGoal = applyClearRate(
     view.unitsGoal > 0 ? view.unitsGoal : view.unitsActual,
     view.debtGoal > 0 ? view.debtGoal : view.debtActual,
+    clearPct,
+  );
+  const now = enrollmentPayPreview(agentName, enrolledNow.units, enrolledNow.debt);
+  const atGoal = enrollmentPayPreview(
+    agentName,
+    enrolledGoal.units,
+    enrolledGoal.debt,
   );
   const bands = commissionBandsForAgent(agentName);
   const showGoal =
     view.unitsGoal > 0 &&
     (view.unitsGoal !== view.unitsActual || view.debtGoal !== view.debtActual);
+  const enrolledGoalUnits = view.unitsGoal > 0 ? view.unitsGoal : view.unitsActual;
 
   return (
     <aside className="h-full rounded-3xl bg-[oklch(0.985_0.014_150)] px-6 py-6 ring-1 ring-primary/15">
       <p className="text-[11px] font-semibold tracking-[0.18em] text-primary uppercase">
-        If these enroll
+        If {formatClearPct(clearPct)}% clear
       </p>
       <p className="mt-5 text-[11px] tracking-wide text-muted-foreground">Now</p>
       <p className="font-heading mt-1 text-2xl tracking-tight tabular-nums">
         {now.pay > 0 ? money(now.pay) : "—"}
       </p>
       <p className="mt-0.5 text-xs text-muted-foreground">
-        {now.units} unit{now.units === 1 ? "" : "s"}
+        {view.unitsActual} enrolled · ~{now.units} clear
         {now.rate > 0 ? ` · ${compactRate(now.rate)}` : ""}
       </p>
       {showGoal ? (
@@ -202,7 +321,8 @@ function GoalTierPanel({
             {atGoal.pay > 0 ? moneyHero(atGoal.pay) : "—"}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {atGoal.units} units · {compactRate(atGoal.rate)}
+            {enrolledGoalUnits} enrolled · ~{atGoal.units} clear ·{" "}
+            {compactRate(atGoal.rate)}
           </p>
         </>
       ) : null}
@@ -240,8 +360,8 @@ function GoalTierPanel({
       </ul>
       <p className="mt-5 text-[11px] leading-relaxed text-muted-foreground">
         {now.fixed
-          ? `Flat ${compactRate(now.rate)} contract — units don’t change the rate.`
-          : "If files clear. Pay still uses clawbacks and cancel rate."}
+          ? `Flat ${compactRate(now.rate)} on the ${formatClearPct(clearPct)}% expected to clear. Units don’t change the rate.`
+          : `Estimate: ${formatClearPct(clearPct)}% of enrolled $ × your rate. Real pay still uses clawbacks and cancel rate.`}
       </p>
     </aside>
   );
@@ -250,11 +370,14 @@ function GoalTierPanel({
 export function MonthlyGoalDashboard({
   view,
   agentName,
+  showPayPreview = true,
 }: {
   view: EnrolledGoalView;
   agentName: string | null;
+  showPayPreview?: boolean;
 }) {
   const [editing, setEditing] = useState(!view.hasGoal);
+  const panelClearPct = view.clearRatePct || DEFAULT_CLEAR_RATE_PCT;
   const completePct =
     view.debtGoal > 0
       ? (view.debtActual / view.debtGoal) * 100
@@ -274,7 +397,13 @@ export function MonthlyGoalDashboard({
       : `${view.workingDaysTotal} working days`;
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-stretch lg:gap-5">
+    <div
+      className={
+        showPayPreview
+          ? "lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-stretch lg:gap-5"
+          : undefined
+      }
+    >
       <div className="min-w-0">
         <div
           className="overflow-hidden rounded-3xl text-[oklch(0.96_0.02_150)] shadow-[0_28px_70px_-32px_oklch(0.28_0.08_150/0.55)]"
@@ -377,9 +506,13 @@ export function MonthlyGoalDashboard({
         )}
       </div>
 
-      {view.hasGoal ? (
+      {view.hasGoal && showPayPreview ? (
         <div className="mt-5 lg:mt-0">
-          <GoalTierPanel view={view} agentName={agentName} />
+          <GoalTierPanel
+            view={view}
+            agentName={agentName}
+            clearPct={panelClearPct}
+          />
         </div>
       ) : null}
     </div>

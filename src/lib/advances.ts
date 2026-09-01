@@ -432,6 +432,7 @@ export async function listAdvanceAgentChoices() {
 
   for (const a of aliases) {
     if (a.agent.suspendedAt) continue;
+    if (a.agent.role === "opener") continue;
     byName.set(a.agentName, {
       agentName: a.agentName,
       agentId: a.agentId,

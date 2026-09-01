@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { PeriodSource } from "@/generated/prisma/client";
 import { money } from "@/lib/format";
 import { dismissalKey, listDismissedKeys } from "@/lib/agents/dismissal";
+import { listOpenerAliasKeys } from "@/lib/agents/opener";
 import {
   exclusionKey,
   listExcludedKeysForPeriod,
@@ -39,13 +40,14 @@ export default async function ManagerPeriodPage({
   const ownOnly = role !== "admin";
   const paidById = session.user.agentId || undefined;
 
-  const [agents, dismissedKeys, excludedKeys, bonusRows, signedByName] =
+  const [agents, dismissedKeys, openerKeys, excludedKeys, bonusRows, signedByName] =
     await Promise.all([
       prisma.agentPeriod.findMany({
         where: { periodId },
         orderBy: [{ netCommission: "desc" }, { agentName: "asc" }],
       }),
       listDismissedKeys(),
+      listOpenerAliasKeys(),
       listExcludedKeysForPeriod(period.periodLabel),
       listBonusesForPeriod(
         period.periodLabel,
@@ -57,7 +59,9 @@ export default async function ManagerPeriodPage({
       agentSignedByNameForPeriod(period.periodLabel),
     ]);
 
-  const tableRows = agents.map((a) => ({
+  const tableRows = agents
+    .filter((a) => !openerKeys.has(dismissalKey(a.agentName)))
+    .map((a) => ({
     id: a.id,
     agentName: a.agentName,
     unitsCleared: a.unitsCleared,

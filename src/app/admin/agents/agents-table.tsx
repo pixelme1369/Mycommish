@@ -38,7 +38,7 @@ import {
 import { updateAgentPhoneAction } from "@/app/portal/phone-actions";
 import { formatPhoneForDisplay } from "@/lib/agents/phone";
 
-export type AgentRoleView = "super_admin" | "admin" | "manager" | "agent";
+export type AgentRoleView = "super_admin" | "admin" | "manager" | "agent" | "opener";
 export type EmploymentTypeView = "employee" | "contractor";
 
 export type AgentRowView = {
@@ -67,6 +67,8 @@ function roleLabel(role: AgentRoleView) {
       return "Admin";
     case "manager":
       return "Manager";
+    case "opener":
+      return "Opener";
     default:
       return "Agent";
   }
@@ -161,6 +163,7 @@ export function AgentsUsersTable({
           >
             <option value="all">Any role</option>
             <option value="agent">Agent</option>
+            <option value="opener">Opener</option>
             <option value="manager">Manager</option>
             <option value="admin">Admin</option>
             <option value="super_admin">Super admin</option>
@@ -486,6 +489,7 @@ function AgentDetailPanel({
                 className="flex h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2 text-sm"
               >
                 <option value="agent">Agent</option>
+                <option value="opener">Opener</option>
                 <option value="manager">Manager</option>
                 <option value="admin">Admin</option>
                 <option value="super_admin">Super admin</option>

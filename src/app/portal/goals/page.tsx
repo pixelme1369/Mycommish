@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { isSuperAdminUser, requireSession, sessionRole } from "@/lib/auth-guards";
-import { adminNavLabel } from "@/lib/roles";
+import { adminNavLabel, isOpenerRole } from "@/lib/roles";
 import { AppShell } from "@/components/app-shell";
 import { PortalTopBar } from "@/components/portal-top-bar";
 import { MonthlyGoalDashboard } from "@/app/portal/monthly-goal-card";
@@ -61,6 +61,7 @@ export default async function GoalsPage() {
         <MonthlyGoalDashboard
           view={view}
           agentName={pickCommissionAgentName(aliasNames)}
+          showPayPreview={!isOpenerRole(session.user.role)}
         />
       </div>
     </AppShell>

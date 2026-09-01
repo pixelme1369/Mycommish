@@ -1,5 +1,5 @@
 /** Portal login roles (mirrors Prisma `AgentRole`). */
-export type AgentRoleName = "super_admin" | "admin" | "manager" | "agent";
+export type AgentRoleName = "super_admin" | "admin" | "manager" | "agent" | "opener";
 
 /**
  * Capability tier for routing / most gates.
@@ -14,6 +14,10 @@ export function isAdminRole(role: string | null | undefined): boolean {
 
 export function isSuperAdminRole(role: string | null | undefined): boolean {
   return role === "super_admin";
+}
+
+export function isOpenerRole(role: string | null | undefined): boolean {
+  return role === "opener";
 }
 
 /** Manager tools (manual bonus, team views, countersign) — managers + super_admin. */
@@ -50,6 +54,8 @@ export function formatRoleLabel(role: string | null | undefined): string {
       return "manager";
     case "agent":
       return "agent";
+    case "opener":
+      return "opener";
     default:
       return "portal";
   }

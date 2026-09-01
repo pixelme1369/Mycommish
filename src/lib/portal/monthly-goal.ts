@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { loadGoalClearRatePct } from "@/lib/portal/goal-settings";
 import {
   averageDeal,
   dailyUnitsPace,
@@ -22,6 +23,7 @@ export type EnrolledGoalView = {
   hasGoal: boolean;
   debtGoal: number;
   unitsGoal: number;
+  clearRatePct: number;
   unitsGoalSource: "entered" | "derived" | "none";
   enteredDailyUnits: number | null;
   unitsActual: number;
@@ -68,7 +70,7 @@ export async function loadEnrolledGoal(opts: {
   const names = opts.aliasNames.map((n) => n.trim()).filter(Boolean);
   const historyFrom = shiftYmd(todayYmd, -90);
 
-  const [goalRow, files] = await Promise.all([
+  const [goalRow, files, clearRatePct] = await Promise.all([
     prisma.agentMonthlyGoal.findUnique({
       where: {
         agentId_monthLabel: { agentId: opts.agentId, monthLabel },
@@ -93,6 +95,7 @@ export async function loadEnrolledGoal(opts: {
         enrolledAmount: true,
       },
     }),
+    loadGoalClearRatePct(),
   ]);
 
   const seen = new Set<string>();
@@ -154,6 +157,7 @@ export async function loadEnrolledGoal(opts: {
     hasGoal,
     debtGoal,
     unitsGoal,
+    clearRatePct,
     unitsGoalSource,
     enteredDailyUnits: enteredDailyUnits && enteredDailyUnits > 0 ? enteredDailyUnits : null,
     unitsActual,

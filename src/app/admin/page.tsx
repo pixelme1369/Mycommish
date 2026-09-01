@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   listCalculatedPeriods,
   listHistoryPeriods,
@@ -6,11 +5,9 @@ import {
 } from "./actions";
 import { requireAdmin, isSuperAdminUser } from "@/lib/auth-guards";
 import { adminNavLabel } from "@/lib/roles";
-import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { AdminTopNav } from "@/app/admin/admin-top-nav";
 import { AdminCalculatedPeriods } from "./admin-calculated-periods";
 import { AdminImportSection } from "./admin-import-section";
 import { AdminSecondarySections } from "./admin-secondary-sections";
@@ -145,69 +142,10 @@ export default async function AdminHome() {
         title={adminNavLabel(session.user.role)}
         description="Open a period to pay · import only when files are ready"
         actions={
-          <>
-            <Link
-              href="/admin/daily-tasks"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Daily Tasks
-            </Link>
-            <Link
-              href="/manager/advances"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Advances
-            </Link>
-            <Link
-              href="/admin/claims"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              File claims
-            </Link>
-            <Link
-              href="/admin/statements"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Signed PDFs
-            </Link>
-            <Link
-              href="/admin/agents"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Users
-            </Link>
-            {superAdmin ? (
-              <>
-                <Link
-                  href="/superadmin/team-leads"
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                >
-                  Team leads
-                </Link>
-                <Link
-                  href="/superadmin/manual-bonuses"
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                >
-                  Manual bonuses
-                  {pendingManualBonusCount > 0 ? ` (${pendingManualBonusCount})` : ""}
-                </Link>
-              </>
-            ) : (
-              <Link
-                href="/portal"
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-              >
-                Portal
-              </Link>
-            )}
-            <Link
-              href="/manager"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Manager view
-            </Link>
-            <SignOutButton />
-          </>
+          <AdminTopNav
+            isSuperAdmin={superAdmin}
+            pendingManualBonusCount={pendingManualBonusCount}
+          />
         }
       />
 

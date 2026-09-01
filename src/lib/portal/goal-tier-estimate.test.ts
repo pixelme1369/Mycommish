@@ -4,6 +4,7 @@ import {
   enrollmentPayPreview,
   pickCommissionAgentName,
 } from "./goal-tier-estimate";
+import { applyClearRate } from "./monthly-goal-math";
 
 describe("enrollmentPayPreview", () => {
   it("uses standard tier % × enrolled debt", () => {
@@ -36,6 +37,18 @@ describe("enrollmentPayPreview", () => {
     const r = enrollmentPayPreview("AJ Valipour", 0, 0);
     expect(r.pay).toBe(0);
     expect(r.tier).toBeNull();
+  });
+});
+
+describe("paycheck estimate at clear rate", () => {
+  it("applies 70% clear to enrolled $ and units before the rate", () => {
+    const scaled = applyClearRate(25, 1_000_000, 70);
+    const r = enrollmentPayPreview("Peter Godwin", scaled.units, scaled.debt);
+    expect(scaled).toEqual({ units: 18, debt: 700_000 });
+    expect(r.fixed).toBe(true);
+    expect(r.rate).toBe(0.0175);
+    expect(r.pay).toBe(12_250);
+    expect(r.units).toBe(18);
   });
 });
 

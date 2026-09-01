@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { PeriodSource } from "@/generated/prisma/client";
 import { buildCommissionHistoryWorkbook } from "@/lib/export/commission-history";
 import { dismissalKey, listDismissedKeys } from "@/lib/agents/dismissal";
+import { listOpenerAliasKeys } from "@/lib/agents/opener";
 import {
   exclusionKey,
   listExcludedKeysForPeriod,
@@ -48,13 +49,15 @@ export async function POST(
     return NextResponse.json({ error: "No matching agents" }, { status: 404 });
   }
 
-  const [dismissedKeys, excludedKeys] = await Promise.all([
+  const [dismissedKeys, openerKeys, excludedKeys] = await Promise.all([
     listDismissedKeys(),
+    listOpenerAliasKeys(),
     listExcludedKeysForPeriod(period.periodLabel),
   ]);
   const activeRows = rows.filter(
     (r) =>
       !dismissedKeys.has(dismissalKey(r.agentName)) &&
+      !openerKeys.has(dismissalKey(r.agentName)) &&
       !excludedKeys.has(exclusionKey(r.agentName)),
   );
   if (activeRows.length === 0) {

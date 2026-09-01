@@ -14,6 +14,7 @@ import {
   UploadType,
 } from "@/generated/prisma/client";
 import { listDismissedKeys } from "@/lib/agents/dismissal";
+import { listOpenerAliasKeys } from "@/lib/agents/opener";
 import { listExcludedKeysForPeriod } from "@/lib/agents/period-exclusion";
 import { agentIdentityKey } from "@/lib/commission/calculator";
 
@@ -87,13 +88,14 @@ export async function promoteCalculatedPeriodToHistory(
   }
 
   // Match pay dashboard / Gusto: skip dismissed + period-excluded agents.
-  const [dismissedKeys, excludedKeys] = await Promise.all([
+  const [dismissedKeys, openerKeys, excludedKeys] = await Promise.all([
     listDismissedKeys(),
+    listOpenerAliasKeys(),
     listExcludedKeysForPeriod(source.periodLabel),
   ]);
   const agentPeriods = agentPeriodsAll.filter((ap) => {
     const key = agentIdentityKey(ap.agentName);
-    return !dismissedKeys.has(key) && !excludedKeys.has(key);
+    return !dismissedKeys.has(key) && !openerKeys.has(key) && !excludedKeys.has(key);
   });
   if (!agentPeriods.length) {
     return {

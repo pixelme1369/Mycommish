@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyClearRate,
   averageDeal,
   dailyUnitsPace,
+  dropRateFromClearPct,
   enrollToKeepAfterDrops,
+  formatDebtInputDisplay,
+  formatDebtTyping,
+  parseClearRatePct,
   parseDebtInput,
   remainingAgainstGoal,
   sumStage,
@@ -61,16 +66,48 @@ describe("enrolled pace from dollar goal", () => {
   it("parses 2m / $2,000,000 debt input", () => {
     expect(parseDebtInput("2m")).toBe(2_000_000);
     expect(parseDebtInput("$2,000,000")).toBe(2_000_000);
+    expect(parseDebtInput("1,500,000")).toBe(1_500_000);
     expect(parseDebtInput("37k")).toBe(37_000);
     expect(parseDebtInput("")).toBeNull();
+  });
+
+  it("inserts commas while typing a dollar goal", () => {
+    expect(formatDebtTyping("1000000")).toBe("$1,000,000");
+    expect(formatDebtTyping("1,500,000")).toBe("$1,500,000");
+    expect(formatDebtTyping("1.5m")).toBe("1.5m");
+    expect(formatDebtTyping("")).toBe("");
+    expect(formatDebtInputDisplay(2_500_000)).toBe("$2,500,000");
   });
 });
 
 describe("enroll to keep after drops", () => {
-  it("turns a $1M keep-goal into $1.25M originated at 20% drops", () => {
-    expect(enrollToKeepAfterDrops(1_000_000)).toBe(1_250_000);
-    expect(enrollToKeepAfterDrops(1_500_000)).toBe(1_875_000);
+  it("turns a $1M keep-goal into ~$1.43M originated at 70% clear", () => {
+    expect(enrollToKeepAfterDrops(1_000_000)).toBe(1_428_571);
+    expect(enrollToKeepAfterDrops(1_500_000)).toBe(2_142_857);
     expect(enrollToKeepAfterDrops(0)).toBe(0);
+    expect(enrollToKeepAfterDrops(1_000_000, 0.2)).toBe(1_250_000);
+  });
+});
+
+describe("clear rate", () => {
+  it("parses 70 / 70% and rejects empty or out of range", () => {
+    expect(parseClearRatePct("70")).toBe(70);
+    expect(parseClearRatePct("70%")).toBe(70);
+    expect(parseClearRatePct("")).toBeNull();
+    expect(parseClearRatePct("0")).toBeNull();
+    expect(parseClearRatePct("101")).toBeNull();
+  });
+
+  it("scales units and enrolled $ for the paycheck estimate", () => {
+    expect(dropRateFromClearPct(70)).toBeCloseTo(0.3);
+    expect(applyClearRate(25, 1_000_000, 70)).toEqual({
+      units: 18,
+      debt: 700_000,
+    });
+    expect(applyClearRate(4, 162_314, 70)).toEqual({
+      units: 3,
+      debt: 113_619.8,
+    });
   });
 });
 

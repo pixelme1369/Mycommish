@@ -83,18 +83,32 @@ export function parseDebtInput(raw: string): number | null {
   return n * mult;
 }
 
-/** Market-average share of enrolled files that drop before they stick. */
-export const MARKET_DROP_RATE = 0.2;
+export const DEBT_GOAL_PRESETS = [
+  { value: 1_000_000, label: "$1M" },
+  { value: 1_500_000, label: "$1.5M" },
+  { value: 2_000_000, label: "$2M" },
+  { value: 2_500_000, label: "$2.5M" },
+  { value: 3_000_000, label: "$3M" },
+] as const;
 
-/** Keep-goal / (1 − dropRate). $1M at 20% drops → originate $1.25M. */
-export function enrollToKeepAfterDrops(
-  keepGoal: number,
-  dropRate: number = MARKET_DROP_RATE,
-): number {
-  if (keepGoal <= 0) return 0;
-  const kept = 1 - dropRate;
-  if (kept <= 0 || kept > 1) return keepGoal;
-  return Math.round(keepGoal / kept);
+/** $1,000,000 — commas in the typed field. */
+export function formatDebtInputDisplay(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return `$${Math.round(n).toLocaleString("en-US")}`;
+}
+
+/**
+ * Insert thousands commas while typing. Leaves 1.5m / 2m shorthands alone
+ * until they resolve to a whole number.
+ */
+export function formatDebtTyping(raw: string): string {
+  if (!raw.trim()) return "";
+  const stripped = raw.replace(/[$,\s]/g, "");
+  if (!stripped) return raw.includes("$") ? "$" : "";
+  if (/[a-z]/i.test(stripped) || stripped.endsWith(".")) return raw;
+  const parsed = parseDebtInput(raw);
+  if (parsed == null) return raw;
+  return formatDebtInputDisplay(parsed);
 }
 
 export function parseUnitsPerDay(raw: string): number | null {
@@ -103,4 +117,45 @@ export function parseUnitsPerDay(raw: string): number | null {
   const n = Number.parseInt(t, 10);
   if (!Number.isFinite(n) || n < 0 || n > 99) return null;
   return n;
+}
+
+/** Default share of enrolled files expected to clear into a paycheck. */
+export const DEFAULT_CLEAR_RATE_PCT = 70;
+
+/** 1–100 percent. Empty → null (caller applies default). */
+export function parseClearRatePct(raw: string): number | null {
+  const t = raw.trim().replace(/%/g, "");
+  if (!t) return null;
+  const n = Number(t);
+  if (!Number.isFinite(n) || n < 1 || n > 100) return null;
+  return Math.round(n * 100) / 100;
+}
+
+export function dropRateFromClearPct(clearPct: number): number {
+  const p = Number.isFinite(clearPct) ? clearPct : DEFAULT_CLEAR_RATE_PCT;
+  return Math.min(0.99, Math.max(0, 1 - p / 100));
+}
+
+/** Units / $ expected to clear into commission at this clear rate. */
+export function applyClearRate(
+  units: number,
+  debt: number,
+  clearPct: number = DEFAULT_CLEAR_RATE_PCT,
+): { units: number; debt: number } {
+  const rate = 1 - dropRateFromClearPct(clearPct);
+  return {
+    units: Math.round(Math.max(0, units) * rate),
+    debt: Math.round(Math.max(0, debt) * rate * 100) / 100,
+  };
+}
+
+/** Keep-goal / clear-rate. $1M at 70% clear → originate ~$1.43M. */
+export function enrollToKeepAfterDrops(
+  keepGoal: number,
+  dropRate: number = dropRateFromClearPct(DEFAULT_CLEAR_RATE_PCT),
+): number {
+  if (keepGoal <= 0) return 0;
+  const kept = 1 - dropRate;
+  if (kept <= 0 || kept > 1) return keepGoal;
+  return Math.round(keepGoal / kept);
 }

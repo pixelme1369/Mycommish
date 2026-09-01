@@ -5,6 +5,7 @@ import { canViewAllCommissions } from "@/lib/auth-guards";
 import { buildSignedStatementPdf } from "@/lib/statements";
 import { PeriodSource } from "@/generated/prisma/client";
 import { listDismissedKeys } from "@/lib/agents/dismissal";
+import { listOpenerAliasKeys } from "@/lib/agents/opener";
 import { agentIdentityKey } from "@/lib/commission/calculator";
 
 export const dynamic = "force-dynamic";
@@ -35,10 +36,14 @@ export async function GET(
     const aliases = new Set(
       (session.user.aliasNames || []).map((n) => n.toLowerCase()),
     );
-    const dismissed = await listDismissedKeys();
+    const [dismissed, openerKeys] = await Promise.all([
+      listDismissedKeys(),
+      listOpenerAliasKeys(),
+    ]);
     if (
       !aliases.has(row.agentName.toLowerCase()) ||
-      dismissed.has(agentIdentityKey(row.agentName))
+      dismissed.has(agentIdentityKey(row.agentName)) ||
+      openerKeys.has(agentIdentityKey(row.agentName))
     ) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

@@ -31,6 +31,9 @@ const { prismaMock } = vi.hoisted(() => {
   const clientIdentity = {
     createMany: vi.fn(),
   };
+  const agentAlias = {
+    findMany: vi.fn(),
+  };
   const uploadBatch = {
     create: vi.fn(),
     update: vi.fn(),
@@ -42,6 +45,7 @@ const { prismaMock } = vi.hoisted(() => {
       clientEvent,
       ledgerEntry,
       clientIdentity,
+      agentAlias,
       uploadBatch,
     },
   };
@@ -77,6 +81,7 @@ describe("promoteCalculatedPeriodToHistory", () => {
     vi.clearAllMocks();
     vi.mocked(listDismissedKeys).mockResolvedValue(new Set());
     vi.mocked(listExcludedKeysForPeriod).mockResolvedValue(new Set());
+    prismaMock.agentAlias.findMany.mockResolvedValue([]);
   });
 
   it("refuses when calculated period missing", async () => {

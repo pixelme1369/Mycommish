@@ -22,6 +22,7 @@ function parseRole(raw: FormDataEntryValue | null): AgentRole {
   if (v === "super_admin") return AgentRole.super_admin;
   if (v === "admin") return AgentRole.admin;
   if (v === "manager") return AgentRole.manager;
+  if (v === "opener") return AgentRole.opener;
   return AgentRole.agent;
 }
 

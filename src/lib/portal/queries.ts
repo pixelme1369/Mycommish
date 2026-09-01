@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { PeriodSource, ClientEventKind } from "@/generated/prisma/client";
-import { dismissalKey, listDismissedKeys } from "@/lib/agents/dismissal";
+import { dismissalKey } from "@/lib/agents/dismissal";
+import { listPayHiddenAliasKeys } from "@/lib/agents/opener";
 
 export const LATEST_PERIODS_SHOWN = 2;
 
@@ -31,23 +32,23 @@ export async function listAgentNamesInLatestPeriods() {
   const periods = await latestCalculatedPeriods();
   if (!periods.length) return [] as string[];
 
-  const [names, dismissed] = await Promise.all([
+  const [names, hidden] = await Promise.all([
     prisma.agentPeriod.findMany({
       where: { periodId: { in: periods.map((p) => p.id) } },
       select: { agentName: true },
       distinct: ["agentName"],
       orderBy: { agentName: "asc" },
     }),
-    listDismissedKeys(),
+    listPayHiddenAliasKeys(),
   ]);
   return names
     .map((n) => n.agentName)
-    .filter((name) => !dismissed.has(dismissalKey(name)));
+    .filter((name) => !hidden.has(dismissalKey(name)));
 }
 
 
 export async function agentRowsForLatestPeriods(agentName: string) {
-  if (await isNameDismissed(agentName)) {
+  if (await isNameOutOfCommission(agentName)) {
     const periods = await latestCalculatedPeriods();
     return { periods, rows: [] as Awaited<ReturnType<typeof fetchRows>> };
   }
@@ -65,9 +66,9 @@ export async function agentRowsForLatestPeriods(agentName: string) {
   return { periods, rows: ordered };
 }
 
-async function isNameDismissed(agentName: string) {
-  const dismissed = await listDismissedKeys();
-  return dismissed.has(dismissalKey(agentName));
+async function isNameOutOfCommission(agentName: string) {
+  const hidden = await listPayHiddenAliasKeys();
+  return hidden.has(dismissalKey(agentName));
 }
 
 async function fetchRows(agentName: string, periodIds: string[]) {
@@ -79,7 +80,7 @@ async function fetchRows(agentName: string, periodIds: string[]) {
 }
 
 export async function getScopedAgentPeriod(periodId: string, agentPeriodId: string, agentName: string) {
-  if (await isNameDismissed(agentName)) return null;
+  if (await isNameOutOfCommission(agentName)) return null;
 
   const latest = await latestCalculatedPeriods();
   const latestIds = new Set(latest.map((p) => p.id));

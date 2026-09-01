@@ -24,6 +24,8 @@ enum AgentRole {
   super_admin
   manager
   agent
+  /// Separate opener comp plan — not included in ADP agent commission.
+  opener
 }
 
 model Agent {
@@ -83,6 +85,8 @@ model AgentMonthlyGoal {
   monthLabel String
   unitsGoal  Int
   debtGoal   Decimal  @db.Decimal(14, 2)
+  /// Expected share of enrolled files that clear into commission (70 = 70%).
+  clearRatePct Decimal @default(70) @db.Decimal(5, 2)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -90,6 +94,13 @@ model AgentMonthlyGoal {
 
   @@unique([agentId, monthLabel])
   @@index([monthLabel])
+}
+
+/// Singleton (id = "default"). Admin-set Goals paycheck assumptions for every agent.
+model PortalGoalSettings {
+  id           String   @id
+  clearRatePct Decimal  @default(70) @db.Decimal(5, 2)
+  updatedAt    DateTime @updatedAt
 }
 
 /// Forth CRM contact synced for the goal odometer. Not ClientIdentity.

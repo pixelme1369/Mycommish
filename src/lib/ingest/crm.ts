@@ -5,7 +5,7 @@
  */
 
 import { prisma } from "@/lib/db";
-import { isPeriodClosedByPayday } from "@/lib/commission/calculator";
+import { isPeriodClosedByPayday, agentIdentityKey } from "@/lib/commission/calculator";
 import { computeNetCommission } from "@/lib/commission/net";
 import type { CrmClient, PeriodOutput } from "@/lib/commission/crm-parser";
 import { isPoisonedDebtDroppedDate, parseCrmAndCalculate } from "@/lib/commission/crm-parser";
@@ -14,6 +14,7 @@ import { relinkCommissionStatements } from "@/lib/statements";
 import { relinkManualBonuses } from "@/lib/manual-bonuses";
 import { relinkAdvances } from "@/lib/advances";
 import { applyTeamLeadBonusesForPeriod } from "@/lib/teams/team-lead-bonus";
+import { listOpenerAliasKeys } from "@/lib/agents/opener";
 import {
   ClientEventKind,
   LedgerType,
@@ -25,6 +26,14 @@ import {
 
 function dec(n: number) {
   return new Prisma.Decimal(n);
+}
+
+function withoutOpeners<T extends { agentName: string }>(
+  rows: T[],
+  openerKeys: Set<string>,
+): T[] {
+  if (!openerKeys.size) return rows;
+  return rows.filter((r) => !openerKeys.has(agentIdentityKey(r.agentName)));
 }
 
 function eventKind(unitStatus: string, clawbackApplied: boolean): ClientEventKind {
@@ -178,6 +187,8 @@ export async function saveCrmPeriodResults(
   });
   summary.uploadBatchId = batch.id;
 
+  const openerKeys = await listOpenerAliasKeys();
+
   // Upsert full CRM directory (External ID + Sales Rep) even for not-yet-cleared files.
   // Batched — full exports are large; per-row upserts were taking minutes.
   await upsertDirectoryIdentities(periods[0]?.directoryClients ?? []);
@@ -198,13 +209,14 @@ export async function saveCrmPeriodResults(
     const closedByPayday = isPeriodClosedByPayday(period.periodLabel);
     const isClosed = existing?.status === PeriodStatus.closed || closedByPayday;
 
-    const hasNewUnits = period.results.some((r) => r.unitsCleared > 0);
-    const hasClawbacks = period.results.some((r) => (r.clawbackAmount || 0) > 0);
+    const commissionResults = withoutOpeners(period.results, openerKeys);
+    const hasNewUnits = commissionResults.some((r) => r.unitsCleared > 0);
+    const hasClawbacks = commissionResults.some((r) => (r.clawbackAmount || 0) > 0);
 
     if (existing && isClosed) {
       if (hasNewUnits) summary.periodsSkippedClosed.push(period.periodLabel);
       if (hasClawbacks) {
-        await applyClawbacksOnly(existing.id, period, batch.id);
+        await applyClawbacksOnly(existing.id, period, batch.id, openerKeys);
         summary.periodsUpdatedClawbacks.push(period.periodLabel);
       }
       continue;
@@ -215,17 +227,23 @@ export async function saveCrmPeriodResults(
       // Still apply new clawbacks.
       summary.periodsSkippedExistingOpen.push(period.periodLabel);
       if (hasClawbacks) {
-        await applyClawbacksOnly(existing.id, period, batch.id);
+        await applyClawbacksOnly(existing.id, period, batch.id, openerKeys);
         summary.periodsUpdatedClawbacks.push(period.periodLabel);
       }
       continue;
     }
 
     if (!existing) {
-      await createFullPeriod(period, batch.id, closedByPayday ? PeriodStatus.closed : PeriodStatus.open);
+      if (commissionResults.length === 0) continue;
+      await createFullPeriod(
+        period,
+        batch.id,
+        closedByPayday ? PeriodStatus.closed : PeriodStatus.open,
+        openerKeys,
+      );
       summary.periodsCreated.push(period.periodLabel);
     } else if (!hasNewUnits && hasClawbacks) {
-      await applyClawbacksOnly(existing.id, period, batch.id);
+      await applyClawbacksOnly(existing.id, period, batch.id, openerKeys);
       summary.periodsUpdatedClawbacks.push(period.periodLabel);
     }
   }
@@ -242,6 +260,7 @@ async function createFullPeriod(
   period: PeriodOutput,
   uploadBatchId: string,
   status: PeriodStatus,
+  openerKeys: Set<string>,
 ) {
   const periodRow = await prisma.commissionPeriod.create({
     data: {
@@ -291,7 +310,7 @@ async function createFullPeriod(
   const eventRows: Prisma.ClientEventCreateManyInput[] = [];
   const ledgerRows: Prisma.LedgerEntryCreateManyInput[] = [];
 
-  for (const r of period.results) {
+  for (const r of withoutOpeners(period.results, openerKeys)) {
     const agentPeriod = await prisma.agentPeriod.create({
       data: {
         periodId: periodRow.id,
@@ -470,8 +489,9 @@ async function applyClawbacksOnly(
   periodId: string,
   period: PeriodOutput,
   uploadBatchId: string,
+  openerKeys: Set<string>,
 ) {
-  for (const r of period.results) {
+  for (const r of withoutOpeners(period.results, openerKeys)) {
     const cbClients = r._clawbackClients ?? [];
     if (!cbClients.length) continue;
 

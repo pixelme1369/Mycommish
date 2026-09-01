@@ -1,11 +1,12 @@
 /**
  * Active AgentPeriod counts for dashboard lists — excludes globally
- * dismissed sales reps and period-scoped removals.
+ * dismissed sales reps, opener aliases, and period-scoped removals.
  */
 
 import { prisma } from "@/lib/db";
 import { agentIdentityKey } from "@/lib/commission/calculator";
 import { listDismissedKeys } from "@/lib/agents/dismissal";
+import { listOpenerAliasKeys } from "@/lib/agents/opener";
 
 export async function countActiveAgentsByPeriod(
   periods: Array<{ id: string; periodLabel: string }>,
@@ -17,8 +18,9 @@ export async function countActiveAgentsByPeriod(
   const labels = [...new Set(periods.map((p) => p.periodLabel))];
   for (const id of periodIds) out.set(id, 0);
 
-  const [dismissedKeys, exclusions, agentRows] = await Promise.all([
+  const [dismissedKeys, openerKeys, exclusions, agentRows] = await Promise.all([
     listDismissedKeys(),
+    listOpenerAliasKeys(),
     prisma.periodAgentExclusion.findMany({
       where: { periodLabel: { in: labels } },
       select: { periodLabel: true, agentNameKey: true },
@@ -46,6 +48,7 @@ export async function countActiveAgentsByPeriod(
     if (!label) continue;
     const key = agentIdentityKey(ap.agentName);
     if (dismissedKeys.has(key)) continue;
+    if (openerKeys.has(key)) continue;
     if (excludedByLabel.get(label)?.has(key)) continue;
     out.set(ap.periodId, (out.get(ap.periodId) ?? 0) + 1);
   }

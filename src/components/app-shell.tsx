@@ -44,11 +44,25 @@ export function PageHeader({
   compact?: boolean;
 }) {
   return (
-    <header className="flex flex-wrap items-start justify-between gap-3">
+    <header className={cn(compact ? "space-y-2" : "space-y-3")}>
+      {eyebrow || actions ? (
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          {eyebrow ? (
+            <p className="text-sm text-muted-foreground">{eyebrow}</p>
+          ) : null}
+          {actions ? (
+            <div
+              className={cn(
+                "flex flex-wrap items-center gap-2",
+                !eyebrow && "ml-auto",
+              )}
+            >
+              {actions}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div className={cn("min-w-0", compact ? "space-y-1" : "space-y-1.5")}>
-        {eyebrow ? (
-          <p className="text-sm text-muted-foreground">{eyebrow}</p>
-        ) : null}
         <h1
           className={cn(
             "font-heading tracking-tight text-foreground",
@@ -61,9 +75,6 @@ export function PageHeader({
           <div className="max-w-2xl text-sm text-muted-foreground">{description}</div>
         ) : null}
       </div>
-      {actions ? (
-        <div className="flex flex-wrap items-center gap-2">{actions}</div>
-      ) : null}
     </header>
   );
 }

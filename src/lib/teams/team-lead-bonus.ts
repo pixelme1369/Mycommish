@@ -11,6 +11,7 @@ import {
   Prisma,
 } from "@/generated/prisma/client";
 import { listDismissedKeys } from "@/lib/agents/dismissal";
+import { listOpenerAliasKeys } from "@/lib/agents/opener";
 import { listExcludedKeysForPeriod } from "@/lib/agents/period-exclusion";
 import { agentIdentityKey } from "@/lib/commission/calculator";
 import { computeTeamLeadBonusAmount, parseTeamLeadBonusNote } from "@/lib/commission/net";
@@ -225,19 +226,20 @@ export async function applyTeamLeadBonusesForPeriod(periodId: string) {
   });
   if (leads.length === 0) return;
 
-  const [agentPeriods, dismissedKeys, excludedKeys] = await Promise.all([
+  const [agentPeriods, dismissedKeys, openerKeys, excludedKeys] = await Promise.all([
     prisma.agentPeriod.findMany({
       where: { periodId },
       select: { id: true, agentName: true, unitsCleared: true },
     }),
     listDismissedKeys(),
+    listOpenerAliasKeys(),
     listExcludedKeysForPeriod(period.periodLabel),
   ]);
 
-  /** Match admin/manager “Units cleared”: skip dismissed + period-excluded agents. */
+  /** Match admin/manager “Units cleared”: skip dismissed, openers, and period-excluded. */
   function countsTowardPeriodUnits(agentName: string) {
     const key = agentIdentityKey(agentName);
-    return !dismissedKeys.has(key) && !excludedKeys.has(key);
+    return !dismissedKeys.has(key) && !openerKeys.has(key) && !excludedKeys.has(key);
   }
 
   const unitsByKey = new Map<string, number>();
@@ -259,6 +261,7 @@ export async function applyTeamLeadBonusesForPeriod(periodId: string) {
       for (const m of lead.members) {
         if (
           dismissedKeys.has(m.memberAgentNameKey) ||
+          openerKeys.has(m.memberAgentNameKey) ||
           excludedKeys.has(m.memberAgentNameKey)
         ) {
           continue;
@@ -395,19 +398,20 @@ export async function getTeamLeadBonusBreakdown(
     });
     if (lead) {
       ratePerUnit = ratePerUnit || Number(lead.ratePerUnit);
-      const [agentPeriods, dismissedKeys, excludedKeys] = await Promise.all([
+      const [agentPeriods, dismissedKeys, openerKeys, excludedKeys] = await Promise.all([
         prisma.agentPeriod.findMany({
           where: { periodId: ap.periodId },
           select: { agentName: true, unitsCleared: true },
         }),
         listDismissedKeys(),
+        listOpenerAliasKeys(),
         listExcludedKeysForPeriod(ap.period.periodLabel),
       ]);
       const unitsByKey = new Map<string, number>();
       let periodUnitsTotal = 0;
       for (const row of agentPeriods) {
         const key = agentIdentityKey(row.agentName);
-        if (dismissedKeys.has(key) || excludedKeys.has(key)) continue;
+        if (dismissedKeys.has(key) || openerKeys.has(key) || excludedKeys.has(key)) continue;
         unitsByKey.set(key, row.unitsCleared);
         periodUnitsTotal += row.unitsCleared;
       }
@@ -421,6 +425,7 @@ export async function getTeamLeadBonusBreakdown(
         for (const m of lead.members) {
           if (
             dismissedKeys.has(m.memberAgentNameKey) ||
+            openerKeys.has(m.memberAgentNameKey) ||
             excludedKeys.has(m.memberAgentNameKey)
           ) {
             continue;

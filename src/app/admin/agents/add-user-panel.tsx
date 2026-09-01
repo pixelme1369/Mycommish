@@ -113,10 +113,14 @@ export function AddUserPanel({ salesReps = [] }: { salesReps?: string[] }) {
             className="flex h-9 w-full rounded-lg border border-input bg-transparent px-2 text-sm"
           >
             <option value="agent">Agent</option>
+            <option value="opener">Opener</option>
             <option value="manager">Manager</option>
             <option value="admin">Admin</option>
             <option value="super_admin">Super admin</option>
           </select>
+          <p className="text-[11px] text-muted-foreground">
+            Openers are not included in agent commission — their pay is calculated separately.
+          </p>
         </div>
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="new-password">Password (optional)</Label>
