@@ -83,6 +83,18 @@ export default async function ManagerHome() {
               Daily Tasks
             </Link>
             <Link
+              href="/portal/documents"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Signed documents
+            </Link>
+            <Link
+              href="/manager/goals"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Goals
+            </Link>
+            <Link
               href="/manager/advances"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >

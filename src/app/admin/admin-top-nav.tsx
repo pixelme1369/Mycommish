@@ -3,7 +3,7 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type AdminTopNavActive = "manual-inputs";
+export type AdminTopNavActive = "manual-inputs" | "goals";
 
 export function AdminTopNav({
   isSuperAdmin,
@@ -60,6 +60,18 @@ export function AdminTopNav({
       </Link>
       {isSuperAdmin ? (
         <>
+          <Link
+            href="/superadmin/goals"
+            aria-current={active === "goals" ? "page" : undefined}
+            className={cn(
+              buttonVariants({
+                variant: active === "goals" ? "default" : "outline",
+                size: "sm",
+              }),
+            )}
+          >
+            Goals
+          </Link>
           <Link
             href="/superadmin/team-leads"
             className={cn(buttonVariants({ variant: "outline", size: "sm" }))}

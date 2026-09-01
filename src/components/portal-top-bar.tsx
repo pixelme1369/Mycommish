@@ -37,6 +37,11 @@ export function PortalTopBar({
       match: (p: string) => p.startsWith("/portal/goals"),
     },
     {
+      href: "/portal/documents",
+      label: "Signed documents",
+      match: (p: string) => p.startsWith("/portal/documents"),
+    },
+    {
       href: dailyTasksHref,
       label: "Daily Tasks",
       match: (p: string) => p.startsWith("/portal/daily-tasks"),

@@ -72,6 +72,8 @@ model Agent {
   dailyTaskCompletions  DailyTaskCompletion[]
   monthlyGoals          AgentMonthlyGoal[]
   forthContacts         ForthContact[]
+  documentsCreated      AgentDocument[]            @relation("DocumentCreatedBy")
+  documentSignatures    AgentDocumentSignature[]   @relation("DocumentSigner")
 
   @@index([suspendedAt])
   @@index([lastLoginAt])
@@ -101,6 +103,47 @@ model PortalGoalSettings {
   id           String   @id
   clearRatePct Decimal  @default(70) @db.Decimal(5, 2)
   updatedAt    DateTime @updatedAt
+}
+
+enum AgentDocumentSignStatus {
+  pending
+  signed
+}
+
+/// Admin-uploaded PDF sent to every agent to e-sign.
+model AgentDocument {
+  id          String   @id @default(cuid())
+  title       String
+  filename    String
+  contentType String   @default("application/pdf")
+  pdfBytes    Bytes
+  createdById String
+  sentAt      DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  createdBy  Agent                     @relation("DocumentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  signatures AgentDocumentSignature[]
+
+  @@index([sentAt])
+}
+
+model AgentDocumentSignature {
+  id           String                   @id @default(cuid())
+  documentId   String
+  agentId      String
+  status       AgentDocumentSignStatus  @default(pending)
+  typedName    String?
+  signaturePng Bytes?
+  signedAt     DateTime?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  document AgentDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  agent    Agent         @relation("DocumentSigner", fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, agentId])
+  @@index([agentId, status])
+  @@index([signedAt])
 }
 
 /// Forth CRM contact synced for the goal odometer. Not ClientIdentity.

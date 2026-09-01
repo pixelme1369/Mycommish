@@ -1,48 +1,22 @@
 import { prisma } from "@/lib/db";
+import { AgentRole } from "@/generated/prisma/client";
 import { loadGoalClearRatePct } from "@/lib/portal/goal-settings";
-import {
-  averageDeal,
-  dailyUnitsPace,
-  remainingAgainstGoal,
-  unitsNeededFromDebtGoal,
-} from "@/lib/portal/monthly-goal-math";
 import {
   monthTitle,
   pacificTodayYmd,
   pacificYmdFromInstant,
   shiftYmd,
-  workingDaysElapsed,
-  workingDaysRemaining,
-  workingYmdsInMonth,
 } from "@/lib/portal/daily-tasks-dates";
+import {
+  buildEnrolledGoalView,
+  goalPaceStatus,
+  type AgentGoalRosterRow,
+  type EnrolledGoalView,
+  type GoalPaceStatus,
+} from "@/lib/portal/monthly-goal-view";
 
-export type EnrolledGoalView = {
-  monthLabel: string;
-  monthTitle: string;
-  todayYmd: string;
-  hasGoal: boolean;
-  debtGoal: number;
-  unitsGoal: number;
-  clearRatePct: number;
-  unitsGoalSource: "entered" | "derived" | "none";
-  enteredDailyUnits: number | null;
-  unitsActual: number;
-  debtActual: number;
-  unitsRemaining: number;
-  debtRemaining: number;
-  unitsPct: number;
-  debtPct: number;
-  unitsHit: boolean;
-  debtHit: boolean;
-  avgDeal: number;
-  avgDealSource: "month" | "history" | "none";
-  workingDaysTotal: number;
-  workingDaysLeft: number;
-  workingDaysElapsed: number;
-  dailyPace: number;
-  enrolledToday: number;
-  debtToday: number;
-};
+export type { AgentGoalRosterRow, EnrolledGoalView, GoalPaceStatus };
+export { buildEnrolledGoalView, goalPaceStatus };
 
 function pacificMonthLabelNow(now: Date): string {
   return pacificTodayYmd(now).slice(0, 7);
@@ -54,10 +28,11 @@ function num(v: { toString(): string } | number | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function pct(actual: number, goal: number): number {
-  if (goal <= 0) return 0;
-  return Math.min(100, Math.round((actual / goal) * 100));
-}
+const GOAL_ROSTER_ROLES: AgentRole[] = [
+  AgentRole.agent,
+  AgentRole.opener,
+  AgentRole.manager,
+];
 
 export async function loadEnrolledGoal(opts: {
   agentId: string;
@@ -68,7 +43,6 @@ export async function loadEnrolledGoal(opts: {
   const todayYmd = pacificTodayYmd(now);
   const monthLabel = pacificMonthLabelNow(now);
   const names = opts.aliasNames.map((n) => n.trim()).filter(Boolean);
-  const historyFrom = shiftYmd(todayYmd, -90);
 
   const [goalRow, files, clearRatePct] = await Promise.all([
     prisma.agentMonthlyGoal.findUnique({
@@ -109,73 +83,146 @@ export async function loadEnrolledGoal(opts: {
     });
   }
 
-  const monthRows = rows.filter((r) => r.ymd.startsWith(monthLabel));
-  const unitsActual = monthRows.length;
-  const debtActual = monthRows.reduce((s, r) => s + r.debt, 0);
-  const todayRows = monthRows.filter((r) => r.ymd === todayYmd);
-
-  let avgDeal = averageDeal(unitsActual, debtActual);
-  let avgDealSource: EnrolledGoalView["avgDealSource"] = unitsActual > 0 ? "month" : "none";
-  if (avgDeal <= 0) {
-    const hist = rows.filter((r) => r.ymd >= historyFrom && r.ymd <= todayYmd);
-    avgDeal = averageDeal(hist.length, hist.reduce((s, r) => s + r.debt, 0));
-    if (avgDeal > 0) avgDealSource = "history";
-  }
-
-  const debtGoal = num(goalRow?.debtGoal);
-  const storedUnitsGoal = goalRow?.unitsGoal ?? 0;
-  const working = workingYmdsInMonth(monthLabel);
-  const daysLeft = workingDaysRemaining(monthLabel, todayYmd).length;
-  const daysElapsed = workingDaysElapsed(monthLabel, todayYmd).length;
-  const workingDaysTotal = working.length;
-
-  const enteredDailyUnits =
-    storedUnitsGoal > 0 && workingDaysTotal > 0
-      ? Math.round(storedUnitsGoal / workingDaysTotal)
-      : null;
-
-  let unitsGoal = storedUnitsGoal;
-  let unitsGoalSource: EnrolledGoalView["unitsGoalSource"] = "none";
-  if (storedUnitsGoal > 0) {
-    unitsGoalSource = "entered";
-  } else if (debtGoal > 0 && avgDeal > 0) {
-    unitsGoal = unitsNeededFromDebtGoal(debtGoal, avgDeal);
-    unitsGoalSource = "derived";
-  }
-
-  const progress = remainingAgainstGoal(unitsGoal, debtGoal, {
-    units: unitsActual,
-    debt: debtActual,
+  return buildEnrolledGoalView({
+    monthLabel,
+    todayYmd,
+    clearRatePct,
+    debtGoal: num(goalRow?.debtGoal),
+    storedUnitsGoal: goalRow?.unitsGoal ?? 0,
+    files: rows,
   });
-  const dailyPace = dailyUnitsPace(progress.unitsRemaining, daysLeft);
-  const hasGoal = debtGoal > 0 || storedUnitsGoal > 0;
+}
+
+export async function listEnrolledGoalsForAdmin(opts?: {
+  now?: Date;
+}): Promise<{
+  monthTitle: string;
+  monthLabel: string;
+  todayYmd: string;
+  rows: AgentGoalRosterRow[];
+}> {
+  const now = opts?.now ?? new Date();
+  const todayYmd = pacificTodayYmd(now);
+  const monthLabel = pacificMonthLabelNow(now);
+  const historyFrom = shiftYmd(todayYmd, -90);
+  const enrolledGte = new Date(`${shiftYmd(historyFrom, -2)}T00:00:00.000Z`);
+
+  const [agents, goalRows, files, clearRatePct] = await Promise.all([
+    prisma.agent.findMany({
+      where: {
+        role: { in: GOAL_ROSTER_ROLES },
+        suspendedAt: null,
+      },
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        role: true,
+        aliases: { select: { agentName: true } },
+      },
+      orderBy: { displayName: "asc" },
+    }),
+    prisma.agentMonthlyGoal.findMany({
+      where: { monthLabel },
+      select: { agentId: true, debtGoal: true, unitsGoal: true },
+    }),
+    prisma.forthContact.findMany({
+      where: {
+        droppedDate: null,
+        enrolledDate: { gte: enrolledGte },
+      },
+      select: {
+        forthId: true,
+        agentId: true,
+        assignedTo: true,
+        enrolledDate: true,
+        enrolledAmount: true,
+      },
+    }),
+    loadGoalClearRatePct(),
+  ]);
+
+  const goalByAgent = new Map(goalRows.map((g) => [g.agentId, g]));
+  const aliasToAgentIds = new Map<string, string[]>();
+  for (const a of agents) {
+    for (const al of a.aliases) {
+      const key = al.agentName.trim().toLowerCase();
+      if (!key) continue;
+      const list = aliasToAgentIds.get(key) ?? [];
+      list.push(a.id);
+      aliasToAgentIds.set(key, list);
+    }
+  }
+
+  const filesByAgent = new Map<string, Array<{ ymd: string; debt: number }>>();
+  const seenByAgent = new Map<string, Set<string>>();
+  function pushFile(agentId: string, forthId: string, ymd: string, debt: number) {
+    let seen = seenByAgent.get(agentId);
+    if (!seen) {
+      seen = new Set();
+      seenByAgent.set(agentId, seen);
+    }
+    if (seen.has(forthId)) return;
+    seen.add(forthId);
+    const list = filesByAgent.get(agentId) ?? [];
+    list.push({ ymd, debt });
+    filesByAgent.set(agentId, list);
+  }
+
+  const agentIds = new Set(agents.map((a) => a.id));
+  for (const f of files) {
+    if (!f.enrolledDate) continue;
+    const ymd = pacificYmdFromInstant(f.enrolledDate);
+    const debt = num(f.enrolledAmount);
+    const claimed = new Set<string>();
+    if (f.agentId && agentIds.has(f.agentId)) claimed.add(f.agentId);
+    const assigned = (f.assignedTo || "").trim().toLowerCase();
+    if (assigned) {
+      for (const id of aliasToAgentIds.get(assigned) ?? []) claimed.add(id);
+    }
+    for (const id of claimed) pushFile(id, f.forthId, ymd, debt);
+  }
+
+  const rows: AgentGoalRosterRow[] = agents.map((a) => {
+    const goal = goalByAgent.get(a.id);
+    const view = buildEnrolledGoalView({
+      monthLabel,
+      todayYmd,
+      clearRatePct,
+      debtGoal: num(goal?.debtGoal),
+      storedUnitsGoal: goal?.unitsGoal ?? 0,
+      files: filesByAgent.get(a.id) ?? [],
+    });
+    return {
+      agentId: a.id,
+      displayName: a.displayName,
+      email: a.email,
+      role: a.role,
+      paceStatus: goalPaceStatus(view),
+      view,
+    };
+  });
+
+  const rank: Record<GoalPaceStatus, number> = {
+    behind: 0,
+    on_track: 1,
+    hit: 2,
+    no_goal: 3,
+  };
+  rows.sort((a, b) => {
+    const d = rank[a.paceStatus] - rank[b.paceStatus];
+    if (d !== 0) return d;
+    const aPct = a.view.debtGoal > 0 ? a.view.debtPct : a.view.unitsPct;
+    const bPct = b.view.debtGoal > 0 ? b.view.debtPct : b.view.unitsPct;
+    if (aPct !== bPct) return aPct - bPct;
+    return a.displayName.localeCompare(b.displayName);
+  });
 
   return {
-    monthLabel,
     monthTitle: monthTitle(monthLabel),
+    monthLabel,
     todayYmd,
-    hasGoal,
-    debtGoal,
-    unitsGoal,
-    clearRatePct,
-    unitsGoalSource,
-    enteredDailyUnits: enteredDailyUnits && enteredDailyUnits > 0 ? enteredDailyUnits : null,
-    unitsActual,
-    debtActual,
-    unitsRemaining: progress.unitsRemaining,
-    debtRemaining: progress.debtRemaining,
-    unitsPct: pct(unitsActual, unitsGoal),
-    debtPct: pct(debtActual, debtGoal),
-    unitsHit: progress.unitsHit,
-    debtHit: progress.debtHit,
-    avgDeal,
-    avgDealSource,
-    workingDaysTotal,
-    workingDaysLeft: daysLeft,
-    workingDaysElapsed: daysElapsed,
-    dailyPace,
-    enrolledToday: todayRows.length,
-    debtToday: todayRows.reduce((s, r) => s + r.debt, 0),
+    rows,
   };
 }
 

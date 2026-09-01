@@ -52,6 +52,12 @@ export default async function ManagerFilesPage() {
               Daily Tasks
             </Link>
             <Link
+              href="/manager/goals"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Goals
+            </Link>
+            <Link
               href="/manager/claims"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
