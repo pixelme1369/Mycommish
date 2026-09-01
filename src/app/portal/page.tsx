@@ -66,9 +66,10 @@ export default async function PortalHome() {
   const windowPeriods = await latestCalculatedPeriods();
   const windowLabels = windowPeriods.map((p) => p.periodLabel);
 
-  const agentProfile = session.user.agentId
+  const agentId = session.user.agentId;
+  const agentProfile = agentId
     ? await prisma.agent.findUnique({
-        where: { id: session.user.agentId },
+        where: { id: agentId },
         select: { phone: true },
       })
     : null;

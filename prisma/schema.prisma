@@ -68,9 +68,70 @@ model Agent {
   periodExclusionsCreated PeriodAgentExclusion[] @relation("PeriodExclusionCreatedBy")
   teamLeads             TeamLead[]
   dailyTaskCompletions  DailyTaskCompletion[]
+  monthlyGoals          AgentMonthlyGoal[]
+  forthContacts         ForthContact[]
 
   @@index([suspendedAt])
   @@index([lastLoginAt])
+}
+
+/// Agent-set monthly production goal (units + annual premium $). Not commission.
+model AgentMonthlyGoal {
+  id         String   @id @default(cuid())
+  agentId    String
+  /// Pacific calendar month YYYY-MM.
+  monthLabel String
+  unitsGoal  Int
+  debtGoal   Decimal  @db.Decimal(14, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, monthLabel])
+  @@index([monthLabel])
+}
+
+/// Forth CRM contact synced for the goal odometer. Not ClientIdentity.
+/// SSN / DOB are never stored. Naive Forth stamps are Pacific.
+model ForthContact {
+  id              String    @id @default(cuid())
+  forthId         String    @unique
+  agentId         String?
+  clientFirstName String?
+  clientLastName  String?
+  status          String?
+  enrolledAmount  Decimal   @default(0) @db.Decimal(14, 2)
+  /// Cordoba enrolled / enrolled_date. Date-only values are midnight Pacific.
+  enrolledDate    DateTime?
+  /// Forth submitted_at. Naive stamps are Pacific.
+  submittedDate   DateTime?
+  assignedTo      String?
+  tpId            String?
+  stageTitle      String?
+  contactType     String?
+  leadStatusId    String?
+  timeInStatus    String?
+  inactiveDays    Int?
+  campaignId      String?
+  lastCreditPulledDate DateTime?
+  /// Cordoba Dropped Date (c772034).
+  droppedDate     DateTime?
+  source          String?
+  state           String?
+  /// Forth program_start_date.
+  programStartDate DateTime?
+  /// Forth `created`. Naive stamps are Pacific.
+  forthCreatedAt  DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  agent Agent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([agentId, submittedDate])
+  @@index([agentId, enrolledDate])
+  @@index([submittedDate])
+  @@index([enrolledDate])
 }
 
 model AgentAlias {
