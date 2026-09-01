@@ -3,7 +3,12 @@ import { paymentDateForPeriod } from "@/lib/commission/calculator";
 /** Browser-safe types/helpers — do not import Prisma/db here. */
 
 export type ManagerBonusStatusValue = "owed" | "reimbursed";
-export type ManagerBonusRoleValue = "super_admin" | "admin" | "manager" | "agent";
+export type ManagerBonusRoleValue =
+  | "super_admin"
+  | "admin"
+  | "manager"
+  | "agent"
+  | "opener";
 
 export type ManagerBonusRow = {
   id: string;

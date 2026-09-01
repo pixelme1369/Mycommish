@@ -11,6 +11,7 @@ import {
   markManagerPeriodBonusesReimbursedAction,
   undoBonusReimbursedAction,
 } from "@/app/manager/bonuses/actions";
+import type { ManagerBonusRoleValue } from "@/lib/manager-bonus-view";
 
 export type SerializedBonusRow = {
   id: string;
@@ -20,7 +21,7 @@ export type SerializedBonusRow = {
   periodLabel: string;
   status: "owed" | "reimbursed";
   reimbursedAt: string | null;
-  paidBy: { id: string; displayName: string; role: "super_admin" | "admin" | "manager" | "agent" };
+  paidBy: { id: string; displayName: string; role: ManagerBonusRoleValue };
   recipientName: string;
   recipientAgentId: string | null;
 };
@@ -28,7 +29,7 @@ export type SerializedBonusRow = {
 export type SerializedBonusGroup = {
   paidById: string;
   paidByName: string;
-  paidByRole: "super_admin" | "admin" | "manager" | "agent";
+  paidByRole: ManagerBonusRoleValue;
   owed: SerializedBonusRow[];
   reimbursed: SerializedBonusRow[];
   owedTotal: number;
