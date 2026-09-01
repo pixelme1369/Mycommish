@@ -32,6 +32,11 @@ export function PortalTopBar({
         p.startsWith("/manager/period/"),
     },
     {
+      href: "/portal/goals",
+      label: "Goals",
+      match: (p: string) => p.startsWith("/portal/goals"),
+    },
+    {
       href: dailyTasksHref,
       label: "Daily Tasks",
       match: (p: string) => p.startsWith("/portal/daily-tasks"),

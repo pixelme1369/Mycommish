@@ -12,6 +12,10 @@ import {
 } from "@/lib/agents/link-commission";
 import { AgentRole, EmploymentType } from "@/generated/prisma/client";
 import { fillAgentGustoIfEmpty } from "@/lib/gusto/sync-agent-profiles";
+import {
+  attachForthAssignedToUser,
+  backfillForthContactsForAlias,
+} from "@/lib/forth/unmatched";
 
 function parseRole(raw: FormDataEntryValue | null): AgentRole {
   const v = String(raw || "").trim().toLowerCase();
@@ -29,6 +33,7 @@ function revalidateAgentPortal() {
   revalidatePath("/admin/agents");
   revalidatePath("/portal");
   revalidatePath("/portal/files");
+  revalidatePath("/portal/goals");
   revalidatePath("/admin");
   revalidatePath("/manager");
 }
@@ -276,15 +281,53 @@ export async function addAliasAction(
   }
 
   await fillAgentGustoIfEmpty(agentId).catch(() => false);
+  const forthLinked = await backfillForthContactsForAlias(agentId, agentName);
 
   const hits = await findCommissionLinksForAliases([agentName]);
   const linkSummary = formatCommissionLinkSummary(hits);
+  const forthBit =
+    forthLinked > 0
+      ? ` Linked ${forthLinked} Forth file${forthLinked === 1 ? "" : "s"}.`
+      : "";
 
   revalidateAgentPortal();
   return {
     ok: true,
-    message: `Alias “${agentName}” added. ${linkSummary}`,
+    message: `Alias “${agentName}” added. ${linkSummary}${forthBit}`,
   };
+}
+
+export type MapForthResult =
+  | { ok: true; message: string }
+  | { ok: false; error: string };
+
+export async function mapForthAssignedToAction(
+  assignedTo: string,
+  agentId: string,
+): Promise<MapForthResult> {
+  await requireAdmin();
+  const name = assignedTo.trim();
+  const id = agentId.trim();
+  if (!name || !id) {
+    return { ok: false, error: "Choose a user." };
+  }
+
+  try {
+    const { filesLinked } = await attachForthAssignedToUser({
+      assignedTo: name,
+      agentId: id,
+    });
+    revalidateAgentPortal();
+    return {
+      ok: true,
+      message: `Mapped “${name}” · ${filesLinked} file${filesLinked === 1 ? "" : "s"} linked.`,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Could not map that name.",
+    };
+  }
 }
 
 export async function deleteAliasAction(formData: FormData) {

@@ -18,6 +18,11 @@ import { StatementsAwaitingManager } from "@/components/statements-awaiting-mana
 import { listStatementsAwaitingManager } from "@/lib/statements";
 import { countPendingManualBonuses } from "@/lib/manual-bonuses";
 import { countActiveAgentsByPeriod } from "@/lib/agents/active-period-counts";
+import {
+  listForthMapUsers,
+  listUnmatchedForthNames,
+} from "@/lib/forth/unmatched";
+import { UnmatchedForthPanel } from "@/app/admin/unmatched-forth-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -79,12 +84,16 @@ export default async function AdminHome() {
     uploads,
     awaitingManager,
     pendingManualBonusCount,
+    unmatchedForth,
+    forthMapUsers,
   ] = await Promise.all([
     listCalculatedPeriods().catch(() => []),
     listHistoryPeriods().catch(() => []),
     listRecentUploads().catch(() => []),
     listStatementsAwaitingManager().catch(() => []),
     superAdmin ? countPendingManualBonuses().catch(() => 0) : Promise.resolve(0),
+    listUnmatchedForthNames().catch(() => []),
+    listForthMapUsers().catch(() => []),
   ]);
   const periods = sortPeriodsForDashboard(periodsRaw);
   const activeCounts = await countActiveAgentsByPeriod(
@@ -205,6 +214,12 @@ export default async function AdminHome() {
       <div className="mt-8">
         <StatementsAwaitingManager rows={awaitingManager} viewBase="/admin" />
       </div>
+
+      {unmatchedForth.length > 0 ? (
+        <div className="mt-8">
+          <UnmatchedForthPanel rows={unmatchedForth} users={forthMapUsers} />
+        </div>
+      ) : null}
 
       <div className="mt-8">
         <AdminCalculatedPeriods

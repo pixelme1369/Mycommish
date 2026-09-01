@@ -160,3 +160,47 @@ export function followUpTargets(now = new Date()): {
     day5Ymd: shiftYmd(todayYmd, -5),
   };
 }
+
+/** Calendar YYYY-MM-DD list for a Pacific month label (YYYY-MM). */
+export function ymdsInMonth(monthLabel: string): string[] {
+  const [y, m] = monthLabel.split("-").map(Number);
+  if (!y || !m) return [];
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const out: string[] = [];
+  for (let d = 1; d <= last; d++) {
+    out.push(`${monthLabel}-${String(d).padStart(2, "0")}`);
+  }
+  return out;
+}
+
+export function workingYmdsInMonth(monthLabel: string): string[] {
+  return ymdsInMonth(monthLabel).filter(isBusinessDay);
+}
+
+export function workingDaysRemaining(monthLabel: string, todayYmd: string): string[] {
+  return workingYmdsInMonth(monthLabel).filter((d) => d >= todayYmd);
+}
+
+export function workingDaysElapsed(monthLabel: string, todayYmd: string): string[] {
+  return workingYmdsInMonth(monthLabel).filter((d) => d < todayYmd);
+}
+
+export function monthTitle(monthLabel: string): string {
+  const [y, m] = monthLabel.split("-").map(Number);
+  if (!y || !m) return monthLabel;
+  return new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/** Instant → YYYY-MM-DD in America/Los_Angeles. */
+export function pacificYmdFromInstant(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: PACIFIC,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}

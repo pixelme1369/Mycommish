@@ -15,6 +15,11 @@ import { AddUserPanel } from "./add-user-panel";
 import { AgentsUsersTable, type AgentRowView } from "./agents-table";
 import { prisma } from "@/lib/db";
 import { backfillAllAgentGustoProfiles } from "@/lib/gusto/sync-agent-profiles";
+import {
+  listForthMapUsers,
+  listUnmatchedForthNames,
+} from "@/lib/forth/unmatched";
+import { UnmatchedForthPanel } from "@/app/admin/unmatched-forth-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -30,11 +35,14 @@ export default async function ManageAgentsPage() {
     });
   }
 
-  const [agents, dismissals, salesReps] = await Promise.all([
-    listAgents(),
-    listDismissals(),
-    listKnownSalesRepNames(),
-  ]);
+  const [agents, dismissals, salesReps, unmatchedForth, forthMapUsers] =
+    await Promise.all([
+      listAgents(),
+      listDismissals(),
+      listKnownSalesRepNames(),
+      listUnmatchedForthNames(),
+      listForthMapUsers(),
+    ]);
 
   const rows: AgentRowView[] = agents.map((a) => ({
     id: a.id,
@@ -82,6 +90,12 @@ export default async function ManageAgentsPage() {
       <div className="mt-6 flex flex-wrap items-start justify-between gap-3">
         <AddUserPanel salesReps={salesReps} />
       </div>
+
+      {unmatchedForth.length > 0 ? (
+        <div className="mt-4">
+          <UnmatchedForthPanel rows={unmatchedForth} users={forthMapUsers} />
+        </div>
+      ) : null}
 
       <Card className="glass-panel mt-4 overflow-hidden p-4">
         <AgentsUsersTable
