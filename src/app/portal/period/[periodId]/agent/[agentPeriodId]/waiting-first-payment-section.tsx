@@ -82,6 +82,14 @@ export function WaitingFirstPaymentSection({ rows }: { rows: WaitingFirstPayment
     });
   }, [rows, sortKey, sortDir]);
 
+  const debtTotal = useMemo(
+    () =>
+      Math.round(
+        rows.reduce((sum, r) => sum + (r.enrolledDebt ?? 0), 0) * 100,
+      ) / 100,
+    [rows],
+  );
+
   const onSort = (key: SortKey) => {
     if (key === sortKey) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -142,6 +150,17 @@ export function WaitingFirstPaymentSection({ rows }: { rows: WaitingFirstPayment
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t border-border bg-muted/40">
+                <td className="px-3 py-2 font-medium" colSpan={2}>
+                  Total
+                </td>
+                <td className="px-3 py-2 font-medium tabular-nums">
+                  {money(debtTotal)}
+                </td>
+                <td className="px-3 py-2" colSpan={2} />
+              </tr>
+            </tfoot>
           </table>
         </Card>
       )}
