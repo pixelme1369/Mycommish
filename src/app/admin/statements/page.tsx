@@ -12,6 +12,7 @@ import {
   listFullySignedStatements,
 } from "@/lib/statements";
 import { RevokeStatementButton } from "./revoke-statement-button";
+import { DocumentsSectionNav } from "@/app/admin/documents-section-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,7 @@ export default async function AdminSignedStatementsPage({
             {adminHomeLinkLabel(session.user.role)}
           </Link>
         }
-        title="Signed statements"
+        title="Signed commissions"
         description="Fully signed commission PDFs (agent + manager). View, download, or revoke signatures."
         actions={
           <>
@@ -82,7 +83,9 @@ export default async function AdminSignedStatementsPage({
         }
       />
 
-      <div className="mt-6 flex flex-wrap items-center gap-2">
+      <DocumentsSectionNav active="statements" />
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <Link
           href="/admin/statements"
           className={cn(

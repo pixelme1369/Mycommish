@@ -4,29 +4,18 @@ import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
 import { AdminTopNav } from "@/app/admin/admin-top-nav";
 import { AdminGoalSettings } from "@/app/admin/admin-goal-settings";
-import { AdminDocumentSend } from "@/app/admin/admin-document-send";
-import { sendAgentDocumentAction } from "@/app/admin/document-actions";
 import { loadGoalClearRatePct } from "@/lib/portal/goal-settings";
 import { countPendingManualBonuses } from "@/lib/manual-bonuses";
-import {
-  countSignableAgents,
-  listAdminDocuments,
-  listDocumentAgents,
-} from "@/lib/portal/signed-documents";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminManualInputsPage() {
   const session = await requireAdmin();
   const superAdmin = isSuperAdminUser(session);
-  const [clearRatePct, pendingManualBonusCount, recipientCount, recentDocs, docAgents] =
-    await Promise.all([
-      loadGoalClearRatePct(),
-      superAdmin ? countPendingManualBonuses().catch(() => 0) : Promise.resolve(0),
-      countSignableAgents(),
-      listAdminDocuments(),
-      listDocumentAgents(),
-    ]);
+  const [clearRatePct, pendingManualBonusCount] = await Promise.all([
+    loadGoalClearRatePct(),
+    superAdmin ? countPendingManualBonuses().catch(() => 0) : Promise.resolve(0),
+  ]);
 
   return (
     <AppShell wide>
@@ -38,7 +27,7 @@ export default async function AdminManualInputsPage() {
           </span>
         }
         title={adminNavLabel(session.user.role)}
-        description="Manual inputs · goals apply to every agent · documents can go to all or one"
+        description="Manual inputs · goals apply to every agent"
         actions={
           <AdminTopNav
             isSuperAdmin={superAdmin}
@@ -48,14 +37,8 @@ export default async function AdminManualInputsPage() {
         }
       />
 
-      <div className="mt-8 max-w-xl space-y-10">
+      <div className="mt-8 max-w-xl">
         <AdminGoalSettings clearRatePct={clearRatePct} />
-        <AdminDocumentSend
-          sendAction={sendAgentDocumentAction}
-          recipientCount={recipientCount}
-          agents={docAgents}
-          recent={recentDocs}
-        />
       </div>
     </AppShell>
   );

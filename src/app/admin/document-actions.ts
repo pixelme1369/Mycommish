@@ -122,6 +122,7 @@ export async function sendAgentDocumentAction(
 
   revalidatePath("/admin/manual-inputs");
   revalidatePath("/admin/agents");
+  revalidatePath("/admin/documents");
   revalidatePath("/portal/documents");
 
   if (filedRecord) {

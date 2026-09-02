@@ -174,15 +174,19 @@ export async function countSignableAgents(): Promise<number> {
   });
 }
 
-export async function listAdminDocuments() {
+export async function listAdminUploadedDocuments() {
   const rows = await prisma.agentDocument.findMany({
     orderBy: { sentAt: "desc" },
-    take: 40,
+    take: 200,
     include: {
-      _count: { select: { signatures: true } },
+      createdBy: { select: { displayName: true } },
       signatures: {
-        where: { status: AgentDocumentSignStatus.signed },
-        select: { id: true },
+        select: {
+          status: true,
+          signedAt: true,
+          agent: { select: { displayName: true, email: true } },
+        },
+        orderBy: { createdAt: "asc" },
       },
     },
   });
@@ -191,8 +195,13 @@ export async function listAdminDocuments() {
     title: d.title,
     filename: d.filename,
     sentAt: d.sentAt.toISOString(),
-    recipientCount: d._count.signatures,
-    signedCount: d.signatures.length,
     filedRecord: d.filedRecord,
+    createdByName: d.createdBy.displayName,
+    recipients: d.signatures.map((s) => ({
+      displayName: s.agent.displayName,
+      email: s.agent.email,
+      status: s.status === AgentDocumentSignStatus.signed ? "signed" : "pending",
+      signedAt: s.signedAt?.toISOString() ?? null,
+    })),
   }));
 }

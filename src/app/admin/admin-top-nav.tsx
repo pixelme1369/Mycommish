@@ -2,8 +2,9 @@ import Link from "next/link";
 import { SignOutButton } from "@/components/sign-out-button";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { AdminDocumentsMenu } from "@/app/admin/admin-documents-menu";
 
-export type AdminTopNavActive = "manual-inputs" | "goals";
+export type AdminTopNavActive = "manual-inputs" | "goals" | "documents";
 
 export function AdminTopNav({
   isSuperAdmin,
@@ -34,12 +35,7 @@ export function AdminTopNav({
       >
         File claims
       </Link>
-      <Link
-        href="/admin/statements"
-        className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-      >
-        Signed PDFs
-      </Link>
+      <AdminDocumentsMenu active={active === "documents"} />
       <Link
         href="/admin/agents"
         className={cn(buttonVariants({ variant: "outline", size: "sm" }))}

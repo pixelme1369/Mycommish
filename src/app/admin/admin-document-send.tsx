@@ -7,16 +7,6 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type SentDoc = {
-  id: string;
-  title: string;
-  filename: string;
-  sentAt: string;
-  recipientCount: number;
-  signedCount: number;
-  filedRecord: boolean;
-};
-
 type AgentOpt = { id: string; displayName: string; email: string };
 
 type SendAction = (
@@ -24,17 +14,18 @@ type SendAction = (
   formData: FormData,
 ) => Promise<SendDocumentResult>;
 
+const selectClass =
+  "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm";
+
 export function AdminDocumentSend({
   sendAction,
   recipientCount,
   agents,
-  recent,
   defaultAgentId,
 }: {
   sendAction: SendAction;
   recipientCount: number;
   agents: AgentOpt[];
-  recent: SentDoc[];
   defaultAgentId?: string;
 }) {
   const [state, action, pending] = useActionState(
@@ -49,40 +40,39 @@ export function AdminDocumentSend({
   return (
     <section>
       <div>
-        <h2 className="font-heading text-base tracking-tight">Documents</h2>
+        <h2 className="font-heading text-base tracking-tight">Send or file</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Send a PDF to sign, or file a physically signed copy on one agent’s
-          portal record
+          E-sign in the portal, or keep a paper copy on one agent’s record
         </p>
       </div>
-      <Card className="glass-panel mt-4 p-4 sm:p-5">
-        <form action={action} className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="doc-title">Title</Label>
-            <Input
-              id="doc-title"
-              name="title"
-              placeholder="e.g. September 2026 contractor agreement"
-              className="h-9"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="doc-file">PDF</Label>
-            <input
-              id="doc-file"
-              name="file"
-              type="file"
-              accept="application/pdf,.pdf"
-              className="h-9 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm file:mr-3 file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium"
-            />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+      <Card className="glass-panel mt-4 p-5 sm:p-6">
+        <form action={action} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="doc-title">Title</Label>
+              <Input
+                id="doc-title"
+                name="title"
+                placeholder="e.g. September 2026 contractor agreement"
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="doc-file">PDF</Label>
+              <input
+                id="doc-file"
+                name="file"
+                type="file"
+                accept="application/pdf,.pdf"
+                className="h-9 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm file:mr-3 file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium"
+              />
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="doc-audience">Who</Label>
               <select
                 id="doc-audience"
                 name="audience"
-                className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                className={selectClass}
                 value={audience}
                 onChange={(e) => {
                   const next = e.target.value === "one" ? "one" : "all";
@@ -99,7 +89,7 @@ export function AdminDocumentSend({
               <select
                 id="doc-intent"
                 name="intent"
-                className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                className={selectClass}
                 value={intent}
                 onChange={(e) => setIntent(e.target.value === "file" ? "file" : "sign")}
               >
@@ -117,7 +107,7 @@ export function AdminDocumentSend({
                 id="doc-agent"
                 name="agentId"
                 defaultValue={defaultAgentId || ""}
-                className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                className={selectClass}
                 required
               >
                 <option value="">Select…</option>
@@ -131,7 +121,7 @@ export function AdminDocumentSend({
           ) : (
             <input type="hidden" name="agentId" value="" />
           )}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 pt-1">
             <Button type="submit" size="sm" className="h-9" disabled={pending}>
               {pending
                 ? "Saving…"
@@ -153,32 +143,7 @@ export function AdminDocumentSend({
             ) : null}
           </div>
         </form>
-        <p className="mt-3 text-xs text-muted-foreground">
-          E-sign requests show as Pending on Signed documents. A filed paper copy
-          shows as On file and stays on that agent’s portal record.
-        </p>
       </Card>
-
-      {recent.length > 0 ? (
-        <ul className="mt-4 space-y-2 text-sm">
-          {recent.map((d) => (
-            <li
-              key={d.id}
-              className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl bg-card/80 px-4 py-3 ring-1 ring-border/70"
-            >
-              <div>
-                <p className="font-medium">{d.title}</p>
-                <p className="text-xs text-muted-foreground">{d.filename}</p>
-              </div>
-              <p className="text-xs text-muted-foreground tabular-nums">
-                {d.filedRecord
-                  ? "On file"
-                  : `${d.signedCount}/${d.recipientCount} signed`}
-              </p>
-            </li>
-          ))}
-        </ul>
-      ) : null}
     </section>
   );
 }
