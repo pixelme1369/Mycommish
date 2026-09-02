@@ -39,6 +39,14 @@ export function openerPeriodFromYmd(ymd: string): string {
   return (ymd || "").slice(0, 7);
 }
 
+/** Previous calendar month as YYYY-MM (January → prior December). */
+export function previousOpenerMonthLabel(monthLabel: string): string {
+  if (!MONTH.test(monthLabel)) return monthLabel;
+  const [y, m] = monthLabel.split("-").map(Number);
+  const prev = new Date(Date.UTC(y, m - 2, 1));
+  return `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 /** First and last calendar day of a YYYY-MM pay month. */
 export function openerMonthYmdRange(
   monthLabel: string,

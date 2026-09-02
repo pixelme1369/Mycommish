@@ -10,6 +10,7 @@ import {
   openerMonthYmdRange,
   openerMonthDays,
   formatOpenerTransferDay,
+  previousOpenerMonthLabel,
   ymdInOpenerMonth,
   clampYmdToOpenerMonth,
 } from "./payout";
@@ -77,6 +78,11 @@ describe("opener pay date", () => {
   it("pays August files on September 25", () => {
     expect(openerPeriodFromYmd("2026-08-14")).toBe("2026-08");
     expect(formatOpenerPayDate("2026-08")).toBe("Sep 25, 2026");
+  });
+
+  it("defaults the working month to last month", () => {
+    expect(previousOpenerMonthLabel("2026-09")).toBe("2026-08");
+    expect(previousOpenerMonthLabel("2026-01")).toBe("2025-12");
   });
 });
 

@@ -4,6 +4,7 @@ import {
   openerPayoutForDebt,
   openerPeriodFromYmd,
   openerSnapshotFromForth,
+  previousOpenerMonthLabel,
   type OpenerForthSnapshot,
 } from "@/lib/opener/payout";
 import { pacificTodayYmd } from "@/lib/portal/daily-tasks-dates";
@@ -280,7 +281,9 @@ export async function listOpenerPayPeriodLabels(): Promise<string[]> {
     if (/^\d{4}-\d{2}$/.test(m)) set.add(m);
   }
   const current = openerPeriodFromYmd(pacificTodayYmd());
+  const previous = previousOpenerMonthLabel(current);
   if (/^\d{4}-\d{2}$/.test(current)) set.add(current);
+  if (/^\d{4}-\d{2}$/.test(previous)) set.add(previous);
   return [...set].sort().reverse();
 }
 
@@ -288,8 +291,10 @@ export async function defaultOpenerPeriodLabel(
   requested?: string,
 ): Promise<string> {
   if (requested && /^\d{4}-\d{2}$/.test(requested)) return requested;
+  const previous = previousOpenerMonthLabel(openerPeriodFromYmd(pacificTodayYmd()));
   const labels = await listOpenerPayPeriodLabels();
-  return labels[0] || openerPeriodFromYmd(pacificTodayYmd());
+  if (labels.includes(previous)) return previous;
+  return labels[0] || previous;
 }
 
 /** Used only to keep TS aware openerPayoutForDebt is the gate on matched creates. */

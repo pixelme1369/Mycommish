@@ -46,7 +46,7 @@ export default async function AdminOpenersPage({
           </span>
         }
         title={adminNavLabel(session.user.role)}
-        description="Opener transfers · pick a pay period (same YYYY-MM as agents)"
+        description="Opener transfers"
         actions={
           <AdminTopNav
             isSuperAdmin={superAdmin}
@@ -61,11 +61,13 @@ export default async function AdminOpenersPage({
           periods={periods}
           selected={monthLabel}
           pathname="/admin/openers"
-        />
-        <OpenerPeriodLockBar
-          monthLabel={monthLabel}
-          closed={periodView.status === "closed"}
-          paid={periodView.paid}
+          stats={
+            <OpenerPeriodLockBar
+              monthLabel={monthLabel}
+              closed={periodView.status === "closed"}
+              paid={periodView.paid}
+            />
+          }
         />
         <OpenerSummaryTable
           rows={rows}
