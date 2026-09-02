@@ -13,24 +13,40 @@ export function PortalTopBar({
   commissionsHref = "/portal",
   filesHref = "/portal/files",
   dailyTasksHref = "/portal/daily-tasks",
+  openersHref,
+  opener = false,
 }: {
   staffHref?: string;
   staffLabel?: string;
   commissionsHref?: string;
   filesHref?: string;
   dailyTasksHref?: string;
+  /** Show Openers tab (managers/admins reviewing opener pay). */
+  openersHref?: string;
+  /** Opener home is the transfer log, not agent commissions. */
+  opener?: boolean;
 }) {
   const pathname = usePathname() || "/portal";
 
   const nav = [
     {
       href: commissionsHref,
-      label: "Commissions",
+      label: opener ? "Transfers" : "Commissions",
       match: (p: string) =>
         p === commissionsHref ||
         p.startsWith("/portal/period/") ||
         p.startsWith("/manager/period/"),
     },
+    ...(openersHref
+      ? [
+          {
+            href: openersHref,
+            label: "Openers",
+            match: (p: string) =>
+              p.startsWith("/manager/openers") || p.startsWith("/admin/openers"),
+          },
+        ]
+      : []),
     {
       href: "/portal/goals",
       label: "Goals",

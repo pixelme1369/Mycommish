@@ -48,6 +48,12 @@ export default async function ManagerClaimsPage() {
               ← Manager
             </Link>
             <Link
+              href="/manager/openers"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Openers
+            </Link>
+            <Link
               href="/manager/files"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >

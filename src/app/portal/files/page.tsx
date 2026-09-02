@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { isSuperAdminUser, requireSession } from "@/lib/auth-guards";
-import { adminNavLabel } from "@/lib/roles";
+import { adminNavLabel, isOpenerRole } from "@/lib/roles";
 import { AppShell } from "@/components/app-shell";
 import { PortalTopBar } from "@/components/portal-top-bar";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +37,12 @@ export default async function PortalFilesPage() {
 
   return (
     <AppShell wide>
-      <PortalTopBar staffHref={staffHref} staffLabel={staffLabel} />
+      <PortalTopBar
+        staffHref={staffHref}
+        staffLabel={staffLabel}
+        opener={isOpenerRole(session.user.role)}
+        openersHref={staffHref ? "/manager/openers" : undefined}
+      />
 
       <header className="mt-8">
         <h1 className="font-heading text-2xl tracking-tight text-foreground sm:text-[1.65rem]">

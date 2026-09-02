@@ -5,6 +5,7 @@ import {
   roleGrantsAdminConsole,
   roleHasManagerCapabilities,
   toAppRole,
+  isOpenerRole,
   type AppRole,
 } from "@/lib/roles";
 
@@ -79,5 +80,12 @@ export async function requireSuperAdmin() {
 export async function requireManagerOrAdmin() {
   const session = await requireSession();
   if (!canViewAllCommissions(session)) redirect("/portal");
+  return session;
+}
+
+/** Opener portal — File ID transfer log. */
+export async function requireOpener() {
+  const session = await requireSession();
+  if (!isOpenerRole(session.user.role)) redirect(homePathForSession(session));
   return session;
 }

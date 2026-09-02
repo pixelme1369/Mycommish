@@ -9,8 +9,12 @@ import { sortUsersForForthName } from "@/lib/forth/unmatched-match";
 import type { ForthMapUser, UnmatchedForthName } from "@/lib/forth/unmatched";
 
 function optionLabel(user: ForthMapUser) {
-  if (user.aliases.length === 0) return `${user.displayName} · no CRM alias`;
-  return `${user.displayName} · ${user.aliases.join(", ")}`;
+  const aliasBit =
+    user.aliases.length === 0 ? "no CRM alias" : user.aliases.join(", ");
+  if (user.role === "opener") {
+    return `${user.displayName} · opener · ${aliasBit}`;
+  }
+  return `${user.displayName} · ${aliasBit}`;
 }
 
 function UnmatchedRow({
@@ -32,6 +36,10 @@ function UnmatchedRow({
   const alphabetical = useMemo(
     () => [...users].sort((a, b) => a.displayName.localeCompare(b.displayName)),
     [users],
+  );
+  const openers = useMemo(
+    () => alphabetical.filter((u) => u.role === "opener"),
+    [alphabetical],
   );
 
   return (
@@ -60,7 +68,16 @@ function UnmatchedRow({
               ))}
             </optgroup>
           ) : null}
-          <optgroup label={grouped.likely.length ? "All users" : "Users"}>
+          {openers.length > 0 ? (
+            <optgroup label="Openers (no Goals)">
+              {openers.map((u) => (
+                <option key={`opener-${u.id}`} value={u.id}>
+                  {optionLabel(u)}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
+          <optgroup label={grouped.likely.length || openers.length ? "All users" : "Users"}>
             {alphabetical.map((u) => (
               <option key={u.id} value={u.id}>
                 {optionLabel(u)}
@@ -122,7 +139,8 @@ export function UnmatchedForthPanel({
         <p className="mt-0.5 text-sm text-muted-foreground">
           These Forth <span className="font-mono text-xs">assigned_to</span> names
           don’t match a login. Pick the user — ADP CRM aliases are in the list so
-          you can tell them apart.
+          you can tell them apart. Map openers too; they don’t have Goals, but
+          Forth files still attach to their login.
         </p>
       </div>
       {error ? (

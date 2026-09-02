@@ -29,6 +29,13 @@ import { fullySignedAgentPeriodIds } from "@/lib/statements";
 import { PeriodPayStatusChip } from "@/components/period-pay-status-chip";
 import { AgentPhoneForm } from "@/app/portal/agent-phone-form";
 import { prisma } from "@/lib/db";
+import { pacificTodayYmd } from "@/lib/portal/daily-tasks-dates";
+import {
+  defaultOpenerPeriodLabel,
+  listOpenerLogsForAgent,
+  listOpenerPayPeriodLabels,
+} from "@/lib/opener/logs";
+import { OpenerTransfersPanel } from "@/app/portal/opener-log-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -59,9 +66,14 @@ function dayGreeting(now = new Date()): string {
   return "Good evening";
 }
 
-export default async function PortalHome() {
+export default async function PortalHome({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string }>;
+}) {
   const session = await requireSession();
   if (isSuperAdminUser(session)) redirect("/admin");
+  const { month: monthRaw } = await searchParams;
   const aliasNames = session.user.aliasNames || [];
   const windowPeriods = await latestCalculatedPeriods();
   const windowLabels = windowPeriods.map((p) => p.periodLabel);
@@ -76,6 +88,14 @@ export default async function PortalHome() {
   const phone = agentProfile?.phone?.trim() || null;
   const needsPhone = !phone;
   const opener = isOpenerRole(session.user.role);
+  const [openerMonth, openerPeriods] = opener
+    ? await Promise.all([
+        defaultOpenerPeriodLabel(monthRaw),
+        listOpenerPayPeriodLabels(),
+      ])
+    : ["", [] as string[]];
+  const openerLogs =
+    opener && agentId ? await listOpenerLogsForAgent(agentId, openerMonth) : [];
 
   const rowSets = opener
     ? []
@@ -113,7 +133,8 @@ export default async function PortalHome() {
   const latest = unique[0];
   let subtitle: string;
   if (opener) {
-    subtitle = "Opener pay is calculated separately — agent commission periods don’t apply.";
+    subtitle =
+      "Log transfers by File ID. Pay is the 25th of the next month — same payday as agents.";
   } else if (!aliasNames.length) {
     subtitle = "Ask an admin to map your Sales Rep name(s) to see commissions.";
   } else if (!latest) {
@@ -124,7 +145,12 @@ export default async function PortalHome() {
 
   return (
     <AppShell wide>
-      <PortalTopBar staffHref={staffHref} staffLabel={staffLabel} />
+      <PortalTopBar
+        staffHref={staffHref}
+        staffLabel={staffLabel}
+        opener={opener}
+        openersHref={staffHref === "/manager" || staffHref === "/admin" ? "/manager/openers" : undefined}
+      />
 
       <header className="mt-8">
         <h1 className="font-heading text-3xl tracking-tight text-foreground sm:text-4xl">
@@ -134,10 +160,23 @@ export default async function PortalHome() {
       </header>
 
       {opener ? (
-        <Card className="glass-panel mt-8 p-6 text-sm text-muted-foreground">
-          Opener commissions use a different plan. This page will show opener pay once that’s
-          wired up — it is not the agent commission ladder.
-        </Card>
+        <OpenerTransfersPanel
+          todayYmd={pacificTodayYmd()}
+          monthLabel={openerMonth}
+          periods={openerPeriods}
+          rows={openerLogs.map((r) => ({
+            id: r.id,
+            transferYmd: r.transferYmd,
+            forthId: r.forthId,
+            debtLoad: Number(r.debtLoad),
+            stageTitle: r.stageTitle,
+            status: r.status,
+            commission: Number(r.commission),
+            payStatus: r.payStatus,
+            unmatched: r.unmatched,
+            notes: r.notes,
+          }))}
+        />
       ) : !aliasNames.length ? (
         <Card className="glass-panel mt-8 p-6 text-sm text-muted-foreground">
           Your login has no CRM name aliases yet. Ask an admin to map your Sales Rep name(s) in

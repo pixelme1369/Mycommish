@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 /** Must match schema additions that need a fresh PrismaClient in `next dev`. */
-const PRISMA_SCHEMA_EPOCH = 43;
+const PRISMA_SCHEMA_EPOCH = 46;
 
 /** Quiet pg's sslmode deprecation warning against Neon URLs. */
 function neonCompatibleUrl(url: string): string {
@@ -52,6 +52,8 @@ function getPrismaClient() {
         agentMonthlyGoal?: unknown;
         forthContact?: unknown;
         agentDocument?: unknown;
+        openerTransferLog?: unknown;
+        openerPeriodUpscore?: unknown;
       })
     | undefined;
   const stale =
@@ -67,7 +69,9 @@ function getPrismaClient() {
     typeof client.dailyTaskCompletion === "undefined" ||
     typeof client.agentMonthlyGoal === "undefined" ||
     typeof client.forthContact === "undefined" ||
-    typeof client.agentDocument === "undefined";
+    typeof client.agentDocument === "undefined" ||
+    typeof client.openerTransferLog === "undefined" ||
+    typeof client.openerPeriodUpscore === "undefined";
 
   if (stale) {
     globalForPrisma.prisma = createPrismaClient();

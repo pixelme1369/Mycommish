@@ -72,6 +72,9 @@ model Agent {
   dailyTaskCompletions  DailyTaskCompletion[]
   monthlyGoals          AgentMonthlyGoal[]
   forthContacts         ForthContact[]
+  openerTransferLogs    OpenerTransferLog[]
+  openerPeriodUpscores  OpenerPeriodUpscore[]
+  openerUpscoresUpdated OpenerPeriodUpscore[] @relation("OpenerUpscoreUpdatedBy")
   documentsCreated      AgentDocument[]            @relation("DocumentCreatedBy")
   documentSignatures    AgentDocumentSignature[]   @relation("DocumentSigner")
 
@@ -188,6 +191,58 @@ model ForthContact {
   @@index([agentId, enrolledDate])
   @@index([submittedDate])
   @@index([enrolledDate])
+}
+
+enum OpenerPayStatus {
+  approved
+  excluded_canceled
+}
+
+/// Opener-logged transfer. CRM fields refresh from ForthContact on Forth sync.
+model OpenerTransferLog {
+  id          String @id @default(cuid())
+  agentId     String
+  /// Opener-entered calendar day (Pacific YYYY-MM-DD).
+  transferYmd String
+  /// Forth contact id (File ID). One row in the whole system.
+  forthId     String @unique
+
+  debtLoad   Decimal @db.Decimal(14, 2)
+  stageTitle String?
+  status     String?
+  commission Decimal @db.Decimal(14, 2)
+
+  payStatus           OpenerPayStatus
+  /// When true, Forth refresh does not overwrite payStatus.
+  payStatusOverridden Boolean         @default(false)
+  /// File ID was not in ForthContact at last lookup / sync.
+  unmatched           Boolean         @default(false)
+  notes               String          @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, transferYmd])
+  @@index([payStatus])
+}
+
+/// Admin/manager-entered bonus for an opener in a pay period (YYYY-MM).
+model OpenerPeriodUpscore {
+  id          String   @id @default(cuid())
+  agentId     String
+  monthLabel  String
+  amount      Decimal  @default(0) @db.Decimal(14, 2)
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  agent     Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  updatedBy Agent? @relation("OpenerUpscoreUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([agentId, monthLabel])
+  @@index([monthLabel])
 }
 
 model AgentAlias {

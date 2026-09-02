@@ -4,7 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AdminDocumentsMenu } from "@/app/admin/admin-documents-menu";
 
-export type AdminTopNavActive = "manual-inputs" | "goals" | "documents";
+export type AdminTopNavActive = "manual-inputs" | "goals" | "documents" | "openers";
 
 export function AdminTopNav({
   isSuperAdmin,
@@ -36,6 +36,18 @@ export function AdminTopNav({
         File claims
       </Link>
       <AdminDocumentsMenu active={active === "documents"} />
+      <Link
+        href="/admin/openers"
+        aria-current={active === "openers" ? "page" : undefined}
+        className={cn(
+          buttonVariants({
+            variant: active === "openers" ? "default" : "outline",
+            size: "sm",
+          }),
+        )}
+      >
+        Openers
+      </Link>
       <Link
         href="/admin/agents"
         className={cn(buttonVariants({ variant: "outline", size: "sm" }))}

@@ -114,6 +114,12 @@ export default async function ManagerHome() {
               Bonus payouts
             </Link>
             <Link
+              href="/manager/openers"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Openers
+            </Link>
+            <Link
               href="/manager/files"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >

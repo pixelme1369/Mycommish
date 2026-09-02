@@ -63,6 +63,12 @@ export default async function ManagerFilesPage() {
             >
               File claims
             </Link>
+            <Link
+              href="/manager/openers"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Openers
+            </Link>
             {role === "admin" ? (
               <Link
                 href="/admin"

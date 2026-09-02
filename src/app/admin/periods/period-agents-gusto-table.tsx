@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { cancelRatePercent, money, ratePercent } from "@/lib/format";
 import { getFixedRate, unitsToNextTier } from "@/lib/commission/calculator";
 import { resolveEmployment } from "@/lib/agents/contractors";
+import { formatRoleLabel } from "@/lib/roles";
 import { PeriodAgentRowActions } from "./period-agent-row-actions";
 
 export type PeriodAgentRow = {
@@ -29,10 +30,13 @@ export type PeriodAgentRow = {
   excluded?: boolean;
   /** Agent has e-signed their commission statement. */
   agentSigned?: boolean;
+  /** Portal login role when this CRM name is mapped to a user. */
+  role?: string | null;
 };
 
 type SortKey =
   | "agentName"
+  | "role"
   | "unitsCleared"
   | "pendingUnits"
   | "next"
@@ -53,6 +57,8 @@ function sortValue(row: PeriodAgentRow, key: SortKey): string | number {
   switch (key) {
     case "agentName":
       return row.agentName.toLowerCase();
+    case "role":
+      return (row.role || "").toLowerCase();
     case "unitsCleared":
       return row.unitsCleared;
     case "pendingUnits":
@@ -462,7 +468,7 @@ export function PeriodAgentsGustoTable({
 
       <Card className="glass-panel overflow-hidden py-0">
         <div className="-mx-px overflow-x-auto overscroll-x-contain rounded-[inherit]">
-        <table className="w-full min-w-[62rem] border-collapse text-left text-[13px]">
+        <table className="w-full min-w-[66rem] border-collapse text-left text-[13px]">
           <thead className="border-b border-border bg-muted/40 text-muted-foreground">
             <tr>
               {!readOnly ? (
@@ -477,12 +483,19 @@ export function PeriodAgentsGustoTable({
                 </th>
               ) : null}
               <SortTh
-                label="Agent"
+                label="Name"
                 sortKey="agentName"
                 activeKey={sortKey}
                 dir={sortDir}
                 onSort={onSort}
                 className="min-w-[11rem]"
+              />
+              <SortTh
+                label="Role"
+                sortKey="role"
+                activeKey={sortKey}
+                dir={sortDir}
+                onSort={onSort}
               />
               <SortTh
                 label="Units"
@@ -643,6 +656,9 @@ export function PeriodAgentsGustoTable({
                         {employment.companyName}
                       </p>
                     ) : null}
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-2 align-middle capitalize text-muted-foreground">
+                    {r.role ? formatRoleLabel(r.role) : "—"}
                   </td>
                   <td className="whitespace-nowrap px-2 py-2 text-right align-middle tabular-nums">
                     {r.unitsCleared}

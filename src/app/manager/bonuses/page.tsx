@@ -52,6 +52,12 @@ export default async function ManagerBonusesPage() {
         description="Log agent bonuses you paid from your account — reimbursed on commission pay date"
         actions={
           <>
+            <Link
+              href="/manager/openers"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Openers
+            </Link>
             {role === "admin" ? (
               <Link
                 href="/admin"

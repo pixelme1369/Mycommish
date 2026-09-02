@@ -14,6 +14,7 @@ export type UnmatchedForthName = {
 export type ForthMapUser = {
   id: string;
   displayName: string;
+  role: string;
   aliases: string[];
 };
 
@@ -44,6 +45,7 @@ export async function listForthMapUsers(): Promise<ForthMapUser[]> {
       select: {
         id: true,
         displayName: true,
+        role: true,
         aliases: { select: { agentName: true }, orderBy: { agentName: "asc" } },
       },
       orderBy: { displayName: "asc" },
@@ -54,6 +56,7 @@ export async function listForthMapUsers(): Promise<ForthMapUser[]> {
     agents.map((a) => ({
       id: a.id,
       displayName: a.displayName,
+      role: a.role,
       aliases: a.aliases.map((x) => x.agentName),
     })),
     dismissed,

@@ -4,7 +4,7 @@ import {
   requireSession,
   sessionRole,
 } from "@/lib/auth-guards";
-import { adminNavLabel } from "@/lib/roles";
+import { adminNavLabel, isOpenerRole } from "@/lib/roles";
 import { AppShell } from "@/components/app-shell";
 import { PortalTopBar } from "@/components/portal-top-bar";
 import { Card } from "@/components/ui/card";
@@ -41,6 +41,8 @@ export default async function DailyTasksPage() {
       filesHref={isManagerHome ? "/manager/files" : "/portal/files"}
       staffHref={staffHref}
       staffLabel={staffLabel}
+      opener={isOpenerRole(session.user.role)}
+      openersHref={isManagerHome ? "/manager/openers" : undefined}
     />
   );
 

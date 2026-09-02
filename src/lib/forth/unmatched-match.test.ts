@@ -46,4 +46,11 @@ describe("dismissed Forth mapping", () => {
       "AJ Valipour",
     ]);
   });
+
+  it("keeps logins with no CRM alias so openers can still be mapped", () => {
+    const users = [{ displayName: "Jaiden Lopez", aliases: [] as string[] }];
+    expect(filterForthMapUsers(users, new Set()).map((u) => u.displayName)).toEqual([
+      "Jaiden Lopez",
+    ]);
+  });
 });

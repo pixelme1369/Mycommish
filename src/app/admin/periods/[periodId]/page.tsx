@@ -11,6 +11,7 @@ import {
   listDismissedKeys,
 } from "@/lib/agents/dismissal";
 import { listOpenerAliasKeys } from "@/lib/agents/opener";
+import { loginRolesByAgentName } from "@/lib/agents/login-roles";
 import {
   exclusionKey,
   listExcludedKeysForPeriod,
@@ -62,6 +63,8 @@ export default async function AdminPeriodPage({
       agentSignedByNameForPeriod(period.periodLabel),
     ]);
 
+  const rolesByName = await loginRolesByAgentName(agents.map((a) => a.agentName));
+
   const tableRows = agents
     .filter((a) => !openerKeys.has(dismissalKey(a.agentName)))
     .map((a) => ({
@@ -80,6 +83,7 @@ export default async function AdminPeriodPage({
     dismissed: dismissedKeys.has(dismissalKey(a.agentName)),
     excluded: excludedKeys.has(exclusionKey(a.agentName)),
     agentSigned: signedByName.get(a.agentName) === true,
+    role: rolesByName.get(dismissalKey(a.agentName)) ?? null,
   }));
 
   const activeRows = tableRows.filter((r) => !r.dismissed && !r.excluded);

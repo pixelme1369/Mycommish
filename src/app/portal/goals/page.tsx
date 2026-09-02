@@ -37,6 +37,8 @@ export default async function GoalsPage() {
       filesHref={isManagerHome ? "/manager/files" : "/portal/files"}
       staffHref={staffHref}
       staffLabel={staffLabel}
+      opener={isOpenerRole(session.user.role)}
+      openersHref={isManagerHome ? "/manager/openers" : undefined}
     />
   );
 

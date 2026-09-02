@@ -30,7 +30,6 @@ function num(v: { toString(): string } | number | null | undefined): number {
 
 const GOAL_ROSTER_ROLES: AgentRole[] = [
   AgentRole.agent,
-  AgentRole.opener,
   AgentRole.manager,
 ];
 

@@ -43,6 +43,12 @@ export default async function ManagerGoalsPage() {
               Goals
             </Link>
             <Link
+              href="/manager/openers"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Openers
+            </Link>
+            <Link
               href="/portal/daily-tasks"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >

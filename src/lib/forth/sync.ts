@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { fetchAllForthContacts } from "./client";
 import { mapForthContact, type MappedForthContact } from "./map-contact";
+import { refreshOpenerTransferLogs } from "@/lib/opener/logs";
 
 export type ForthSyncResult = {
   fetched: number;
@@ -8,6 +9,8 @@ export type ForthSyncResult = {
   upserted: number;
   skipped: number;
   unmatchedAgents: string[];
+  openerLogsChecked: number;
+  openerLogsUpdated: number;
 };
 
 type RowToStore = Omit<MappedForthContact, "agentName"> & { agentId: string | null };
@@ -83,6 +86,7 @@ export async function syncForthContacts(): Promise<ForthSyncResult> {
     agentId: agentName ? (agentIdByName.get(agentName.trim().toLowerCase()) ?? null) : null,
   }));
   const upserted = toStore.length ? await upsertMapped(toStore) : 0;
+  const openerRefresh = await refreshOpenerTransferLogs();
 
   return {
     fetched: raw.length,
@@ -90,5 +94,7 @@ export async function syncForthContacts(): Promise<ForthSyncResult> {
     upserted,
     skipped,
     unmatchedAgents,
+    openerLogsChecked: openerRefresh.checked,
+    openerLogsUpdated: openerRefresh.updated,
   };
 }

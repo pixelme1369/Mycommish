@@ -1,6 +1,6 @@
 /**
- * Openers have a separate comp plan. They keep a portal login (files, goals,
- * daily tasks) but are not included in ADP agent commission.
+ * Openers have a separate transfer-pay plan. They keep a portal login (files,
+ * Forth mapping, daily tasks) but are not included in ADP agent commission.
  */
 
 import { prisma } from "@/lib/db";
