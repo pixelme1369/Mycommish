@@ -121,6 +121,7 @@ export async function promoteCalculatedPeriodToHistory(
     payFreq: string | null;
     enrolledDate: string | null;
     firstPaymentClearedDate: string | null;
+    secondPaymentClearedDate: string | null;
     droppedDate: string | null;
   };
   type ClawFile = {
@@ -179,6 +180,7 @@ export async function promoteCalculatedPeriodToHistory(
       payFreq: e.payFreq,
       enrolledDate: e.enrolledDate,
       firstPaymentClearedDate: e.firstPaymentClearedDate,
+      secondPaymentClearedDate: e.secondPaymentClearedDate,
       droppedDate: e.droppedDate,
     });
   }
@@ -322,6 +324,7 @@ export async function promoteCalculatedPeriodToHistory(
         clientName: c.clientName,
         enrolledDate: c.enrolledDate,
         firstPaymentClearedDate: c.firstPaymentClearedDate,
+        secondPaymentClearedDate: c.secondPaymentClearedDate,
         droppedDate: c.droppedDate,
         payFreq: c.payFreq,
         paymentsMade: c.paymentsMade,

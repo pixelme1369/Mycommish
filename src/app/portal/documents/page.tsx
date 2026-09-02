@@ -64,7 +64,7 @@ export default async function PortalDocumentsPage() {
           Signed documents
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {session.user.displayName} · pending signatures and files you’ve signed
+          {session.user.displayName} · pending signatures, signed copies, and records on file
         </p>
       </header>
       <SignedDocumentsList

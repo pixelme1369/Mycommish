@@ -301,6 +301,8 @@ async function createFullPeriod(
         enrolledDate: c.enrolledDate || null,
         firstPaymentDate: c.firstPaymentDate || null,
         firstPaymentClearedDate: c.firstPaymentClearedDate || null,
+        secondPaymentClearedDate: c.secondPaymentClearedDate || null,
+        paymentsMade: c.paymentsMade ?? null,
         droppedDate: c.droppedDate || null,
       })),
       skipDuplicates: true,
@@ -361,6 +363,7 @@ async function createFullPeriod(
         clientName: c.clientName,
         enrolledDate: c.enrolledDate,
         firstPaymentClearedDate: c.firstPaymentClearedDate,
+        secondPaymentClearedDate: c.secondPaymentClearedDate || null,
         droppedDate: c.droppedDate || null,
         payFreq: c.payFreq,
         paymentsMade: c.paymentsMade,
@@ -390,6 +393,7 @@ async function createFullPeriod(
         clientName: c.clientName,
         enrolledDate: c.enrolledDate,
         firstPaymentClearedDate: c.firstPaymentClearedDate,
+        secondPaymentClearedDate: c.secondPaymentClearedDate || null,
         droppedDate: c.droppedDate || null,
         payFreq: c.payFreq,
         paymentsMade: c.paymentsMade,
@@ -414,6 +418,7 @@ async function createFullPeriod(
         clientName: c.clientName,
         enrolledDate: c.enrolledDate,
         firstPaymentClearedDate: c.firstPaymentClearedDate,
+        secondPaymentClearedDate: c.secondPaymentClearedDate || null,
         droppedDate: c.droppedDate || null,
         payFreq: c.payFreq,
         paymentsMade: c.paymentsMade,
@@ -537,6 +542,7 @@ async function applyClawbacksOnly(
           clientName: c.clientName,
           enrolledDate: c.enrolledDate,
           firstPaymentClearedDate: c.firstPaymentClearedDate,
+          secondPaymentClearedDate: c.secondPaymentClearedDate || null,
           droppedDate: c.droppedDate || null,
           payFreq: c.payFreq,
           paymentsMade: c.paymentsMade,
@@ -620,6 +626,8 @@ async function upsertDirectoryIdentities(clients: CrmClient[]) {
         ${c.enrolledDate || null},
         ${c.firstPaymentDate || null},
         ${c.firstPaymentClearedDate || null},
+        ${c.secondPaymentClearedDate || null},
+        ${c.paymentsMade},
         ${c.droppedDate || null},
         NOW()
       )`,
@@ -640,6 +648,8 @@ async function upsertDirectoryIdentities(clients: CrmClient[]) {
         "enrolledDate",
         "firstPaymentDate",
         "firstPaymentClearedDate",
+        "secondPaymentClearedDate",
+        "paymentsMade",
         "droppedDate",
         "updatedAt"
       )
@@ -657,6 +667,8 @@ async function upsertDirectoryIdentities(clients: CrmClient[]) {
         "enrolledDate" = COALESCE(EXCLUDED."enrolledDate", "ClientIdentity"."enrolledDate"),
         "firstPaymentDate" = COALESCE(EXCLUDED."firstPaymentDate", "ClientIdentity"."firstPaymentDate"),
         "firstPaymentClearedDate" = COALESCE(EXCLUDED."firstPaymentClearedDate", "ClientIdentity"."firstPaymentClearedDate"),
+        "secondPaymentClearedDate" = COALESCE(EXCLUDED."secondPaymentClearedDate", "ClientIdentity"."secondPaymentClearedDate"),
+        "paymentsMade" = COALESCE(EXCLUDED."paymentsMade", "ClientIdentity"."paymentsMade"),
         "droppedDate" = COALESCE(EXCLUDED."droppedDate", "ClientIdentity"."droppedDate"),
         "updatedAt" = NOW()
     `;

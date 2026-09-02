@@ -29,13 +29,23 @@ function DocumentRow({
       <div className="min-w-0">
         <p className="font-medium">{item.title}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {item.kind === "statement" ? "Commission statement" : "Company document"}
-          {item.signedAt ? ` · signed ${formatWhen(item.signedAt)}` : ""}
+          {item.kind === "statement"
+            ? "Commission statement"
+            : item.filedRecord
+              ? "Filed record"
+              : "Company document"}
+          {item.signedAt
+            ? ` · ${item.filedRecord ? "filed" : "signed"} ${formatWhen(item.signedAt)}`
+            : ""}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={item.status === "signed" ? "secondary" : "outline"}>
-          {item.status === "signed" ? "Signed" : "Pending"}
+          {item.filedRecord
+            ? "On file"
+            : item.status === "signed"
+              ? "Signed"
+              : "Pending"}
         </Badge>
         {item.viewHref ? (
           <a
@@ -105,11 +115,11 @@ export function SignedDocumentsList({
       <section>
         <h2 className="font-heading text-base tracking-tight">Signed</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Kept here for a few months after you sign
+          Signed copies and records on file
         </p>
         {signed.length === 0 ? (
           <Card className="glass-panel mt-3 p-5 text-sm text-muted-foreground">
-            No signed files in the last few months.
+            No signed copies or records on file.
           </Card>
         ) : (
           <Card className="glass-panel mt-3 overflow-hidden py-0">

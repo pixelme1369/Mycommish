@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/table";
 import { MoreActionsMenu } from "@/components/more-actions-menu";
 import { LoginAsUserButton, useLoginAsUser } from "@/components/impersonation";
+import { DismissLastCheckDialog } from "@/app/admin/last-check-dialog";
+import { AdminAgentDocumentDialog } from "@/app/admin/admin-agent-document-dialog";
 import { cn } from "@/lib/utils";
 import { AliasAutocomplete } from "./alias-autocomplete";
 import { DeleteAgentButton, DeleteAliasButton } from "./delete-buttons";
@@ -57,6 +59,9 @@ export type AgentRowView = {
   suspendedAt: string | null;
   suspendedByName: string | null;
   aliases: Array<{ id: string; agentName: string }>;
+  /** CRM name to dismiss (first alias, else display name). */
+  dismissName: string;
+  dismissed: boolean;
 };
 
 function roleLabel(role: AgentRoleView) {
@@ -103,6 +108,11 @@ export function AgentsUsersTable({
     "all",
   );
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [dismissTarget, setDismissTarget] = useState<string | null>(null);
+  const [docTarget, setDocTarget] = useState<{
+    id: string;
+    displayName: string;
+  } | null>(null);
   const [busy, start] = useTransition();
   const { loginAs, pending: loginAsPending } = useLoginAsUser();
 
@@ -264,7 +274,7 @@ export function AgentsUsersTable({
                         {a.hasPassword ? "Google · Password" : "Google"}
                       </TableCell>
                       <TableCell>
-                        <MoreActionsMenu estimatedHeight={230} menuWidth={180}>
+                        <MoreActionsMenu estimatedHeight={310} menuWidth={180}>
                           {(close) => (
                             <div className="py-1 text-sm">
                               <button
@@ -285,6 +295,21 @@ export function AgentsUsersTable({
                               >
                                 Team lead
                               </a>
+                              {a.role !== "super_admin" ? (
+                                <button
+                                  type="button"
+                                  className="block w-full px-3 py-1.5 text-left hover:bg-muted"
+                                  onClick={() => {
+                                    close();
+                                    setDocTarget({
+                                      id: a.id,
+                                      displayName: a.displayName,
+                                    });
+                                  }}
+                                >
+                                  Upload document
+                                </button>
+                              ) : null}
                               {!isSelf && !suspended ? (
                                 <button
                                   type="button"
@@ -309,6 +334,18 @@ export function AgentsUsersTable({
                                   }}
                                 >
                                   {suspended ? "Activate" : "Suspend login"}
+                                </button>
+                              ) : null}
+                              {!isSelf && !a.dismissed && a.role !== "super_admin" ? (
+                                <button
+                                  type="button"
+                                  className="block w-full px-3 py-1.5 text-left text-destructive hover:bg-muted"
+                                  onClick={() => {
+                                    close();
+                                    setDismissTarget(a.dismissName);
+                                  }}
+                                >
+                                  Dismiss
                                 </button>
                               ) : null}
                             </div>
@@ -337,6 +374,22 @@ export function AgentsUsersTable({
           </TableBody>
         </Table>
       </div>
+
+      <DismissLastCheckDialog
+        open={Boolean(dismissTarget)}
+        onOpenChange={(next) => {
+          if (!next) setDismissTarget(null);
+        }}
+        agentName={dismissTarget || ""}
+      />
+      <AdminAgentDocumentDialog
+        open={Boolean(docTarget)}
+        onOpenChange={(next) => {
+          if (!next) setDocTarget(null);
+        }}
+        agentId={docTarget?.id || ""}
+        agentName={docTarget?.displayName || ""}
+      />
     </div>
   );
 }

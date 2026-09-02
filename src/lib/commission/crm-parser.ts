@@ -123,8 +123,16 @@ export type ParseCrmOptions = {
   salesRepOverrides?: Map<string, string> | Record<string, string>;
 };
 
+export function normalizedPayFreq(payFreq: string | null | undefined): string {
+  return (payFreq || "").trim().toLowerCase().replace(/-/g, "").replace(/ /g, "");
+}
+
+export function isMonthlyPayFreq(payFreq: string | null | undefined): boolean {
+  return normalizedPayFreq(payFreq) === "monthly";
+}
+
 export function safePaymentThreshold(payFreq: string | null | undefined): number {
-  const freq = (payFreq || "").trim().toLowerCase().replace(/-/g, "").replace(/ /g, "");
+  const freq = normalizedPayFreq(payFreq);
   if (freq === "biweekly" || freq === "semimonthly") return 4;
   if (freq === "monthly") return 2;
   return 3;

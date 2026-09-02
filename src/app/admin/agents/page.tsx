@@ -44,23 +44,34 @@ export default async function ManageAgentsPage() {
       listForthMapUsers(),
     ]);
 
-  const rows: AgentRowView[] = agents.map((a) => ({
-    id: a.id,
-    email: a.email,
-    displayName: a.displayName,
-    role: a.role,
-    employmentType: a.employmentType,
-    companyName: a.companyName,
-    gustoFirstName: a.gustoFirstName,
-    gustoLastName: a.gustoLastName,
-    gustoEmployeeId: a.gustoEmployeeId,
-    phone: a.phone,
-    hasPassword: Boolean(a.passwordHash),
-    lastLoginAt: a.lastLoginAt?.toISOString() ?? null,
-    suspendedAt: a.suspendedAt?.toISOString() ?? null,
-    suspendedByName: a.suspendedBy?.displayName ?? null,
-    aliases: a.aliases.map((al) => ({ id: al.id, agentName: al.agentName })),
-  }));
+  const dismissedKeys = new Set(
+    dismissals.map((d) => d.agentNameKey || d.agentName.trim().toLowerCase()),
+  );
+  const rows: AgentRowView[] = agents.map((a) => {
+    const aliases = a.aliases.map((al) => ({ id: al.id, agentName: al.agentName }));
+    const dismissed = aliases.some((al) =>
+      dismissedKeys.has(al.agentName.trim().toLowerCase()),
+    );
+    return {
+      id: a.id,
+      email: a.email,
+      displayName: a.displayName,
+      role: a.role,
+      employmentType: a.employmentType,
+      companyName: a.companyName,
+      gustoFirstName: a.gustoFirstName,
+      gustoLastName: a.gustoLastName,
+      gustoEmployeeId: a.gustoEmployeeId,
+      phone: a.phone,
+      hasPassword: Boolean(a.passwordHash),
+      lastLoginAt: a.lastLoginAt?.toISOString() ?? null,
+      suspendedAt: a.suspendedAt?.toISOString() ?? null,
+      suspendedByName: a.suspendedBy?.displayName ?? null,
+      aliases,
+      dismissName: aliases[0]?.agentName || a.displayName,
+      dismissed,
+    };
+  });
 
   return (
     <AppShell wide>
@@ -120,13 +131,26 @@ export default async function ManageAgentsPage() {
                   className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm"
                 >
                   <div>
-                    <p className="font-medium">{d.agentName}</p>
+                    <Link
+                      href={`/admin/dismissed/${encodeURIComponent(d.agentNameKey)}`}
+                      className="font-medium hover:underline"
+                    >
+                      {d.agentName}
+                    </Link>
                     <p className="text-xs text-muted-foreground">
                       Dismissed {d.dismissedAt.toISOString().slice(0, 10)}
                       {d.note ? ` · ${d.note}` : ""}
                     </p>
                   </div>
-                  <ReinstateSalesRepButton agentName={d.agentName} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/admin/dismissed/${encodeURIComponent(d.agentNameKey)}`}
+                      className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                    >
+                      Last check
+                    </Link>
+                    <ReinstateSalesRepButton agentName={d.agentName} />
+                  </div>
                 </li>
               ))}
             </ul>

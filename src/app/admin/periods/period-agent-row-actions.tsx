@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { MoreActionsMenu, menuItemClass } from "@/components/more-actions-menu";
-import { dismissSalesRepAction } from "@/app/admin/dismissal-actions";
 import { ReinstateSalesRepButton } from "@/app/admin/dismiss-buttons";
+import { DismissLastCheckDialog } from "@/app/admin/last-check-dialog";
 import { excludeAgentFromPeriodAction } from "@/app/admin/period-exclusion-actions";
 import { ReinstatePeriodAgentButton } from "@/app/admin/period-exclusion-buttons";
 
@@ -34,7 +34,13 @@ export function PeriodAgentRowActions({
   if (dismissed) {
     if (readOnly) return null;
     return (
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <a
+          href={`/admin/last-check/${agentPeriodId}`}
+          className="inline-flex h-8 items-center rounded-lg px-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          Last check
+        </a>
         <ReinstateSalesRepButton agentName={agentName} />
       </div>
     );
@@ -121,20 +127,11 @@ export function PeriodAgentRowActions({
         }}
       />
 
-      <ConfirmDelete
-        hideTrigger
+      <DismissLastCheckDialog
         open={dismissOpen}
         onOpenChange={setDismissOpen}
-        title={`Dismiss ${agentName} everywhere?`}
-        description={`${agentName} will be hidden from all commission period lists, the agent portal, and Gusto export. Past ledger data is kept for audit. You can reinstate them later from Manage Agents.`}
-        confirmLabel="Dismiss everywhere"
-        pendingLabel="Dismissing…"
-        onConfirm={async () => {
-          const fd = new FormData();
-          fd.set("agentName", agentName);
-          await dismissSalesRepAction(fd);
-          router.refresh();
-        }}
+        agentName={agentName}
+        agentPeriodId={agentPeriodId}
       />
     </div>
   );

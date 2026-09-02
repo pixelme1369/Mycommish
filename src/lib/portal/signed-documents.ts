@@ -16,6 +16,7 @@ export type PortalDocumentItem = {
   viewHref: string | null;
   signHref: string | null;
   signatureId: string | null;
+  filedRecord?: boolean;
 };
 
 const SIGN_ROLES: AgentRole[] = [AgentRole.agent, AgentRole.opener, AgentRole.manager];
@@ -31,7 +32,7 @@ export async function listPortalDocuments(opts: {
   const [companyRows, windows, signedStatements] = await Promise.all([
     prisma.agentDocumentSignature.findMany({
       where: { agentId: opts.agentId },
-      include: { document: { select: { title: true } } },
+      include: { document: { select: { title: true, filedRecord: true } } },
       orderBy: { createdAt: "desc" },
     }),
     latestCalculatedPeriods(),
@@ -64,9 +65,13 @@ export async function listPortalDocuments(opts: {
       viewHref: `/api/portal/documents/${row.id}/file`,
       signHref: null,
       signatureId: row.id,
+      filedRecord: row.document.filedRecord,
     };
     if (item.status === "pending") pending.push(item);
-    else if (row.signedAt && isSignedDocStillVisible(row.signedAt, now)) {
+    else if (
+      row.document.filedRecord ||
+      (row.signedAt && isSignedDocStillVisible(row.signedAt, now))
+    ) {
       signed.push(item);
     }
   }
@@ -147,6 +152,19 @@ export async function listDocumentRecipients() {
   });
 }
 
+export async function listDocumentAgents() {
+  const rows = await prisma.agent.findMany({
+    where: { role: { not: AgentRole.super_admin } },
+    select: { id: true, displayName: true, email: true },
+    orderBy: { displayName: "asc" },
+  });
+  return rows.map((a) => ({
+    id: a.id,
+    displayName: a.displayName,
+    email: a.email,
+  }));
+}
+
 export async function countSignableAgents(): Promise<number> {
   return prisma.agent.count({
     where: {
@@ -175,5 +193,6 @@ export async function listAdminDocuments() {
     sentAt: d.sentAt.toISOString(),
     recipientCount: d._count.signatures,
     signedCount: d.signatures.length,
+    filedRecord: d.filedRecord,
   }));
 }

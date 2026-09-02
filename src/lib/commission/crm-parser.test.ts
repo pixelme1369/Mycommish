@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clientRow,
   crmCsv,
+  isMonthlyPayFreq,
   parseCrmAndCalculate,
   repairSplitEnrolledDebt,
   safePaymentThreshold,
@@ -26,6 +27,11 @@ describe("safePaymentThreshold", () => {
     expect(safePaymentThreshold("Bi-Weekly")).toBe(4);
     expect(safePaymentThreshold("Semi-Monthly")).toBe(4);
     expect(safePaymentThreshold("")).toBe(3);
+  });
+
+  it("treats monthly as the 2-payment threshold", () => {
+    expect(isMonthlyPayFreq("Monthly")).toBe(true);
+    expect(isMonthlyPayFreq("Bi-Weekly")).toBe(false);
   });
 });
 

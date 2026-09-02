@@ -174,6 +174,7 @@ describe("promoteCalculatedPeriodToHistory", () => {
           payFreq: null,
           enrolledDate: null,
           firstPaymentClearedDate: null,
+          secondPaymentClearedDate: null,
           droppedDate: null,
         },
       ];
@@ -247,6 +248,7 @@ describe("promoteCalculatedPeriodToHistory", () => {
         payFreq: "Bi-Weekly",
         enrolledDate: "2026-06-01",
         firstPaymentClearedDate: "2026-07-01",
+        secondPaymentClearedDate: null,
         droppedDate: null,
       },
       {
@@ -267,6 +269,7 @@ describe("promoteCalculatedPeriodToHistory", () => {
         payFreq: "Monthly",
         enrolledDate: "2026-06-15",
         firstPaymentClearedDate: "2026-07-10",
+        secondPaymentClearedDate: "2026-07-20",
         droppedDate: null,
       },
       {
@@ -288,6 +291,7 @@ describe("promoteCalculatedPeriodToHistory", () => {
         payFreq: null,
         enrolledDate: null,
         firstPaymentClearedDate: null,
+        secondPaymentClearedDate: null,
         droppedDate: "2026-07-20",
       },
     ]);

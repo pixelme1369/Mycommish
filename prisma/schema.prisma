@@ -120,6 +120,8 @@ model AgentDocument {
   createdById String
   sentAt      DateTime @default(now())
   createdAt   DateTime @default(now())
+  /// Admin filed a physically signed copy — no portal e-sign, kept as a record.
+  filedRecord Boolean  @default(false)
 
   createdBy  Agent                     @relation("DocumentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   signatures AgentDocumentSignature[]
@@ -566,6 +568,10 @@ model ClientIdentity {
   /// CRM "1st Payment Date" (scheduled) — used for Waiting For First Payment watchlist.
   firstPaymentDate String?
   firstPaymentClearedDate String?
+  /// CRM "2nd Payment Cleared Date" — monthly files need this to pass last-check threshold.
+  secondPaymentClearedDate String?
+  /// Latest CRM "Payments Made" (directory). Used for last-check threshold.
+  paymentsMade Int?
   droppedDate  String?
   updatedAt    DateTime @updatedAt
 
@@ -604,6 +610,7 @@ model ClientEvent {
   clientName               String?
   enrolledDate             String?
   firstPaymentClearedDate  String?
+  secondPaymentClearedDate String?
   droppedDate              String?
   payFreq                  String?
   paymentsMade             Int     @default(0)
