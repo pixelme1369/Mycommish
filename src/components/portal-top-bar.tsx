@@ -47,21 +47,29 @@ export function PortalTopBar({
           },
         ]
       : []),
-    {
-      href: "/portal/goals",
-      label: "Goals",
-      match: (p: string) => p.startsWith("/portal/goals"),
-    },
+    ...(!opener
+      ? [
+          {
+            href: "/portal/goals",
+            label: "Goals",
+            match: (p: string) => p.startsWith("/portal/goals"),
+          },
+        ]
+      : []),
     {
       href: "/portal/documents",
       label: "Signed documents",
       match: (p: string) => p.startsWith("/portal/documents"),
     },
-    {
-      href: dailyTasksHref,
-      label: "Daily Tasks",
-      match: (p: string) => p.startsWith("/portal/daily-tasks"),
-    },
+    ...(!opener
+      ? [
+          {
+            href: dailyTasksHref,
+            label: "Daily Tasks",
+            match: (p: string) => p.startsWith("/portal/daily-tasks"),
+          },
+        ]
+      : []),
     {
       href: filesHref,
       label: filesHref.includes("/manager") ? "All files" : "My files",

@@ -92,6 +92,7 @@ export function StatementSignPanel({
   className,
   kind = "agent",
   openerAgentId,
+  allowSign = true,
 }: {
   periodId?: string;
   agentPeriodId?: string;
@@ -108,6 +109,8 @@ export function StatementSignPanel({
   className?: string;
   kind?: "agent" | "opener";
   openerAgentId?: string;
+  /** Hide Sign until there is something to sign (empty opener months). */
+  allowSign?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -122,7 +125,7 @@ export function StatementSignPanel({
 
   const canAgentSign = role === "agent" && status === "unsigned";
   const canManagerSign = role === "manager" && status === "agent_signed";
-  const canSign = canAgentSign || canManagerSign;
+  const canSign = allowSign && (canAgentSign || canManagerSign);
   const showReset = canReset && status !== "unsigned";
   const signerName = lockedName.trim();
   const previewName = signerName || "Your name";
@@ -301,7 +304,9 @@ export function StatementSignPanel({
       ? "Fully signed"
       : status === "agent_signed"
         ? "Awaiting manager signature"
-        : "Not signed yet";
+        : !allowSign
+          ? "Sign after you log transfers"
+          : "Not signed yet";
 
   return (
     <div className={cn("rounded-xl ring-1 ring-border/70 bg-background p-4", className)}>

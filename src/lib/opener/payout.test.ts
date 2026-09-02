@@ -7,6 +7,11 @@ import {
   openerPeriodFromYmd,
   openerSnapshotFromForth,
   formatOpenerPayDate,
+  openerMonthYmdRange,
+  openerMonthDays,
+  formatOpenerTransferDay,
+  ymdInOpenerMonth,
+  clampYmdToOpenerMonth,
 } from "./payout";
 
 describe("openerPayoutForDebt", () => {
@@ -72,5 +77,22 @@ describe("opener pay date", () => {
   it("pays August files on September 25", () => {
     expect(openerPeriodFromYmd("2026-08-14")).toBe("2026-08");
     expect(formatOpenerPayDate("2026-08")).toBe("Sep 25, 2026");
+  });
+});
+
+describe("openerMonthYmdRange", () => {
+  it("bounds August to the 1st through the 31st", () => {
+    expect(openerMonthYmdRange("2026-08")).toEqual({
+      min: "2026-08-01",
+      max: "2026-08-31",
+    });
+    expect(ymdInOpenerMonth("2026-08-14", "2026-08")).toBe(true);
+    expect(ymdInOpenerMonth("2026-09-01", "2026-08")).toBe(false);
+    expect(clampYmdToOpenerMonth("2026-09-02", "2026-08")).toBe("2026-08-31");
+    expect(clampYmdToOpenerMonth("2026-07-20", "2026-08")).toBe("2026-08-01");
+    expect(openerMonthDays("2026-08")).toHaveLength(31);
+    expect(openerMonthDays("2026-08")[0]).toBe("2026-08-01");
+    expect(openerMonthDays("2026-08").at(-1)).toBe("2026-08-31");
+    expect(formatOpenerTransferDay("2026-08-03")).toBe("Aug 3, 2026");
   });
 });

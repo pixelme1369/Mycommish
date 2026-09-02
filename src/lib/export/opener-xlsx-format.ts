@@ -2,7 +2,7 @@ export const OPENER_LOG_SHEET = "Opener Transfer Log";
 export const OPENER_SUMMARY_SHEET = "Monthly Summary";
 
 export const OPENER_LOG_HEADERS = [
-  "Date",
+  "Transfer Date",
   "Opener",
   "File ID",
   "Debt Load",

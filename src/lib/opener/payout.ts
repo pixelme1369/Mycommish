@@ -31,9 +31,62 @@ export function formatOpenerPayStatus(status: OpenerPayStatusName): string {
   return status === OPENER_PAY_APPROVED ? "Approved" : "Excluded - Canceled";
 }
 
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH = /^\d{4}-\d{2}$/;
+
 /** Calendar month of the opener-entered date → same period key as agent commissions (YYYY-MM). */
 export function openerPeriodFromYmd(ymd: string): string {
   return (ymd || "").slice(0, 7);
+}
+
+/** First and last calendar day of a YYYY-MM pay month. */
+export function openerMonthYmdRange(
+  monthLabel: string,
+): { min: string; max: string } | null {
+  if (!MONTH.test(monthLabel)) return null;
+  const [y, m] = monthLabel.split("-").map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return {
+    min: `${monthLabel}-01`,
+    max: `${monthLabel}-${String(last).padStart(2, "0")}`,
+  };
+}
+
+export function ymdInOpenerMonth(ymd: string, monthLabel: string): boolean {
+  return YMD.test(ymd) && openerPeriodFromYmd(ymd) === monthLabel;
+}
+
+/** Every calendar day in a YYYY-MM pay month, as YYYY-MM-DD. */
+export function openerMonthDays(monthLabel: string): string[] {
+  const range = openerMonthYmdRange(monthLabel);
+  if (!range) return [];
+  const days: string[] = [];
+  for (let d = 1; ; d++) {
+    const ymd = `${monthLabel}-${String(d).padStart(2, "0")}`;
+    if (ymd > range.max) break;
+    days.push(ymd);
+  }
+  return days;
+}
+
+export function formatOpenerTransferDay(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  if (!y || !m || !d) return ymd;
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/** Keep a date inside the selected pay month (for the date picker default). */
+export function clampYmdToOpenerMonth(ymd: string, monthLabel: string): string {
+  const range = openerMonthYmdRange(monthLabel);
+  if (!range) return ymd;
+  if (!YMD.test(ymd) || ymd < range.min) return range.min;
+  if (ymd > range.max) return range.max;
+  return ymd;
 }
 
 export function formatOpenerPeriodName(periodLabel: string): string {

@@ -143,10 +143,9 @@ export default async function PortalHome({
       : undefined;
 
   const latest = unique[0];
-  let subtitle: string;
+  let subtitle: string | null = null;
   if (opener) {
-    subtitle =
-      "Log transfers by File ID. Pay is the 25th of the next month — same payday as agents.";
+    subtitle = null;
   } else if (!aliasNames.length) {
     subtitle = "Ask an admin to map your Sales Rep name(s) to see commissions.";
   } else if (!latest) {
@@ -168,7 +167,9 @@ export default async function PortalHome({
         <h1 className="font-heading text-3xl tracking-tight text-foreground sm:text-4xl">
           {dayGreeting()}, {firstName(session.user.displayName)}!
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground sm:text-base">{subtitle}</p>
+        {subtitle ? (
+          <p className="mt-2 text-sm text-muted-foreground sm:text-base">{subtitle}</p>
+        ) : null}
       </header>
 
       {opener ? (
@@ -215,6 +216,7 @@ export default async function PortalHome({
               managerSignedAt={openerStatement.managerSignedAt}
               managerTypedName={openerStatement.managerTypedName}
               canReset={openerStatement.status !== "fully_signed"}
+              allowSign={openerLogs.length > 0}
             />
           ) : null}
         </>
@@ -296,7 +298,7 @@ export default async function PortalHome({
         </Card>
       )}
 
-      {needsPhone ? <AgentPhoneForm currentPhone={phone} /> : null}
+      {needsPhone && !opener ? <AgentPhoneForm currentPhone={phone} /> : null}
     </AppShell>
   );
 }

@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireOpener } from "@/lib/auth-guards";
-import { normalizeForthId } from "@/lib/opener/payout";
+import {
+  formatOpenerPeriodName,
+  normalizeForthId,
+  openerPeriodFromYmd,
+  ymdInOpenerMonth,
+} from "@/lib/opener/payout";
 import {
   existingOpenerLog,
   lookupForthForOpener,
@@ -34,11 +39,18 @@ export async function createOpenerLogAction(
   if (!agentId) return { ok: false, error: "Not signed in." };
 
   const forthId = normalizeForthId(String(formData.get("forthId") || ""));
+  const monthLabel = String(formData.get("monthLabel") || "").trim();
   const transferYmd = String(formData.get("transferYmd") || "").trim();
   if (!forthId) return { ok: false, error: "File ID is required." };
   if (!YMD.test(transferYmd)) return { ok: false, error: "Pick a valid date." };
+  if (!/^\d{4}-\d{2}$/.test(monthLabel) || !ymdInOpenerMonth(transferYmd, monthLabel)) {
+    return {
+      ok: false,
+      error: `Transfer date must be in ${formatOpenerPeriodName(monthLabel) || "the selected pay period"}.`,
+    };
+  }
 
-  const monthGate = await assertOpenerMonthOpen(transferYmd.slice(0, 7));
+  const monthGate = await assertOpenerMonthOpen(monthLabel);
   if (!monthGate.ok) return monthGate;
 
   const existing = await existingOpenerLog(forthId);
@@ -96,16 +108,22 @@ export async function updateOpenerLogDateAction(
   if (!id) return { ok: false, error: "Missing row." };
   if (!YMD.test(transferYmd)) return { ok: false, error: "Pick a valid date." };
 
-  const nextMonth = await assertOpenerMonthOpen(transferYmd.slice(0, 7));
-  if (!nextMonth.ok) return nextMonth;
   const currentMonth = await assertOpenerLogMonthOpen({ logId: id });
   if (!currentMonth.ok) return currentMonth;
 
   const row = await prisma.openerTransferLog.findFirst({
     where: { id, agentId },
-    select: { id: true },
+    select: { id: true, transferYmd: true },
   });
   if (!row) return { ok: false, error: "That row is not yours." };
+
+  const monthLabel = openerPeriodFromYmd(row.transferYmd);
+  if (!ymdInOpenerMonth(transferYmd, monthLabel)) {
+    return {
+      ok: false,
+      error: `Transfer date must be in ${formatOpenerPeriodName(monthLabel)}.`,
+    };
+  }
 
   await prisma.openerTransferLog.update({
     where: { id },

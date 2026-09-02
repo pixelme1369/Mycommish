@@ -35,7 +35,7 @@ export function OpenerDetailTable({
       <table className="w-full min-w-[64rem] border-collapse text-left text-sm">
         <thead className="bg-muted/40 text-muted-foreground">
           <tr>
-            <th className="px-3 py-2.5 font-medium">Date</th>
+            <th className="px-3 py-2.5 font-medium">Transfer Date</th>
             <th className="px-3 py-2.5 font-medium">File ID</th>
             <th className="px-3 py-2.5 font-medium">Debt Load (CRM)</th>
             <th className="px-3 py-2.5 font-medium">Stage (CRM)</th>

@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function GoalsPage() {
   const session = await requireSession();
   if (isSuperAdminUser(session)) redirect("/admin");
+  if (isOpenerRole(session.user.role)) redirect("/portal");
 
   const agentId = session.user.agentId;
   const aliasNames = session.user.aliasNames || [];

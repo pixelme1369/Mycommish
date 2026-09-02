@@ -98,8 +98,8 @@ export async function buildOpenerCommissionStatementPdf(opts: {
 
   doc.moveDown(0.8);
   doc.font("Helvetica-Bold").fontSize(8).fillColor("#ffffff");
-  const headers = ["Date", "File ID", "Debt", "Status", "Commission", "Pay Status"];
-  const widths = [70, 90, 80, 110, 80, 98];
+  const headers = ["Transfer Date", "File ID", "Debt", "Status", "Commission", "Pay Status"];
+  const widths = [88, 82, 80, 100, 80, 98];
   let x = left;
   const headY = doc.y;
   doc.rect(left, headY, usable, 16).fill("#1e4d8c");

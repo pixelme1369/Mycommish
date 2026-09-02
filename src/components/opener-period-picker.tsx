@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 import { Label } from "@/components/ui/label";
 import {
   formatOpenerPayDate,
@@ -23,10 +24,12 @@ export function OpenerPeriodPicker({
   periods,
   selected,
   pathname,
+  stats,
 }: {
   periods: string[];
   selected: string;
   pathname: string;
+  stats?: ReactNode;
 }) {
   const router = useRouter();
 
@@ -37,7 +40,7 @@ export function OpenerPeriodPicker({
   }
 
   return (
-    <div className="mb-6 flex flex-wrap items-end gap-3">
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
       <div className="space-y-1.5">
         <Label htmlFor="opener-pay-period" className="text-muted-foreground">
           Pay period
@@ -59,6 +62,7 @@ export function OpenerPeriodPicker({
           ))}
         </select>
       </div>
+      {stats}
     </div>
   );
 }
