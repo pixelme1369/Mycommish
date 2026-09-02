@@ -13,6 +13,11 @@ import {
   signStatementAsManagerAction,
 } from "./statement-actions";
 import {
+  resetOpenerStatementSignaturesAction,
+  signOpenerStatementAsManagerAction,
+  signOpenerStatementAsOpenerAction,
+} from "@/app/portal/opener/statement-actions";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogContent,
@@ -85,9 +90,11 @@ export function StatementSignPanel({
   managerTypedName,
   canReset,
   className,
+  kind = "agent",
+  openerAgentId,
 }: {
-  periodId: string;
-  agentPeriodId: string;
+  periodId?: string;
+  agentPeriodId?: string;
   periodLabel: string;
   role: Role;
   /** Account display name — not editable; stamped on the PDF. */
@@ -99,6 +106,8 @@ export function StatementSignPanel({
   managerTypedName: string | null;
   canReset: boolean;
   className?: string;
+  kind?: "agent" | "opener";
+  openerAgentId?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -223,12 +232,25 @@ export function StatementSignPanel({
       }
 
       const action =
-        role === "agent" ? signStatementAsAgentAction : signStatementAsManagerAction;
-      const res = await action({
-        periodId,
-        agentPeriodId,
-        signatureDataUrl,
-      });
+        kind === "opener"
+          ? role === "agent"
+            ? signOpenerStatementAsOpenerAction
+            : signOpenerStatementAsManagerAction
+          : role === "agent"
+            ? signStatementAsAgentAction
+            : signStatementAsManagerAction;
+      const res =
+        kind === "opener"
+          ? await (action as typeof signOpenerStatementAsOpenerAction)({
+              openerAgentId: openerAgentId || "",
+              monthLabel: periodLabel,
+              signatureDataUrl,
+            })
+          : await (action as typeof signStatementAsAgentAction)({
+              periodId: periodId || "",
+              agentPeriodId: agentPeriodId || "",
+              signatureDataUrl,
+            });
       if (!res.ok) {
         setError(res.error);
         return;
@@ -248,7 +270,16 @@ export function StatementSignPanel({
     }
     setError(null);
     start(async () => {
-      const res = await resetStatementSignaturesAction({ periodId, agentPeriodId });
+      const res =
+        kind === "opener"
+          ? await resetOpenerStatementSignaturesAction({
+              openerAgentId: openerAgentId || "",
+              monthLabel: periodLabel,
+            })
+          : await resetStatementSignaturesAction({
+              periodId: periodId || "",
+              agentPeriodId: agentPeriodId || "",
+            });
       if (!res.ok) {
         setError(res.error);
         return;
@@ -257,6 +288,14 @@ export function StatementSignPanel({
     });
   }
 
+  const viewHref =
+    kind === "opener"
+      ? `/api/portal/opener/statement?agentId=${encodeURIComponent(openerAgentId || "")}&month=${encodeURIComponent(periodLabel)}&inline=1`
+      : `/api/portal/periods/${periodId}/agents/${agentPeriodId}/statement?inline=1`;
+  const downloadHref =
+    kind === "opener"
+      ? `/api/portal/opener/statement?agentId=${encodeURIComponent(openerAgentId || "")}&month=${encodeURIComponent(periodLabel)}`
+      : `/api/portal/periods/${periodId}/agents/${agentPeriodId}/statement`;
   const statusLabel =
     status === "fully_signed"
       ? "Fully signed"
@@ -274,7 +313,7 @@ export function StatementSignPanel({
           <p className="mt-1 text-sm font-medium text-foreground">{statusLabel}</p>
           {agentSignedAt ? (
             <p className="mt-1 text-xs text-muted-foreground">
-              Agent: {agentTypedName || "—"} ·{" "}
+              {kind === "opener" ? "Opener" : "Agent"}: {agentTypedName || "—"} ·{" "}
               {new Date(agentSignedAt).toLocaleString(undefined, {
                 month: "short",
                 day: "numeric",
@@ -300,7 +339,7 @@ export function StatementSignPanel({
         </div>
         <div className="flex flex-wrap gap-2">
           <a
-            href={`/api/portal/periods/${periodId}/agents/${agentPeriodId}/statement?inline=1`}
+            href={viewHref}
             target="_blank"
             rel="noopener noreferrer"
             className={cn(
@@ -310,7 +349,7 @@ export function StatementSignPanel({
             View
           </a>
           <a
-            href={`/api/portal/periods/${periodId}/agents/${agentPeriodId}/statement`}
+            href={downloadHref}
             className={cn(
               "inline-flex h-8 items-center justify-center rounded-lg border border-border bg-background px-3 text-sm font-medium hover:bg-muted",
             )}

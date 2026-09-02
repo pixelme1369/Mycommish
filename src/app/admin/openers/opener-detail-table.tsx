@@ -24,9 +24,11 @@ export type OpenerDetailRow = {
 export function OpenerDetailTable({
   rows,
   canEditPayStatus,
+  locked = false,
 }: {
   rows: OpenerDetailRow[];
   canEditPayStatus: boolean;
+  locked?: boolean;
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
@@ -78,7 +80,7 @@ export function OpenerDetailTable({
                   {r.unmatched ? "—" : money(r.commission)}
                 </td>
                 <td className="px-3 py-2">
-                  {canEditPayStatus ? (
+                  {canEditPayStatus && !locked ? (
                     <OpenerPayStatusSelect
                       logId={r.id}
                       payStatus={r.payStatus}
@@ -89,11 +91,15 @@ export function OpenerDetailTable({
                   )}
                 </td>
                 <td className="px-3 py-2">
-                  <OpenerNotesInput
-                    logId={r.id}
-                    notes={r.notes}
-                    action={setOpenerLogNotesStaffAction}
-                  />
+                  {locked ? (
+                    <span className="text-muted-foreground">{r.notes || "—"}</span>
+                  ) : (
+                    <OpenerNotesInput
+                      logId={r.id}
+                      notes={r.notes}
+                      action={setOpenerLogNotesStaffAction}
+                    />
+                  )}
                 </td>
               </tr>
             ))

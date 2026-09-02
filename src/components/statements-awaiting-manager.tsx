@@ -77,3 +77,73 @@ export function StatementsAwaitingManager({
     </section>
   );
 }
+
+export function OpenerStatementsAwaitingManager({
+  rows,
+}: {
+  rows: Array<{
+    statementId: string;
+    agentId: string;
+    agentName: string;
+    periodLabel: string;
+    netCommission: number;
+    agentTypedName: string | null;
+    agentSignedAt: Date;
+  }>;
+}) {
+  return (
+    <section className="mt-8">
+      <h2 className="font-heading text-xl tracking-tight">
+        Openers awaiting manager signature
+        {rows.length > 0 ? ` (${rows.length})` : ""}
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Openers who signed their commission statement and need a countersignature.
+      </p>
+      {rows.length === 0 ? (
+        <p className="mt-4 text-sm text-muted-foreground">None waiting right now.</p>
+      ) : (
+        <Card className="glass-panel mt-4 overflow-hidden py-0">
+          <table className="min-w-full text-left text-sm">
+            <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+              <tr>
+                <th className="px-4 py-2.5 font-medium">Period</th>
+                <th className="px-4 py-2.5 font-medium">Opener</th>
+                <th className="px-4 py-2.5 font-medium">Payout</th>
+                <th className="px-4 py-2.5 font-medium">Opener signed</th>
+                <th className="px-4 py-2.5 font-medium" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/70">
+              {rows.map((r) => (
+                <tr key={r.statementId}>
+                  <td className="px-4 py-2.5 font-medium">{r.periodLabel}</td>
+                  <td className="px-4 py-2.5">{r.agentName}</td>
+                  <td className="px-4 py-2.5 tabular-nums">{money(r.netCommission)}</td>
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                    {r.agentTypedName || "—"}
+                    <span className="mx-1">·</span>
+                    {r.agentSignedAt.toLocaleString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <Link
+                      href={`/portal/opener/statement/${r.agentId}?month=${r.periodLabel}`}
+                      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+                    >
+                      Countersign →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+    </section>
+  );
+}

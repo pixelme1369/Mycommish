@@ -13,6 +13,8 @@ import {
 import { OpenerSummaryTable } from "@/components/opener-summary-table";
 import { OpenerPeriodPicker } from "@/components/opener-period-picker";
 import { ManagerTopNav } from "@/app/manager/manager-top-nav";
+import { getOpenerPeriodView } from "@/lib/opener/period";
+import { openerStatementStatusByAgent } from "@/lib/opener/statements";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,10 @@ export default async function ManagerOpenersPage({
     defaultOpenerPeriodLabel(monthRaw),
   ]);
   const rows = await listOpenerSummaries(monthLabel);
+  const [periodView, signStatus] = await Promise.all([
+    getOpenerPeriodView(monthLabel),
+    openerStatementStatusByAgent(monthLabel),
+  ]);
 
   return (
     <AppShell wide>
@@ -63,7 +69,9 @@ export default async function ManagerOpenersPage({
           rows={rows}
           detailBase="/manager/openers"
           monthLabel={monthLabel}
-          canEditUpscore
+          canEditUpscore={!periodView.locked}
+          locked={periodView.locked}
+          signStatus={signStatus}
         />
       </div>
     </AppShell>

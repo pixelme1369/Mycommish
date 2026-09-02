@@ -15,6 +15,12 @@ import {
 import { OpenerDetailTable } from "@/app/admin/openers/opener-detail-table";
 import { OpenerPeriodPicker } from "@/components/opener-period-picker";
 import { ManagerTopNav } from "@/app/manager/manager-top-nav";
+import { getOpenerPeriodView } from "@/lib/opener/period";
+import {
+  getOpenerStatement,
+  openerStatementViewFromRow,
+} from "@/lib/opener/statements";
+import { StatementSignPanel } from "@/app/portal/period/[periodId]/agent/[agentPeriodId]/statement-sign-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +47,10 @@ export default async function ManagerOpenerDetailPage({
   if (!agent) notFound();
 
   const logs = await listOpenerLogsForAgent(agentId, monthLabel);
+  const [periodView, statement] = await Promise.all([
+    getOpenerPeriodView(monthLabel),
+    getOpenerStatement(agentId, monthLabel).then(openerStatementViewFromRow),
+  ]);
 
   return (
     <AppShell wide>
@@ -72,7 +82,8 @@ export default async function ManagerOpenerDetailPage({
           pathname={`/manager/openers/${agentId}`}
         />
         <OpenerDetailTable
-          canEditPayStatus={isAdminUser(session)}
+          canEditPayStatus={isAdminUser(session) && !periodView.locked}
+          locked={periodView.locked}
           rows={logs.map((r) => ({
             id: r.id,
             transferYmd: r.transferYmd,
@@ -86,6 +97,20 @@ export default async function ManagerOpenerDetailPage({
             unmatched: r.unmatched,
             notes: r.notes,
           }))}
+        />
+        <StatementSignPanel
+          className="mt-6"
+          kind="opener"
+          openerAgentId={agentId}
+          periodLabel={monthLabel}
+          role="manager"
+          lockedName={session.user.displayName || ""}
+          status={statement.status}
+          agentSignedAt={statement.agentSignedAt}
+          agentTypedName={statement.agentTypedName}
+          managerSignedAt={statement.managerSignedAt}
+          managerTypedName={statement.managerTypedName}
+          canReset
         />
       </div>
     </AppShell>

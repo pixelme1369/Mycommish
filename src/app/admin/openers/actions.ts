@@ -9,6 +9,12 @@ import {
   openerPayStatusFromForthStatus,
 } from "@/lib/opener/payout";
 import { setOpenerLogNotes, setOpenerUpscore } from "@/lib/opener/logs";
+import {
+  assertOpenerLogMonthOpen,
+  assertOpenerMonthOpen,
+  closeOpenerPeriod,
+  logOpenerPeriodAsPaid,
+} from "@/lib/opener/period";
 import type { OpenerLogActionResult } from "@/lib/opener/action-types";
 
 function revalidate(agentId: string) {
@@ -33,6 +39,9 @@ export async function setOpenerPayStatusAction(
     select: { id: true, agentId: true, status: true },
   });
   if (!row) return { ok: false, error: "Row not found." };
+
+  const monthGate = await assertOpenerLogMonthOpen({ logId: id });
+  if (!monthGate.ok) return monthGate;
 
   if (value === "auto") {
     await prisma.openerTransferLog.update({
@@ -68,6 +77,9 @@ export async function setOpenerUpscoreAction(
   const amountRaw = String(formData.get("amount") || "");
   if (!agentId) return { ok: false, error: "Missing opener." };
 
+  const monthGate = await assertOpenerMonthOpen(monthLabel);
+  if (!monthGate.ok) return monthGate;
+
   const res = await setOpenerUpscore({
     agentId,
     monthLabel,
@@ -76,7 +88,7 @@ export async function setOpenerUpscoreAction(
   });
   if (!res.ok) return res;
   revalidate(agentId);
-  return { ok: true };
+  return { ok: true, message: "Saved." };
 }
 
 export async function setOpenerLogNotesStaffAction(
@@ -88,8 +100,43 @@ export async function setOpenerLogNotesStaffAction(
   const notesRaw = String(formData.get("notes") || "");
   if (!id) return { ok: false, error: "Missing row." };
 
+  const monthGate = await assertOpenerLogMonthOpen({ logId: id });
+  if (!monthGate.ok) return monthGate;
+
   const res = await setOpenerLogNotes({ id, notesRaw });
   if (!res.ok) return res;
   revalidate(res.agentId);
   return { ok: true };
+}
+
+function revalidateOpenerPeriod(monthLabel: string) {
+  revalidatePath("/portal");
+  revalidatePath("/admin/openers");
+  revalidatePath("/manager/openers");
+  revalidatePath("/admin");
+  revalidatePath("/manager");
+  revalidatePath(`/admin/openers?month=${monthLabel}`);
+}
+
+export async function closeOpenerPeriodAction(
+  monthLabel: string,
+): Promise<OpenerLogActionResult> {
+  await requireAdmin();
+  const res = await closeOpenerPeriod(monthLabel);
+  if (!res.ok) return res;
+  revalidateOpenerPeriod(monthLabel);
+  return { ok: true, message: "Period closed." };
+}
+
+export async function logOpenerPeriodAsPaidAction(
+  monthLabel: string,
+): Promise<OpenerLogActionResult> {
+  const session = await requireAdmin();
+  const res = await logOpenerPeriodAsPaid({
+    monthLabel,
+    paidById: session.user.agentId ?? null,
+  });
+  if (!res.ok) return res;
+  revalidateOpenerPeriod(monthLabel);
+  return { ok: true, message: "Logged as paid." };
 }

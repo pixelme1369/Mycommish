@@ -55,11 +55,13 @@ export function OpenerTransfersPanel({
   rows,
   monthLabel,
   periods,
+  locked = false,
 }: {
   todayYmd: string;
   rows: OpenerLogRowView[];
   monthLabel: string;
   periods: string[];
+  locked?: boolean;
 }) {
   const [createState, createAction, createPending] = useActionState(
     createOpenerLogAction,
@@ -129,6 +131,7 @@ export function OpenerTransfersPanel({
         <h2 className="font-heading text-lg tracking-tight">Log a transfer</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Enter File ID (Forth id). Stage, status, debt load, and commission fill from Forth.
+          {locked ? " This pay period is closed." : ""}
         </p>
         <form action={createAction} className="mt-4 grid gap-3 sm:grid-cols-[10rem_1fr_auto] sm:items-end">
           <div className="space-y-1.5">
@@ -147,7 +150,7 @@ export function OpenerTransfersPanel({
               autoComplete="off"
             />
           </div>
-          <Button type="submit" disabled={createPending || blockSave} size="sm" className="sm:mb-0.5">
+          <Button type="submit" disabled={createPending || blockSave || locked} size="sm" className="sm:mb-0.5">
             {createPending ? "Saving…" : "Save"}
           </Button>
         </form>
@@ -248,7 +251,7 @@ export function OpenerTransfersPanel({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((r) => <OpenerLogRow key={r.id} row={r} />)
+              rows.map((r) => <OpenerLogRow key={r.id} row={r} locked={locked} />)
             )}
           </TableBody>
         </Table>
@@ -257,7 +260,7 @@ export function OpenerTransfersPanel({
   );
 }
 
-function OpenerLogRow({ row }: { row: OpenerLogRowView }) {
+function OpenerLogRow({ row, locked }: { row: OpenerLogRowView; locked: boolean }) {
   const [dateState, dateAction, datePending] = useActionState(
     updateOpenerLogDateAction,
     null as OpenerLogActionResult | null,
@@ -283,7 +286,7 @@ function OpenerLogRow({ row }: { row: OpenerLogRowView }) {
             type="date"
             name="transferYmd"
             defaultValue={row.transferYmd}
-            disabled={datePending}
+            disabled={datePending || locked}
             className="h-8 w-[10.5rem]"
           />
         </form>
@@ -309,11 +312,15 @@ function OpenerLogRow({ row }: { row: OpenerLogRowView }) {
       </TableCell>
       <TableCell>{formatOpenerPayStatus(row.payStatus)}</TableCell>
       <TableCell>
-        <OpenerNotesInput
-          logId={row.id}
-          notes={row.notes}
-          action={updateOpenerLogNotesAction}
-        />
+        {locked ? (
+          <span className="text-sm text-muted-foreground">{row.notes || "—"}</span>
+        ) : (
+          <OpenerNotesInput
+            logId={row.id}
+            notes={row.notes}
+            action={updateOpenerLogNotesAction}
+          />
+        )}
       </TableCell>
       <TableCell className="text-right">
         <form
@@ -323,7 +330,7 @@ function OpenerLogRow({ row }: { row: OpenerLogRowView }) {
           }}
         >
           <input type="hidden" name="id" value={row.id} />
-          <Button type="submit" variant="ghost" size="sm" disabled={delPending}>
+          <Button type="submit" variant="ghost" size="sm" disabled={delPending || locked}>
             {delPending ? "…" : "Delete"}
           </Button>
         </form>

@@ -10,6 +10,7 @@ import {
   matchedDebtTooLow,
   setOpenerLogNotes,
 } from "@/lib/opener/logs";
+import { assertOpenerLogMonthOpen, assertOpenerMonthOpen } from "@/lib/opener/period";
 import type { OpenerLogActionResult } from "@/lib/opener/action-types";
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
@@ -36,6 +37,9 @@ export async function createOpenerLogAction(
   const transferYmd = String(formData.get("transferYmd") || "").trim();
   if (!forthId) return { ok: false, error: "File ID is required." };
   if (!YMD.test(transferYmd)) return { ok: false, error: "Pick a valid date." };
+
+  const monthGate = await assertOpenerMonthOpen(transferYmd.slice(0, 7));
+  if (!monthGate.ok) return monthGate;
 
   const existing = await existingOpenerLog(forthId);
   if (existing) {
@@ -92,6 +96,11 @@ export async function updateOpenerLogDateAction(
   if (!id) return { ok: false, error: "Missing row." };
   if (!YMD.test(transferYmd)) return { ok: false, error: "Pick a valid date." };
 
+  const nextMonth = await assertOpenerMonthOpen(transferYmd.slice(0, 7));
+  if (!nextMonth.ok) return nextMonth;
+  const currentMonth = await assertOpenerLogMonthOpen({ logId: id });
+  if (!currentMonth.ok) return currentMonth;
+
   const row = await prisma.openerTransferLog.findFirst({
     where: { id, agentId },
     select: { id: true },
@@ -117,6 +126,9 @@ export async function deleteOpenerLogAction(
   const id = String(formData.get("id") || "");
   if (!id) return { ok: false, error: "Missing row." };
 
+  const monthGate = await assertOpenerLogMonthOpen({ logId: id });
+  if (!monthGate.ok) return monthGate;
+
   const row = await prisma.openerTransferLog.findFirst({
     where: { id, agentId },
     select: { id: true },
@@ -139,6 +151,9 @@ export async function updateOpenerLogNotesAction(
   const id = String(formData.get("id") || "");
   const notesRaw = String(formData.get("notes") || "");
   if (!id) return { ok: false, error: "Missing row." };
+
+  const monthGate = await assertOpenerLogMonthOpen({ logId: id });
+  if (!monthGate.ok) return monthGate;
 
   const res = await setOpenerLogNotes({ id, notesRaw, agentId });
   if (!res.ok) return res;

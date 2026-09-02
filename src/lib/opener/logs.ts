@@ -47,6 +47,7 @@ export async function refreshOpenerTransferLogs(): Promise<{
     select: {
       id: true,
       forthId: true,
+      transferYmd: true,
       payStatusOverridden: true,
       debtLoad: true,
       stageTitle: true,
@@ -57,6 +58,11 @@ export async function refreshOpenerTransferLogs(): Promise<{
     },
   });
   if (!logs.length) return { checked: 0, updated: 0 };
+
+  const { openerMonthLockedSet } = await import("@/lib/opener/period");
+  const lockedMonths = await openerMonthLockedSet(
+    [...new Set(logs.map((l) => l.transferYmd.slice(0, 7)))],
+  );
 
   const contacts = await prisma.forthContact.findMany({
     where: { forthId: { in: logs.map((l) => l.forthId) } },
@@ -72,22 +78,29 @@ export async function refreshOpenerTransferLogs(): Promise<{
   let updated = 0;
   for (const row of logs) {
     const snap = openerSnapshotFromForth(byId.get(row.forthId) ?? null);
-    const nextPay = row.payStatusOverridden ? row.payStatus : snap.payStatus;
+    const locked = lockedMonths.has(row.transferYmd.slice(0, 7));
+    const nextPay = locked
+      ? row.payStatus
+      : row.payStatusOverridden
+        ? row.payStatus
+        : snap.payStatus;
+    const nextCommission = locked ? Number(row.commission) : snap.commission;
+    const nextDebt = locked ? Number(row.debtLoad) : snap.debtLoad;
     const same =
-      Number(row.debtLoad) === snap.debtLoad &&
+      Number(row.debtLoad) === nextDebt &&
       (row.stageTitle || null) === snap.stageTitle &&
       (row.status || null) === snap.status &&
-      Number(row.commission) === snap.commission &&
+      Number(row.commission) === nextCommission &&
       row.payStatus === nextPay &&
       row.unmatched === snap.unmatched;
     if (same) continue;
     await prisma.openerTransferLog.update({
       where: { id: row.id },
       data: {
-        debtLoad: snap.debtLoad,
+        debtLoad: nextDebt,
         stageTitle: snap.stageTitle,
         status: snap.status,
-        commission: snap.commission,
+        commission: nextCommission,
         payStatus: nextPay,
         unmatched: snap.unmatched,
       },

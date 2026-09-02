@@ -36,6 +36,12 @@ import {
   listOpenerPayPeriodLabels,
 } from "@/lib/opener/logs";
 import { OpenerTransfersPanel } from "@/app/portal/opener-log-panel";
+import { getOpenerPeriodView } from "@/lib/opener/period";
+import {
+  getOpenerStatement,
+  openerStatementViewFromRow,
+} from "@/lib/opener/statements";
+import { StatementSignPanel } from "@/app/portal/period/[periodId]/agent/[agentPeriodId]/statement-sign-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +102,12 @@ export default async function PortalHome({
     : ["", [] as string[]];
   const openerLogs =
     opener && agentId ? await listOpenerLogsForAgent(agentId, openerMonth) : [];
+  const openerPeriodView =
+    opener && openerMonth ? await getOpenerPeriodView(openerMonth) : null;
+  const openerStatement =
+    opener && agentId && openerMonth
+      ? openerStatementViewFromRow(await getOpenerStatement(agentId, openerMonth))
+      : null;
 
   const rowSets = opener
     ? []
@@ -160,23 +172,52 @@ export default async function PortalHome({
       </header>
 
       {opener ? (
-        <OpenerTransfersPanel
-          todayYmd={pacificTodayYmd()}
-          monthLabel={openerMonth}
-          periods={openerPeriods}
-          rows={openerLogs.map((r) => ({
-            id: r.id,
-            transferYmd: r.transferYmd,
-            forthId: r.forthId,
-            debtLoad: Number(r.debtLoad),
-            stageTitle: r.stageTitle,
-            status: r.status,
-            commission: Number(r.commission),
-            payStatus: r.payStatus,
-            unmatched: r.unmatched,
-            notes: r.notes,
-          }))}
-        />
+        <>
+          {openerPeriodView ? (
+            <div className="mt-4">
+              <PeriodPayStatusChip
+                paid={openerPeriodView.paid}
+                pendingPayout={
+                  openerStatement?.status === "fully_signed" && !openerPeriodView.paid
+                }
+              />
+            </div>
+          ) : null}
+          <OpenerTransfersPanel
+            todayYmd={pacificTodayYmd()}
+            monthLabel={openerMonth}
+            periods={openerPeriods}
+            locked={openerPeriodView?.locked ?? false}
+            rows={openerLogs.map((r) => ({
+              id: r.id,
+              transferYmd: r.transferYmd,
+              forthId: r.forthId,
+              debtLoad: Number(r.debtLoad),
+              stageTitle: r.stageTitle,
+              status: r.status,
+              commission: Number(r.commission),
+              payStatus: r.payStatus,
+              unmatched: r.unmatched,
+              notes: r.notes,
+            }))}
+          />
+          {agentId && openerStatement ? (
+            <StatementSignPanel
+              className="mt-6"
+              kind="opener"
+              openerAgentId={agentId}
+              periodLabel={openerMonth}
+              role="agent"
+              lockedName={session.user.displayName || ""}
+              status={openerStatement.status}
+              agentSignedAt={openerStatement.agentSignedAt}
+              agentTypedName={openerStatement.agentTypedName}
+              managerSignedAt={openerStatement.managerSignedAt}
+              managerTypedName={openerStatement.managerTypedName}
+              canReset={openerStatement.status !== "fully_signed"}
+            />
+          ) : null}
+        </>
       ) : !aliasNames.length ? (
         <Card className="glass-panel mt-8 p-6 text-sm text-muted-foreground">
           Your login has no CRM name aliases yet. Ask an admin to map your Sales Rep name(s) in

@@ -4,16 +4,26 @@ import type { OpenerSummaryRow } from "@/lib/opener/logs";
 import { OpenerExportButton } from "@/app/admin/openers/opener-export-button";
 import { OpenerUpscoreInput } from "@/app/admin/openers/opener-upscore-input";
 
+function signLabel(status: string | undefined) {
+  if (status === "fully_signed") return "Fully signed";
+  if (status === "agent_signed") return "Awaiting manager";
+  return "Not signed";
+}
+
 export function OpenerSummaryTable({
   rows,
   detailBase,
   monthLabel,
   canEditUpscore = false,
+  locked = false,
+  signStatus,
 }: {
   rows: OpenerSummaryRow[];
   detailBase: "/admin/openers" | "/manager/openers";
   monthLabel: string;
   canEditUpscore?: boolean;
+  locked?: boolean;
+  signStatus?: Map<string, string>;
 }) {
   const qs = monthLabel ? `?month=${monthLabel}` : "";
   const totals = rows.reduce(
@@ -63,12 +73,13 @@ export function OpenerSummaryTable({
               <th className="px-4 py-2.5 text-right font-medium">
                 Pending CRM Review
               </th>
+              <th className="px-4 py-2.5 font-medium">Statement</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                   No opener logins yet.
                 </td>
               </tr>
@@ -90,7 +101,7 @@ export function OpenerSummaryTable({
                     {money(r.commissionTotal)}
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    {canEditUpscore && monthLabel ? (
+                    {canEditUpscore && monthLabel && !locked ? (
                       <OpenerUpscoreInput
                         agentId={r.agentId}
                         monthLabel={monthLabel}
@@ -108,6 +119,14 @@ export function OpenerSummaryTable({
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums">
                     {r.pendingCrmReview}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <Link
+                      href={`/portal/opener/statement/${r.agentId}?month=${monthLabel}`}
+                      className="underline-offset-2 hover:underline"
+                    >
+                      {signLabel(signStatus?.get(r.agentId))}
+                    </Link>
                   </td>
                 </tr>
               ))
@@ -135,6 +154,7 @@ export function OpenerSummaryTable({
                 <td className="px-4 py-2.5 text-right tabular-nums">
                   {totals.pendingCrmReview}
                 </td>
+                <td className="px-4 py-2.5" />
               </tr>
             </tfoot>
           ) : null}

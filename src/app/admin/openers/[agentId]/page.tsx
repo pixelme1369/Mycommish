@@ -16,6 +16,12 @@ import {
 } from "@/lib/opener/logs";
 import { OpenerDetailTable } from "@/app/admin/openers/opener-detail-table";
 import { OpenerPeriodPicker } from "@/components/opener-period-picker";
+import { getOpenerPeriodView } from "@/lib/opener/period";
+import {
+  getOpenerStatement,
+  openerStatementViewFromRow,
+} from "@/lib/opener/statements";
+import { StatementSignPanel } from "@/app/portal/period/[periodId]/agent/[agentPeriodId]/statement-sign-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -41,9 +47,11 @@ export default async function AdminOpenerDetailPage({
   });
   if (!agent) notFound();
 
-  const [logs, pendingManualBonusCount] = await Promise.all([
+  const [logs, pendingManualBonusCount, periodView, statement] = await Promise.all([
     listOpenerLogsForAgent(agentId, monthLabel),
     superAdmin ? countPendingManualBonuses().catch(() => 0) : Promise.resolve(0),
+    getOpenerPeriodView(monthLabel),
+    openerStatementViewFromRow(await getOpenerStatement(agentId, monthLabel)),
   ]);
 
   return (
@@ -82,7 +90,8 @@ export default async function AdminOpenerDetailPage({
           pathname={`/admin/openers/${agentId}`}
         />
         <OpenerDetailTable
-          canEditPayStatus
+          canEditPayStatus={!periodView.locked}
+          locked={periodView.locked}
           rows={logs.map((r) => ({
             id: r.id,
             transferYmd: r.transferYmd,
@@ -96,6 +105,20 @@ export default async function AdminOpenerDetailPage({
             unmatched: r.unmatched,
             notes: r.notes,
           }))}
+        />
+        <StatementSignPanel
+          className="mt-6"
+          kind="opener"
+          openerAgentId={agentId}
+          periodLabel={monthLabel}
+          role="manager"
+          lockedName={session.user.displayName || ""}
+          status={statement.status}
+          agentSignedAt={statement.agentSignedAt}
+          agentTypedName={statement.agentTypedName}
+          managerSignedAt={statement.managerSignedAt}
+          managerTypedName={statement.managerTypedName}
+          canReset
         />
       </div>
     </AppShell>

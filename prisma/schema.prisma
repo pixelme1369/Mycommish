@@ -75,6 +75,10 @@ model Agent {
   openerTransferLogs    OpenerTransferLog[]
   openerPeriodUpscores  OpenerPeriodUpscore[]
   openerUpscoresUpdated OpenerPeriodUpscore[] @relation("OpenerUpscoreUpdatedBy")
+  openerPeriodsPaid     OpenerCommissionPeriod[] @relation("OpenerPeriodPaidBy")
+  openerStatements      OpenerCommissionStatement[]
+  openerStatementsSigned OpenerCommissionStatement[] @relation("OpenerStatementAgentSigner")
+  openerStatementsCountersigned OpenerCommissionStatement[] @relation("OpenerStatementManagerSigner")
   documentsCreated      AgentDocument[]            @relation("DocumentCreatedBy")
   documentSignatures    AgentDocumentSignature[]   @relation("DocumentSigner")
 
@@ -243,6 +247,89 @@ model OpenerPeriodUpscore {
 
   @@unique([agentId, monthLabel])
   @@index([monthLabel])
+}
+
+/// One opener pay month. Close locks edits; Log as paid freezes a snapshot.
+model OpenerCommissionPeriod {
+  id         String       @id @default(cuid())
+  monthLabel String       @unique
+  status     PeriodStatus @default(open)
+  closedAt   DateTime?
+  paidAt     DateTime?
+  paidById   String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  paidBy     Agent?           @relation("OpenerPeriodPaidBy", fields: [paidById], references: [id], onDelete: SetNull)
+  paidFiles  OpenerPaidFile[]
+  paidUpscores OpenerPaidUpscore[]
+}
+
+/// Opener e-sign then manager countersign — same statuses as agent CommissionStatement.
+model OpenerCommissionStatement {
+  id         String              @id @default(cuid())
+  agentId    String
+  monthLabel String
+  status     StatementSignStatus @default(unsigned)
+
+  approvedTransfers Int?
+  commissionTotal   Decimal? @db.Decimal(14, 2)
+  upscore           Decimal? @db.Decimal(14, 2)
+  totalPayout       Decimal? @db.Decimal(14, 2)
+
+  agentTypedName    String?
+  agentSignaturePng Bytes?
+  agentSignedAt     DateTime?
+  agentSignedById   String?
+
+  managerTypedName    String?
+  managerSignaturePng Bytes?
+  managerSignedAt     DateTime?
+  managerSignedById   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agent         Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentSigner   Agent? @relation("OpenerStatementAgentSigner", fields: [agentSignedById], references: [id], onDelete: SetNull)
+  managerSigner Agent? @relation("OpenerStatementManagerSigner", fields: [managerSignedById], references: [id], onDelete: SetNull)
+
+  @@unique([agentId, monthLabel])
+  @@index([monthLabel, status])
+  @@index([status])
+}
+
+/// Frozen file rows when admin logs the opener month as paid.
+model OpenerPaidFile {
+  id          String          @id @default(cuid())
+  periodId    String
+  agentId     String
+  openerName  String
+  transferYmd String
+  forthId     String
+  debtLoad    Decimal         @db.Decimal(14, 2)
+  stageTitle  String?
+  status      String?
+  commission  Decimal         @db.Decimal(14, 2)
+  payStatus   OpenerPayStatus
+  notes       String          @default("")
+  unmatched   Boolean         @default(false)
+
+  period OpenerCommissionPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@index([periodId, agentId])
+}
+
+model OpenerPaidUpscore {
+  id         String  @id @default(cuid())
+  periodId   String
+  agentId    String
+  openerName String
+  amount     Decimal @db.Decimal(14, 2)
+
+  period OpenerCommissionPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([periodId, agentId])
 }
 
 model AgentAlias {

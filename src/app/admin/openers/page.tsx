@@ -9,8 +9,11 @@ import {
   listOpenerPayPeriodLabels,
   listOpenerSummaries,
 } from "@/lib/opener/logs";
+import { getOpenerPeriodView } from "@/lib/opener/period";
+import { openerStatementStatusByAgent } from "@/lib/opener/statements";
 import { OpenerSummaryTable } from "@/components/opener-summary-table";
 import { OpenerPeriodPicker } from "@/components/opener-period-picker";
+import { OpenerPeriodLockBar } from "@/app/admin/openers/opener-period-lock-bar";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +30,11 @@ export default async function AdminOpenersPage({
     superAdmin ? countPendingManualBonuses().catch(() => 0) : Promise.resolve(0),
   ]);
   const monthLabel = await defaultOpenerPeriodLabel(monthRaw);
-  const rows = await listOpenerSummaries(monthLabel);
+  const [rows, periodView, signStatus] = await Promise.all([
+    listOpenerSummaries(monthLabel),
+    getOpenerPeriodView(monthLabel),
+    openerStatementStatusByAgent(monthLabel),
+  ]);
 
   return (
     <AppShell wide>
@@ -55,11 +62,18 @@ export default async function AdminOpenersPage({
           selected={monthLabel}
           pathname="/admin/openers"
         />
+        <OpenerPeriodLockBar
+          monthLabel={monthLabel}
+          closed={periodView.status === "closed"}
+          paid={periodView.paid}
+        />
         <OpenerSummaryTable
           rows={rows}
           detailBase="/admin/openers"
           monthLabel={monthLabel}
-          canEditUpscore
+          canEditUpscore={!periodView.locked}
+          locked={periodView.locked}
+          signStatus={signStatus}
         />
       </div>
     </AppShell>
