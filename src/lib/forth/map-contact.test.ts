@@ -67,6 +67,8 @@ describe("mapForthContact", () => {
       program_start_date: "2026-08-20",
       c772033: "2026-08-16",
       c772034: "2026-08-28",
+      c766059: "10360962",
+      c772259: "2026-09-03 10:33:00",
       created: "2026-08-01 09:00:00",
       stageTitle: "Cordoba Servicing",
       tp_id: "1249394315",
@@ -81,6 +83,9 @@ describe("mapForthContact", () => {
     expect(row!.forthId).toBe("99101");
     expect(row!.agentName).toBe("Maria Lopez");
     expect(row!.assignedTo).toBe("Maria Lopez");
+    expect(row!.transferAgentId).toBe("10360962");
+    expect(row!.transferAgent).toBeNull();
+    expect(row!.transferredDate!.toISOString()).toBe("2026-09-03T17:33:00.000Z");
     expect(row!.status).toBe("Waiting For First Payment");
     expect(row!.leadStatusId).toBe("399299");
     expect(row!.stageTitle).toBe("Cordoba Servicing");

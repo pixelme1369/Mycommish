@@ -33,6 +33,12 @@ export type MappedForthContact = {
   enrolledDate: Date | null;
   submittedDate: Date | null;
   assignedTo: string | null;
+  /** Forth Transfer Agent person-picker id (c766059), when numeric. */
+  transferAgentId: string | null;
+  /** Transfer Agent display name when Forth sends a name, or filled later via /users. */
+  transferAgent: string | null;
+  /** Forth Transferred Date (c772259). */
+  transferredDate: Date | null;
   tpId: string | null;
   stageTitle: string | null;
   contactType: string | null;
@@ -329,6 +335,19 @@ export function mapForthContact(raw: unknown): MappedForthContact | null {
     ]),
   );
 
+  const transferAgentRaw = asString(
+    pick(map, [
+      "c766059",
+      "transfer_agent",
+      "transfer agent",
+      "transferAgent",
+      "Transfer Agent",
+    ]),
+  );
+  const transferAgentLooksLikeId = Boolean(
+    transferAgentRaw && /^\d{4,}$/.test(transferAgentRaw),
+  );
+
   return {
     forthId: id,
     agentName: assignedTo,
@@ -356,6 +375,28 @@ export function mapForthContact(raw: unknown): MappedForthContact | null {
     enrolledDate,
     submittedDate,
     assignedTo,
+    transferAgentId: transferAgentLooksLikeId ? transferAgentRaw : null,
+    transferAgent: transferAgentLooksLikeId ? null : transferAgentRaw,
+    transferredDate: parsePacificDateTime(
+      pick(map, [
+        "c772259",
+        "transferred_date",
+        "transferred date",
+        "transferredDate",
+        "Transferred Date",
+        "Transferred date",
+      ]),
+    ) ??
+      parsePacificDateOrDateTime(
+        pick(map, [
+          "c772259",
+          "transferred_date",
+          "transferred date",
+          "transferredDate",
+          "Transferred Date",
+          "Transferred date",
+        ]),
+      ),
     tpId: asString(pick(map, ["tp_id", "tpId"])),
     stageTitle: asString(
       pick(map, ["stageTitle", "stage_title", "stage", "sub status", "sub_status"]),

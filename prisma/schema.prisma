@@ -172,6 +172,12 @@ model ForthContact {
   /// Forth submitted_at. Naive stamps are Pacific.
   submittedDate   DateTime?
   assignedTo      String?
+  /// Forth Transfer Agent custom field (c766059) — user id when person-picker.
+  transferAgentId String?
+  /// Resolved Transfer Agent display name (Forth /users/{id} → First Last).
+  transferAgent   String?
+  /// Forth Transferred Date custom field (c772259). Naive stamps are Pacific.
+  transferredDate DateTime?
   tpId            String?
   stageTitle      String?
   contactType     String?
@@ -197,6 +203,9 @@ model ForthContact {
   @@index([agentId, enrolledDate])
   @@index([submittedDate])
   @@index([enrolledDate])
+  @@index([transferAgentId])
+  @@index([transferAgent])
+  @@index([transferredDate])
 }
 
 enum OpenerPayStatus {

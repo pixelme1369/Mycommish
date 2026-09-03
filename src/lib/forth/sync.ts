@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { fetchAllForthContacts } from "./client";
+import { fetchAllForthContacts, resolveForthUserDisplayNames } from "./client";
 import { mapForthContact, type MappedForthContact } from "./map-contact";
 import { refreshOpenerTransferLogs } from "@/lib/opener/logs";
 
@@ -9,6 +9,7 @@ export type ForthSyncResult = {
   upserted: number;
   skipped: number;
   unmatchedAgents: string[];
+  transferAgentsResolved: number;
   openerLogsChecked: number;
   openerLogsUpdated: number;
 };
@@ -57,6 +58,22 @@ export async function syncForthContacts(): Promise<ForthSyncResult> {
   for (const row of mapped) byId.set(row.forthId, row);
   const unique = [...byId.values()];
 
+  const transferIdSet = [
+    ...new Set(
+      unique.map((r) => r.transferAgentId?.trim()).filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const transferNames = await resolveForthUserDisplayNames(transferIdSet);
+  if (transferNames.size) {
+    for (const row of unique) {
+      if (row.transferAgent) continue;
+      const id = row.transferAgentId?.trim();
+      if (!id) continue;
+      const name = transferNames.get(id);
+      if (name) row.transferAgent = name;
+    }
+  }
+
   const names = [
     ...new Set(
       unique
@@ -94,6 +111,7 @@ export async function syncForthContacts(): Promise<ForthSyncResult> {
     upserted,
     skipped,
     unmatchedAgents,
+    transferAgentsResolved: transferNames.size,
     openerLogsChecked: openerRefresh.checked,
     openerLogsUpdated: openerRefresh.updated,
   };

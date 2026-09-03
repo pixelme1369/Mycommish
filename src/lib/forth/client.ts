@@ -129,3 +129,37 @@ export async function fetchAllForthContacts(): Promise<unknown[]> {
   }
   return all;
 }
+
+/** Forth person-picker fields store user ids; resolve to "First Last". */
+export async function fetchForthUserDisplayName(userId: string): Promise<string | null> {
+  const id = userId.trim();
+  if (!id) return null;
+  try {
+    const payload = await fetchJson(`${baseUrl()}/users/${encodeURIComponent(id)}`);
+    const obj = asRecord(payload);
+    const user = asRecord(obj?.response) ?? obj;
+    if (!user) return null;
+    const first = String(user.firstname ?? user.first_name ?? "").trim();
+    const last = String(user.lastname ?? user.last_name ?? "").trim();
+    const full = [first, last].filter(Boolean).join(" ").trim();
+    if (full) return full;
+    const username = String(user.user_name ?? user.username ?? "").trim();
+    return username || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve many Forth user ids with a small in-memory cache + polite delay. */
+export async function resolveForthUserDisplayNames(
+  userIds: string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(userIds.map((id) => id.trim()).filter(Boolean))];
+  const out = new Map<string, string>();
+  for (const id of unique) {
+    const name = await fetchForthUserDisplayName(id);
+    if (name) out.set(id, name);
+    await sleep(40);
+  }
+  return out;
+}
