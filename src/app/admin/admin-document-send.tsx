@@ -22,11 +22,14 @@ export function AdminDocumentSend({
   recipientCount,
   agents,
   defaultAgentId,
+  /** Admins can file paper copies; managers only send for e-sign. */
+  allowFileSignedCopy = true,
 }: {
   sendAction: SendAction;
   recipientCount: number;
   agents: AgentOpt[];
   defaultAgentId?: string;
+  allowFileSignedCopy?: boolean;
 }) {
   const [state, action, pending] = useActionState(
     sendAction,
@@ -40,9 +43,13 @@ export function AdminDocumentSend({
   return (
     <section>
       <div>
-        <h2 className="font-heading text-base tracking-tight">Send or file</h2>
+        <h2 className="font-heading text-base tracking-tight">
+          {allowFileSignedCopy ? "Send or file" : "Send for e-sign"}
+        </h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          E-sign in the portal, or keep a paper copy on one agent’s record
+          {allowFileSignedCopy
+            ? "E-sign in the portal, or keep a paper copy on one agent’s record"
+            : "Upload a PDF and send it to agents to sign in the portal"}
         </p>
       </div>
       <Card className="glass-panel mt-4 p-5 sm:p-6">
@@ -84,21 +91,27 @@ export function AdminDocumentSend({
                 <option value="one">One agent</option>
               </select>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="doc-intent">What to do</Label>
-              <select
-                id="doc-intent"
-                name="intent"
-                className={selectClass}
-                value={intent}
-                onChange={(e) => setIntent(e.target.value === "file" ? "file" : "sign")}
-              >
-                <option value="sign">Send to e-sign in the portal</option>
-                <option value="file" disabled={audience === "all"}>
-                  File already-signed paper copy
-                </option>
-              </select>
-            </div>
+            {allowFileSignedCopy ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="doc-intent">What to do</Label>
+                <select
+                  id="doc-intent"
+                  name="intent"
+                  className={selectClass}
+                  value={intent}
+                  onChange={(e) =>
+                    setIntent(e.target.value === "file" ? "file" : "sign")
+                  }
+                >
+                  <option value="sign">Send to e-sign in the portal</option>
+                  <option value="file" disabled={audience === "all"}>
+                    File already-signed paper copy
+                  </option>
+                </select>
+              </div>
+            ) : (
+              <input type="hidden" name="intent" value="sign" />
+            )}
           </div>
           {audience === "one" ? (
             <div className="space-y-1.5">

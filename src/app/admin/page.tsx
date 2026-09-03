@@ -11,9 +11,6 @@ import { AdminTopNav } from "@/app/admin/admin-top-nav";
 import { AdminCalculatedPeriods } from "./admin-calculated-periods";
 import { AdminImportSection } from "./admin-import-section";
 import { AdminSecondarySections } from "./admin-secondary-sections";
-import { StatementsAwaitingManager, OpenerStatementsAwaitingManager } from "@/components/statements-awaiting-manager";
-import { listStatementsAwaitingManager } from "@/lib/statements";
-import { listOpenerStatementsAwaitingManager } from "@/lib/opener/statements";
 import { countPendingManualBonuses } from "@/lib/manual-bonuses";
 import { countActiveAgentsByPeriod } from "@/lib/agents/active-period-counts";
 import {
@@ -80,8 +77,6 @@ export default async function AdminHome() {
     periodsRaw,
     historyPeriodsRaw,
     uploads,
-    awaitingManager,
-    awaitingOpenerManager,
     pendingManualBonusCount,
     unmatchedForth,
     forthMapUsers,
@@ -89,8 +84,6 @@ export default async function AdminHome() {
     listCalculatedPeriods().catch(() => []),
     listHistoryPeriods().catch(() => []),
     listRecentUploads().catch(() => []),
-    listStatementsAwaitingManager().catch(() => []),
-    listOpenerStatementsAwaitingManager().catch(() => []),
     superAdmin ? countPendingManualBonuses().catch(() => 0) : Promise.resolve(0),
     listUnmatchedForthNames().catch(() => []),
     listForthMapUsers().catch(() => []),
@@ -151,11 +144,6 @@ export default async function AdminHome() {
           />
         }
       />
-
-      <div className="mt-8">
-        <StatementsAwaitingManager rows={awaitingManager} viewBase="/admin" />
-        <OpenerStatementsAwaitingManager rows={awaitingOpenerManager} />
-      </div>
 
       {unmatchedForth.length > 0 ? (
         <div className="mt-8">

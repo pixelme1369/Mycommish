@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { canViewAllCommissions } from "@/lib/auth-guards";
 import { buildSignedStatementPdf } from "@/lib/statements";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ export async function GET(
   ctx: { params: Promise<{ periodId: string; agentPeriodId: string }> },
 ) {
   const session = await auth();
-  if (!session?.user?.isAdmin) {
+  if (!session?.user || !canViewAllCommissions(session)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

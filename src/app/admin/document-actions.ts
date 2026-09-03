@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { AgentDocumentSignStatus, AgentRole } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth-guards";
+import { isAdminUser, requireManagerOrAdmin } from "@/lib/auth-guards";
 import { listDocumentRecipients } from "@/lib/portal/signed-documents";
 import type { SendDocumentResult } from "@/app/admin/document-action-types";
 
@@ -67,7 +67,7 @@ export async function sendAgentDocumentAction(
   _prev: SendDocumentResult | null,
   formData: FormData,
 ): Promise<SendDocumentResult> {
-  const session = await requireAdmin();
+  const session = await requireManagerOrAdmin();
   const createdById = session.user.agentId;
   if (!createdById) return { ok: false, error: "Not signed in." };
 
@@ -77,6 +77,12 @@ export async function sendAgentDocumentAction(
   const audience = String(formData.get("audience") || "all").trim();
   const intent = String(formData.get("intent") || "sign").trim();
   const filedRecord = intent === "file";
+  if (filedRecord && !isAdminUser(session)) {
+    return {
+      ok: false,
+      error: "Only admins can file already-signed paper copies.",
+    };
+  }
   const recipients = await resolveRecipientIds(
     audience,
     String(formData.get("agentId") || ""),
@@ -123,6 +129,7 @@ export async function sendAgentDocumentAction(
   revalidatePath("/admin/manual-inputs");
   revalidatePath("/admin/agents");
   revalidatePath("/admin/documents");
+  revalidatePath("/manager/documents");
   revalidatePath("/portal/documents");
 
   if (filedRecord) {

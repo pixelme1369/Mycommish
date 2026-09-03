@@ -8,20 +8,22 @@ import type { AwaitingManagerStatementRow } from "@/lib/statements";
 export function StatementsAwaitingManager({
   rows,
   viewBase,
+  title = "Awaiting manager signature",
+  description = "Agents who signed their commission statement and need a countersignature.",
 }: {
   rows: AwaitingManagerStatementRow[];
   /** `/admin` or `/manager` — detail links still go through portal period path. */
   viewBase: "/admin" | "/manager";
+  title?: string;
+  description?: string;
 }) {
   return (
     <section>
       <h2 className="font-heading text-xl tracking-tight">
-        Awaiting manager signature
+        {title}
         {rows.length > 0 ? ` (${rows.length})` : ""}
       </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Agents who signed their commission statement and need a countersignature.
-      </p>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
 
       {rows.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">None waiting right now.</p>
@@ -80,6 +82,8 @@ export function StatementsAwaitingManager({
 
 export function OpenerStatementsAwaitingManager({
   rows,
+  title = "Openers awaiting manager signature",
+  description = "Openers who signed their commission statement and need a countersignature.",
 }: {
   rows: Array<{
     statementId: string;
@@ -90,16 +94,16 @@ export function OpenerStatementsAwaitingManager({
     agentTypedName: string | null;
     agentSignedAt: Date;
   }>;
+  title?: string;
+  description?: string;
 }) {
   return (
     <section className="mt-8">
       <h2 className="font-heading text-xl tracking-tight">
-        Openers awaiting manager signature
+        {title}
         {rows.length > 0 ? ` (${rows.length})` : ""}
       </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Openers who signed their commission statement and need a countersignature.
-      </p>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       {rows.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">None waiting right now.</p>
       ) : (

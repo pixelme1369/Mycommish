@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth-guards";
-import { adminHomeLinkLabel } from "@/lib/roles";
-import { SignOutButton } from "@/components/sign-out-button";
+import { requireManagerOrAdmin, sessionRole } from "@/lib/auth-guards";
+import { adminNavLabel, formatRoleLabel } from "@/lib/roles";
 import { AppShell, PageHeader } from "@/components/app-shell";
+import { BrandMark } from "@/components/brand-mark";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,6 +14,9 @@ import {
 } from "@/lib/portal/signed-documents";
 import { sendAgentDocumentAction } from "@/app/admin/document-actions";
 import { AdminDocumentSend } from "@/app/admin/admin-document-send";
+import { ManagerTopNav } from "@/app/manager/manager-top-nav";
+import { prisma } from "@/lib/db";
+import { FileClaimStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -25,33 +28,52 @@ function formatWhen(iso: string) {
   });
 }
 
-export default async function AdminUploadedDocumentsPage() {
-  const session = await requireAdmin();
-  const [rows, recipientCount, agents] = await Promise.all([
+export default async function ManagerUploadedDocumentsPage() {
+  const session = await requireManagerOrAdmin();
+  const role = sessionRole(session);
+  const agentId = session.user.agentId;
+  const [rows, recipientCount, agents, pendingClaims] = await Promise.all([
     listAdminUploadedDocuments(),
     countSignableAgents(),
     listDocumentAgents(),
+    prisma.fileClaim
+      .count({ where: { status: FileClaimStatus.pending } })
+      .catch(() => 0),
   ]);
 
   return (
     <AppShell wide>
       <PageHeader
         eyebrow={
-          <Link
-            href="/admin"
-            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2")}
-          >
-            {adminHomeLinkLabel(session.user.role)}
-          </Link>
+          <span className="inline-flex items-center gap-2">
+            <BrandMark size="sm" />
+            <span>· {formatRoleLabel(session.user.role)}</span>
+          </span>
         }
         title="Uploaded documents"
-        description="Company PDFs on agent portal records — e-sign requests and filed paper copies"
-        actions={<SignOutButton />}
+        description="Company PDFs sent to agents for e-sign in the portal"
+        actions={
+          <>
+            <ManagerTopNav
+              active="documents"
+              pendingClaims={pendingClaims}
+              showAgentPortal={Boolean(agentId)}
+            />
+            {role === "admin" ? (
+              <Link
+                href="/admin"
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+              >
+                {adminNavLabel(session.user.role)}
+              </Link>
+            ) : null}
+          </>
+        }
       />
 
       {rows.length === 0 ? (
         <Card className="glass-panel mt-4 p-6 text-sm text-muted-foreground">
-          No uploads yet. Use Send or file below.
+          No uploads yet. Send a PDF below for agents to sign.
         </Card>
       ) : (
         <Card className="glass-panel mt-4 overflow-hidden py-0">
@@ -67,14 +89,18 @@ export default async function AdminUploadedDocumentsPage() {
             </thead>
             <tbody className="divide-y divide-border/70">
               {rows.map((d) => {
-                const signedCount = d.recipients.filter((r) => r.status === "signed")
-                  .length;
-                const one = d.recipients.length === 1 ? d.recipients[0] : null;
+                const signedCount = d.recipients.filter(
+                  (r) => r.status === "signed",
+                ).length;
+                const one =
+                  d.recipients.length === 1 ? d.recipients[0] : null;
                 return (
                   <tr key={d.id}>
                     <td className="px-4 py-2.5">
                       <p className="font-medium">{d.title}</p>
-                      <p className="text-xs text-muted-foreground">{d.filename}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {d.filename}
+                      </p>
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">
                       {one
@@ -118,6 +144,7 @@ export default async function AdminUploadedDocumentsPage() {
           sendAction={sendAgentDocumentAction}
           recipientCount={recipientCount}
           agents={agents}
+          allowFileSignedCopy={false}
         />
       </div>
     </AppShell>

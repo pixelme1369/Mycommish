@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/auth-guards";
-import { adminHomeLinkLabel } from "@/lib/roles";
-import { SignOutButton } from "@/components/sign-out-button";
+import { requireManagerOrAdmin, sessionRole } from "@/lib/auth-guards";
+import { adminNavLabel, formatRoleLabel } from "@/lib/roles";
 import { AppShell, PageHeader } from "@/components/app-shell";
+import { BrandMark } from "@/components/brand-mark";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -11,25 +11,32 @@ import {
   countFullySignedStatementsByPeriod,
   listFullySignedStatements,
 } from "@/lib/statements";
-import { RevokeStatementButton } from "./revoke-statement-button";
+import { ManagerTopNav } from "@/app/manager/manager-top-nav";
+import { prisma } from "@/lib/db";
+import { FileClaimStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminSignedStatementsPage({
+export default async function ManagerSignedStatementsPage({
   searchParams,
 }: {
   searchParams: Promise<{ period?: string }>;
 }) {
-  const session = await requireAdmin();
+  const session = await requireManagerOrAdmin();
+  const role = sessionRole(session);
+  const agentId = session.user.agentId;
   const sp = await searchParams;
   const periodFilter = sp.period?.trim() || undefined;
 
-  const [rows, periodCounts] = await Promise.all([
+  const [rows, periodCounts, pendingClaims] = await Promise.all([
     listFullySignedStatements({
       periodLabel: periodFilter,
       limit: 500,
     }),
     countFullySignedStatementsByPeriod(),
+    prisma.fileClaim
+      .count({ where: { status: FileClaimStatus.pending } })
+      .catch(() => 0),
   ]);
 
   const countByPeriod = new Map(periodCounts.map((p) => [p.periodLabel, p.count]));
@@ -56,15 +63,13 @@ export default async function AdminSignedStatementsPage({
     <AppShell wide>
       <PageHeader
         eyebrow={
-          <Link
-            href="/admin"
-            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2")}
-          >
-            {adminHomeLinkLabel(session.user.role)}
-          </Link>
+          <span className="inline-flex items-center gap-2">
+            <BrandMark size="sm" />
+            <span>· {formatRoleLabel(session.user.role)}</span>
+          </span>
         }
         title="Signed commissions"
-        description="Fully signed commission PDFs (agent + manager). View, download, or revoke signatures."
+        description="Fully signed commission PDFs (agent + manager). View or download."
         actions={
           <>
             {rows.length > 0 ? (
@@ -77,16 +82,31 @@ export default async function AdminSignedStatementsPage({
                 {` · ${selectedCount}`}
               </a>
             ) : null}
-            <SignOutButton />
+            <ManagerTopNav
+              active="documents"
+              pendingClaims={pendingClaims}
+              showAgentPortal={Boolean(agentId)}
+            />
+            {role === "admin" ? (
+              <Link
+                href="/admin"
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+              >
+                {adminNavLabel(session.user.role)}
+              </Link>
+            ) : null}
           </>
         }
       />
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Link
-          href="/admin/statements"
+          href="/manager/statements"
           className={cn(
-            buttonVariants({ variant: periodFilter ? "outline" : "secondary", size: "sm" }),
+            buttonVariants({
+              variant: periodFilter ? "outline" : "secondary",
+              size: "sm",
+            }),
             "h-8",
           )}
         >
@@ -97,7 +117,7 @@ export default async function AdminSignedStatementsPage({
           return (
             <Link
               key={p}
-              href={`/admin/statements?period=${encodeURIComponent(p)}`}
+              href={`/manager/statements?period=${encodeURIComponent(p)}`}
               className={cn(
                 buttonVariants({
                   variant: periodFilter === p ? "secondary" : "outline",
@@ -142,7 +162,9 @@ export default async function AdminSignedStatementsPage({
                 <tr key={r.statementId}>
                   <td className="px-4 py-2.5 font-medium">{r.periodLabel}</td>
                   <td className="px-4 py-2.5">{r.agentName}</td>
-                  <td className="px-4 py-2.5 tabular-nums">{money(r.netCommission)}</td>
+                  <td className="px-4 py-2.5 tabular-nums">
+                    {money(r.netCommission)}
+                  </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">
                     {r.agentTypedName || "—"}
                     <span className="mx-1">·</span>
@@ -168,28 +190,31 @@ export default async function AdminSignedStatementsPage({
                           href={`/api/admin/periods/${r.periodId}/agents/${r.agentPeriodId}/statement?inline=1`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+                          className={cn(
+                            buttonVariants({ variant: "outline", size: "sm" }),
+                            "h-8",
+                          )}
                         >
                           View
                         </a>
                         <a
                           href={`/api/admin/periods/${r.periodId}/agents/${r.agentPeriodId}/statement`}
-                          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+                          className={cn(
+                            buttonVariants({ variant: "outline", size: "sm" }),
+                            "h-8",
+                          )}
                         >
                           PDF
                         </a>
                         <Link
                           href={`/portal/period/${r.periodId}/agent/${r.agentPeriodId}`}
-                          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-8")}
+                          className={cn(
+                            buttonVariants({ variant: "ghost", size: "sm" }),
+                            "h-8",
+                          )}
                         >
                           Open
                         </Link>
-                        <RevokeStatementButton
-                          periodId={r.periodId}
-                          agentPeriodId={r.agentPeriodId}
-                          agentName={r.agentName}
-                          periodLabel={r.periodLabel}
-                        />
                       </div>
                     ) : (
                       <span className="text-xs text-muted-foreground">

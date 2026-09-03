@@ -7,7 +7,7 @@ import { ChevronDown } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export function AdminDocumentsMenu({ active }: { active?: boolean }) {
+export function ManagerDocumentsMenu({ active }: { active?: boolean }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -72,7 +72,7 @@ export function AdminDocumentsMenu({ active }: { active?: boolean }) {
           >
             <Link
               role="menuitem"
-              href="/admin/awaiting-signatures"
+              href="/manager/awaiting-signatures"
               className="block px-3 py-1.5 text-sm hover:bg-muted"
               onClick={() => setOpen(false)}
             >
@@ -80,7 +80,7 @@ export function AdminDocumentsMenu({ active }: { active?: boolean }) {
             </Link>
             <Link
               role="menuitem"
-              href="/admin/statements"
+              href="/manager/statements"
               className="block px-3 py-1.5 text-sm hover:bg-muted"
               onClick={() => setOpen(false)}
             >
@@ -88,7 +88,7 @@ export function AdminDocumentsMenu({ active }: { active?: boolean }) {
             </Link>
             <Link
               role="menuitem"
-              href="/admin/documents"
+              href="/manager/documents"
               className="block px-3 py-1.5 text-sm hover:bg-muted"
               onClick={() => setOpen(false)}
             >

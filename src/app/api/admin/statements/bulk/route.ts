@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import JSZip from "jszip";
 import { auth } from "@/auth";
-import { isAdminUser } from "@/lib/auth-guards";
+import { canViewAllCommissions } from "@/lib/auth-guards";
 import {
   buildSignedStatementPdf,
   listFullySignedStatements,
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 /** ZIP of fully signed statement PDFs (optional ?period=YYYY-MM). */
 export async function GET(req: Request) {
   const session = await auth();
-  if (!session?.user || !isAdminUser(session)) {
+  if (!session?.user || !canViewAllCommissions(session)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

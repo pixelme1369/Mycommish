@@ -10,9 +10,6 @@ import { cn } from "@/lib/utils";
 import { prisma } from "@/lib/db";
 import { PeriodSource, PeriodStatus, FileClaimStatus } from "@/generated/prisma/client";
 import { latestCalculatedPeriods } from "@/lib/portal/queries";
-import { listStatementsAwaitingManager } from "@/lib/statements";
-import { listOpenerStatementsAwaitingManager } from "@/lib/opener/statements";
-import { StatementsAwaitingManager, OpenerStatementsAwaitingManager } from "@/components/statements-awaiting-manager";
 import { sumMyOwedBonuses } from "@/lib/manager-bonuses";
 import { money } from "@/lib/format";
 import { countActiveAgentsByPeriod } from "@/lib/agents/active-period-counts";
@@ -24,10 +21,8 @@ export default async function ManagerHome() {
   const session = await requireManagerOrAdmin();
   const role = sessionRole(session);
   const agentId = session.user.agentId;
-  const [windowPeriods, awaitingManager, awaitingOpenerManager, owedTotal, pendingClaims] = await Promise.all([
+  const [windowPeriods, owedTotal, pendingClaims] = await Promise.all([
     latestCalculatedPeriods(),
-    listStatementsAwaitingManager().catch(() => []),
-    listOpenerStatementsAwaitingManager().catch(() => []),
     agentId ? sumMyOwedBonuses(agentId) : Promise.resolve(0),
     prisma.fileClaim
       .count({ where: { status: FileClaimStatus.pending } })
@@ -111,11 +106,6 @@ export default async function ManagerHome() {
           </p>
         </Card>
       ) : null}
-
-      <div className="mt-8">
-        <StatementsAwaitingManager rows={awaitingManager} viewBase="/manager" />
-        <OpenerStatementsAwaitingManager rows={awaitingOpenerManager} />
-      </div>
 
       <section className="mt-8">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">

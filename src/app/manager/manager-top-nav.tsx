@@ -3,10 +3,12 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ManagerCommissionsMenu } from "@/app/manager/manager-commissions-menu";
+import { ManagerDocumentsMenu } from "@/app/manager/manager-documents-menu";
 
 export type ManagerTopNavActive =
   | "commissions"
   | "openers"
+  | "documents"
   | "files"
   | "goals"
   | "claims"
@@ -41,6 +43,7 @@ export function ManagerTopNav({
   return (
     <>
       <ManagerCommissionsMenu active={commissionsActive} />
+      <ManagerDocumentsMenu active={active === "documents"} />
       {showAgentPortal ? (
         <Link
           href="/portal?personal=1"

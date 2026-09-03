@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { isAdminUser } from "@/lib/auth-guards";
+import { canViewAllCommissions } from "@/lib/auth-guards";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export async function GET(
   ctx: { params: Promise<{ documentId: string }> },
 ) {
   const session = await auth();
-  if (!session?.user || !isAdminUser(session)) {
+  if (!session?.user || !canViewAllCommissions(session)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
