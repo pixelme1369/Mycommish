@@ -287,6 +287,37 @@ describe("accepted claim salesRep overrides", () => {
   });
 });
 
+describe("CRM directory for file lookup", () => {
+  it("indexes pre-enroll rows that have an ID but no enrolled/cleared dates", () => {
+    const csv = [
+      "ID,External ID,Sales Rep,Full Name,Enrolled Date,1st Payment Cleared Date,Dropped Date,Status,Enrolled Debt,# NSF,Payments Made,Pay Freq.,Credit Score",
+      '1240933047,1240933047,Kiwi Wheelans,Norma Webster,,,,"Submitted",0,0,0,Monthly,',
+      'C1,EXT1,Maria,Paid Client,07/01/26,07/10/26,,Active,10000,0,3,Monthly,',
+    ].join("\n");
+    const periods = parseCrmAndCalculate(csv, "test.csv", {
+      persistSameMonthCancel: true,
+      requirePriorPaymentEvidence: false,
+    });
+    const dir = periods[0]?.directoryClients ?? [];
+    const norma = dir.find((c) => c.crmId === "1240933047");
+    expect(norma?.clientName).toBe("Norma Webster");
+    expect(norma?.externalId).toBe("1240933047");
+    expect(norma?.unitStatus).toBe("not_yet_cleared");
+  });
+
+  it("reads ExternalID header without a space", () => {
+    const csv = [
+      "ID,ExternalID,Sales Rep,Full Name,Enrolled Date,1st Payment Cleared Date,Dropped Date,Status,Enrolled Debt,# NSF,Payments Made,Pay Freq.,Credit Score",
+      "A9,9912345678,Maria,Spacey Header,07/01/26,07/10/26,,Active,10000,0,3,Monthly,",
+    ].join("\n");
+    const periods = parseCrmAndCalculate(csv, "test.csv", {
+      persistSameMonthCancel: true,
+      requirePriorPaymentEvidence: false,
+    });
+    expect(periods[0]?.directoryClients?.[0]?.externalId).toBe("9912345678");
+  });
+});
+
 describe("validation", () => {
   it("missing columns", () => {
     const out = parseCrmAndCalculate("Sales Rep,Status\nMaria,Active\n", "bad.csv");

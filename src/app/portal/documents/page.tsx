@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { isSuperAdminUser, requireSession, sessionRole } from "@/lib/auth-guards";
-import { adminNavLabel, isOpenerManagerRole, isOpenerRole } from "@/lib/roles";
+import { adminNavLabel, isOpenerRole } from "@/lib/roles";
 import { AppShell } from "@/components/app-shell";
 import { PortalTopBar } from "@/components/portal-top-bar";
 import { listPortalDocuments } from "@/lib/portal/signed-documents";
@@ -15,7 +15,6 @@ export default async function PortalDocumentsPage() {
   const agentId = session.user.agentId;
   const aliasNames = session.user.aliasNames || [];
   const role = sessionRole(session);
-  const isManagerHome = role === "manager" || role === "admin";
 
   const staffHref =
     session.user.isAdmin || role === "admin"
@@ -32,13 +31,16 @@ export default async function PortalDocumentsPage() {
 
   const topBar = (
     <PortalTopBar
-      commissionsHref={isManagerHome ? "/manager" : "/portal"}
-      filesHref={isManagerHome ? "/manager/files" : "/portal/files"}
+      commissionsHref={
+        role === "manager" || session.user.isAdmin || role === "admin"
+          ? "/portal?personal=1"
+          : "/portal"
+      }
+      filesHref="/portal/files"
       staffHref={staffHref}
       staffLabel={staffLabel}
       opener={isOpenerRole(session.user.role)}
-      openerManager={isOpenerManagerRole(session.user.role)}
-      openersHref={isManagerHome ? "/manager/openers" : undefined}
+      openerManager={false}
     />
   );
 

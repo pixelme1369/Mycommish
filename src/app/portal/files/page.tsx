@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { isSuperAdminUser, requireSession } from "@/lib/auth-guards";
-import { adminNavLabel, isOpenerManagerRole, isOpenerRole } from "@/lib/roles";
+import { adminNavLabel, isOpenerRole } from "@/lib/roles";
 import { AppShell } from "@/components/app-shell";
 import { PortalTopBar } from "@/components/portal-top-bar";
 import { Badge } from "@/components/ui/badge";
@@ -50,9 +50,14 @@ export default async function PortalFilesPage() {
       <PortalTopBar
         staffHref={staffHref}
         staffLabel={staffLabel}
+        commissionsHref={
+          session.user.role === "manager" || session.user.isAdmin
+            ? "/portal?personal=1"
+            : "/portal"
+        }
+        filesHref="/portal/files"
         opener={opener}
-        openerManager={isOpenerManagerRole(session.user.role)}
-        openersHref={staffHref ? "/manager/openers" : undefined}
+        openerManager={false}
       />
 
       <header className="mt-8">

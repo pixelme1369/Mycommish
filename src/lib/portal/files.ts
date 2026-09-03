@@ -4,6 +4,18 @@ import { dismissalKey, listDismissedKeys } from "@/lib/agents/dismissal";
 import { agentIdentityKey } from "@/lib/commission/calculator";
 import { latestCalculatedPeriods } from "@/lib/portal/queries";
 
+/** Normalize pasted IDs (spaces, Excel `1.24e+9`, trailing `.0`). */
+export function normalizeFileIdQuery(raw: string): string {
+  const s = raw.trim().replace(/\s/g, "");
+  if (!s) return s;
+  if (/^\d+\.0+$/.test(s)) return s.replace(/\.0+$/, "");
+  if (/^\d+(\.\d+)?e[+-]?\d+$/i.test(s)) {
+    const n = Number(s);
+    if (Number.isFinite(n) && n > 0) return String(Math.round(n));
+  }
+  return s;
+}
+
 export type AgentFileRow = {
   crmId: string;
   externalId: string | null;
@@ -123,9 +135,9 @@ export async function lookupAgentFiles(
   if (!names.length) return { mode: "name", outcome: "no_aliases", hits: [] };
 
   const mine = aliasKeySet(names);
-  const looksLikeId = /^[\d]{5,}$/.test(q.replace(/\s/g, ""));
+  const looksLikeId = /^[\d.eE+-]{5,}$/.test(q.replace(/\s/g, ""));
   const mode: "id" | "name" = looksLikeId ? "id" : "name";
-  const idQ = q.replace(/\s/g, "");
+  const idQ = normalizeFileIdQuery(q);
 
   const identities = await prisma.clientIdentity.findMany({
     where:
@@ -142,7 +154,9 @@ export async function lookupAgentFiles(
       where: {
         period: { source: PeriodSource.calculated },
         ...(mode === "id"
-          ? { crmId: idQ }
+          ? {
+              OR: [{ crmId: idQ }, { identity: { externalId: idQ } }],
+            }
           : { clientName: { contains: q, mode: "insensitive" } }),
       },
       include: {
@@ -214,9 +228,9 @@ export async function lookupAnyFile(query: string): Promise<FileLookupResult> {
   const q = query.trim();
   if (!q) return { mode: "name", outcome: "not_found", hits: [] };
 
-  const looksLikeId = /^[\d]{5,}$/.test(q.replace(/\s/g, ""));
+  const looksLikeId = /^[\d.eE+-]{5,}$/.test(q.replace(/\s/g, ""));
   const mode: "id" | "name" = looksLikeId ? "id" : "name";
-  const idQ = q.replace(/\s/g, "");
+  const idQ = normalizeFileIdQuery(q);
 
   const identities = await prisma.clientIdentity.findMany({
     where:
@@ -232,7 +246,9 @@ export async function lookupAnyFile(query: string): Promise<FileLookupResult> {
       where: {
         period: { source: PeriodSource.calculated },
         ...(mode === "id"
-          ? { crmId: idQ }
+          ? {
+              OR: [{ crmId: idQ }, { identity: { externalId: idQ } }],
+            }
           : { clientName: { contains: q, mode: "insensitive" } }),
       },
       include: {

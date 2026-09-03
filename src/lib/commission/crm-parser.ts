@@ -337,8 +337,19 @@ export function parseCrmAndCalculate(
   for (const c of headers) {
     if (c) colMap.set(c.trim().toLowerCase(), c);
   }
-  const get = (row: Record<string, string>, key: string) =>
-    (row[colMap.get(key) ?? key] ?? "").trim();
+  const get = (row: Record<string, string>, key: string) => {
+    const direct = (row[colMap.get(key) ?? key] ?? "").trim();
+    if (direct) return direct;
+    // "External ID" vs "ExternalID" / "external_id"
+    const compact = key.replace(/[\s_]+/g, "");
+    if (compact === key) return "";
+    for (const [lk, orig] of colMap) {
+      if (lk.replace(/[\s_]+/g, "") === compact) {
+        return (row[orig] ?? "").trim();
+      }
+    }
+    return "";
+  };
 
   const allClients: CrmClient[] = [];
   const rowErrors: string[] = [];
@@ -422,9 +433,12 @@ export function parseCrmAndCalculate(
       unitStatus = "clawback";
     } else {
       unitStatus = "not_yet_cleared";
-      // Keep never-cleared rows when Enrolled Date is present — they belong in the
-      // enrollment-month cancel-rate cohort (owner policy). Still skip blank rows.
-      if (!clearedDate && !enrolledPeriod) return;
+      // Still index rows that have a CRM / External ID so agents can find them in
+      // My files lookup. Blank Enrolled Date means not commissionable and not in
+      // cancel-rate cohorts (enrolledPeriod stays null).
+      const hasFileId =
+        Boolean(get(rawRow, "id")) || Boolean(get(rawRow, "external id"));
+      if (!clearedDate && !enrolledPeriod && !hasFileId) return;
     }
 
     const creditScoreRaw = get(rawRow, "credit score");
@@ -777,8 +791,13 @@ export function parseCrmAndCalculate(
     });
   }
 
-  // Full CRM directory (incl. enrolled / not-yet-cleared) for identity + agent file lookup.
-  const directoryClients = allClients.filter((c) => Boolean(c.crmId));
+  // Full CRM directory (incl. enrolled / not-yet-cleared / pre-enroll) for identity + lookup.
+  // Prefer crmId; if the export only has External ID, still index under that value so
+  // agents can find the file (Cordoba resolve may need a later CRM ID backfill).
+  const directoryClients = allClients.filter((c) => Boolean(c.crmId || c.externalId));
+  for (const c of directoryClients) {
+    if (!c.crmId && c.externalId) c.crmId = c.externalId;
+  }
   if (periodsOut.length) {
     periodsOut[0].directoryClients = directoryClients;
   }
