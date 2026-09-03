@@ -18,23 +18,40 @@ import {
   sanitizeOpenerNotes,
 } from "@/lib/opener/summary";
 
+const openerForthSelect = {
+  forthId: true,
+  tpId: true,
+  enrolledAmount: true,
+  stageTitle: true,
+  status: true,
+} as const;
+
+/**
+ * Openers often paste Cordoba / ADP External ID (`tpId`), not Forth contact `id`.
+ * Resolve either so CRM stage/status/debt can hydrate the transfer log.
+ */
+export async function findForthContactForOpenerId(fileId: string) {
+  const id = fileId.trim();
+  if (!id) return null;
+  return prisma.forthContact.findFirst({
+    where: { OR: [{ forthId: id }, { tpId: id }] },
+    select: openerForthSelect,
+  });
+}
+
 export async function lookupForthForOpener(
   forthId: string,
 ): Promise<OpenerForthSnapshot> {
-  const contact = await prisma.forthContact.findUnique({
-    where: { forthId },
-    select: {
-      enrolledAmount: true,
-      stageTitle: true,
-      status: true,
-    },
-  });
+  const contact = await findForthContactForOpenerId(forthId);
   return openerSnapshotFromForth(contact);
 }
 
 export async function existingOpenerLog(forthId: string) {
-  return prisma.openerTransferLog.findUnique({
-    where: { forthId },
+  const id = forthId.trim();
+  const contact = await findForthContactForOpenerId(id);
+  const ids = [...new Set([id, contact?.forthId, contact?.tpId].filter(Boolean))] as string[];
+  return prisma.openerTransferLog.findFirst({
+    where: { forthId: { in: ids } },
     select: {
       id: true,
       agentId: true,
@@ -68,16 +85,19 @@ export async function refreshOpenerTransferLogs(): Promise<{
     [...new Set(logs.map((l) => l.transferYmd.slice(0, 7)))],
   );
 
+  const logIds = logs.map((l) => l.forthId);
   const contacts = await prisma.forthContact.findMany({
-    where: { forthId: { in: logs.map((l) => l.forthId) } },
-    select: {
-      forthId: true,
-      enrolledAmount: true,
-      stageTitle: true,
-      status: true,
+    where: {
+      OR: [{ forthId: { in: logIds } }, { tpId: { in: logIds } }],
     },
+    select: openerForthSelect,
   });
-  const byId = new Map(contacts.map((c) => [c.forthId, c]));
+  /** Index by Forth id and Cordoba/tp id so either File ID resolves. */
+  const byId = new Map<string, (typeof contacts)[number]>();
+  for (const c of contacts) {
+    byId.set(c.forthId, c);
+    if (c.tpId?.trim()) byId.set(c.tpId.trim(), c);
+  }
 
   let updated = 0;
   for (const row of logs) {
