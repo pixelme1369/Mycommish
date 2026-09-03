@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,17 @@ function GoogleMark({ className }: { className?: string }) {
   );
 }
 
+function homePathFromSession(session: {
+  user?: { role?: string; isAdmin?: boolean };
+} | null): string {
+  const role = session?.user?.role;
+  if (session?.user?.isAdmin || role === "admin" || role === "super_admin") {
+    return "/admin";
+  }
+  if (role === "manager") return "/manager";
+  return "/portal";
+}
+
 export function SignIn({ googleEnabled }: { googleEnabled: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -49,6 +60,7 @@ export function SignIn({ googleEnabled }: { googleEnabled: boolean }) {
     setError(null);
     setGooglePending(true);
     try {
+      // `/` middleware sends managers → /manager, admins → /admin.
       await signIn("google", { callbackUrl: "/" });
     } catch {
       setError("Google sign-in failed. Try again.");
@@ -65,14 +77,14 @@ export function SignIn({ googleEnabled }: { googleEnabled: boolean }) {
         email,
         password,
         redirect: false,
-        callbackUrl: "/",
       });
       if (!res || res.error) {
         setError("Invalid email or password.");
         setPending(false);
         return;
       }
-      router.push(res.url || "/");
+      const session = await getSession();
+      router.replace(homePathFromSession(session));
       router.refresh();
     } catch {
       setError("Sign-in failed. Try again.");

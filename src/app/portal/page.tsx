@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isSuperAdminUser, requireSession } from "@/lib/auth-guards";
+import { isSuperAdminUser, requireSession, isManagerUser } from "@/lib/auth-guards";
 import { adminNavLabel, isOpenerManagerRole, isOpenerRole } from "@/lib/roles";
 import { AppShell } from "@/components/app-shell";
 import { PortalTopBar } from "@/components/portal-top-bar";
@@ -75,11 +75,15 @@ function dayGreeting(now = new Date()): string {
 export default async function PortalHome({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; personal?: string }>;
 }) {
   const session = await requireSession();
   if (isSuperAdminUser(session)) redirect("/admin");
-  const { month: monthRaw } = await searchParams;
+  const { month: monthRaw, personal } = await searchParams;
+  // Managers land on /manager after login; personal portal is opt-in via My agent portal.
+  if (isManagerUser(session) && personal !== "1") {
+    redirect("/manager");
+  }
   const aliasNames = session.user.aliasNames || [];
   const windowPeriods = await latestCalculatedPeriods();
   const windowLabels = windowPeriods.map((p) => p.periodLabel);
@@ -159,6 +163,9 @@ export default async function PortalHome({
       <PortalTopBar
         staffHref={staffHref}
         staffLabel={staffLabel}
+        commissionsHref={
+          session.user.role === "manager" ? "/portal?personal=1" : "/portal"
+        }
         opener={opener}
         openerManager={isOpenerManagerRole(session.user.role)}
         openersHref={staffHref === "/manager" || staffHref === "/admin" ? "/manager/openers" : undefined}

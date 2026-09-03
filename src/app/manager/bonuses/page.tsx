@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requireManagerOrAdmin, sessionRole } from "@/lib/auth-guards";
 import { adminNavLabel } from "@/lib/roles";
-import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -16,6 +15,9 @@ import {
 import { LogBonusForm } from "./log-bonus-form";
 import { deleteManagerBonusAction } from "./actions";
 import { PaidOnDate } from "@/components/paid-on-date";
+import { ManagerTopNav } from "@/app/manager/manager-top-nav";
+import { prisma } from "@/lib/db";
+import { FileClaimStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -31,10 +33,13 @@ export default async function ManagerBonusesPage() {
     );
   }
 
-  const [agents, rows, owedTotal] = await Promise.all([
+  const [agents, rows, owedTotal, pendingClaims] = await Promise.all([
     listBonusRecipientAgents(),
     listMyBonuses(agentId),
     sumMyOwedBonuses(agentId),
+    prisma.fileClaim
+      .count({ where: { status: FileClaimStatus.pending } })
+      .catch(() => 0),
   ]);
 
   return (
@@ -52,12 +57,11 @@ export default async function ManagerBonusesPage() {
         description="Log agent bonuses you paid from your account — reimbursed on commission pay date"
         actions={
           <>
-            <Link
-              href="/manager/openers"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Openers
-            </Link>
+            <ManagerTopNav
+              active="bonuses"
+              pendingClaims={pendingClaims}
+              showAgentPortal
+            />
             {role === "admin" ? (
               <Link
                 href="/admin"
@@ -66,7 +70,6 @@ export default async function ManagerBonusesPage() {
                 {adminNavLabel(session.user.role)}
               </Link>
             ) : null}
-            <SignOutButton />
           </>
         }
       />

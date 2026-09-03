@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requireManagerOrAdmin, sessionRole } from "@/lib/auth-guards";
 import { adminNavLabel, formatRoleLabel } from "@/lib/roles";
-import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +12,9 @@ import { listMyFileClaims } from "@/app/portal/files/actions";
 import { MissingFileClaimForm } from "@/app/portal/files/claim-form";
 import { AgentFilesTable, FileLookupChat } from "@/app/portal/files/files-client";
 import { lookupManagerFileChatAction } from "./lookup-action";
+import { ManagerTopNav } from "@/app/manager/manager-top-nav";
+import { prisma } from "@/lib/db";
+import { FileClaimStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +23,12 @@ export default async function ManagerFilesPage() {
   const role = sessionRole(session);
   const agentId = session.user.agentId;
 
-  const [files, claims] = await Promise.all([
+  const [files, claims, pendingClaims] = await Promise.all([
     listAllWindowFiles(),
     agentId ? listMyFileClaims(agentId) : Promise.resolve([]),
+    prisma.fileClaim
+      .count({ where: { status: FileClaimStatus.pending } })
+      .catch(() => 0),
   ]);
 
   return (
@@ -39,36 +44,11 @@ export default async function ManagerFilesPage() {
         description="CRM files across the team · latest calculated periods · claim when something looks wrong"
         actions={
           <>
-            <Link
-              href="/manager"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Commissions
-            </Link>
-            <Link
-              href="/portal/daily-tasks"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Daily Tasks
-            </Link>
-            <Link
-              href="/manager/goals"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Goals
-            </Link>
-            <Link
-              href="/manager/claims"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              File claims
-            </Link>
-            <Link
-              href="/manager/openers"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Openers
-            </Link>
+            <ManagerTopNav
+              active="files"
+              pendingClaims={pendingClaims}
+              showAgentPortal={Boolean(agentId)}
+            />
             {role === "admin" ? (
               <Link
                 href="/admin"
@@ -77,7 +57,6 @@ export default async function ManagerFilesPage() {
                 {adminNavLabel(session.user.role)}
               </Link>
             ) : null}
-            <SignOutButton />
           </>
         }
       />

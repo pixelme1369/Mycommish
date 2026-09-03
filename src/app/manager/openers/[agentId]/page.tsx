@@ -65,7 +65,10 @@ export default async function ManagerOpenerDetailPage({
         description="Opener transfer log"
         actions={
           <>
-            <ManagerTopNav active="openers" />
+            <ManagerTopNav
+              active="openers"
+              showAgentPortal={Boolean(session.user.agentId)}
+            />
             {role === "admin" ? (
               <Link href="/admin" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
                 {adminNavLabel(session.user.role)}

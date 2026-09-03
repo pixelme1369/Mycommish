@@ -49,7 +49,10 @@ export default async function ManagerOpenersPage({
         description="Pick a pay period · same YYYY-MM and payday as agents"
         actions={
           <>
-            <ManagerTopNav active="openers" />
+            <ManagerTopNav
+              active="openers"
+              showAgentPortal={Boolean(session.user.agentId)}
+            />
             {role === "admin" ? (
               <Link href="/admin" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
                 {adminNavLabel(session.user.role)}

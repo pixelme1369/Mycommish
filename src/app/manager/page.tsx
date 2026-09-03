@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requireManagerOrAdmin, sessionRole } from "@/lib/auth-guards";
 import { adminNavLabel, formatRoleLabel } from "@/lib/roles";
-import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +16,7 @@ import { StatementsAwaitingManager, OpenerStatementsAwaitingManager } from "@/co
 import { sumMyOwedBonuses } from "@/lib/manager-bonuses";
 import { money } from "@/lib/format";
 import { countActiveAgentsByPeriod } from "@/lib/agents/active-period-counts";
+import { ManagerTopNav } from "@/app/manager/manager-top-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -78,55 +78,11 @@ export default async function ManagerHome() {
         }
         actions={
           <>
-            <Link
-              href="/portal/daily-tasks"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Daily Tasks
-            </Link>
-            <Link
-              href="/portal/documents"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Signed documents
-            </Link>
-            <Link
-              href="/manager/goals"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Goals
-            </Link>
-            <Link
-              href="/manager/advances"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Advances
-            </Link>
-            <Link
-              href="/manager/claims"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              File claims
-              {pendingClaims > 0 ? ` (${pendingClaims})` : ""}
-            </Link>
-            <Link
-              href="/manager/bonuses"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Bonus payouts
-            </Link>
-            <Link
-              href="/manager/openers"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Openers
-            </Link>
-            <Link
-              href="/manager/files"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              All files
-            </Link>
+            <ManagerTopNav
+              active="commissions"
+              pendingClaims={pendingClaims}
+              showAgentPortal={Boolean(agentId)}
+            />
             {role === "admin" ? (
               <Link
                 href="/admin"
@@ -135,7 +91,6 @@ export default async function ManagerHome() {
                 {adminNavLabel(session.user.role)}
               </Link>
             ) : null}
-            <SignOutButton />
           </>
         }
       />

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireManagerOrAdmin, sessionRole } from "@/lib/auth-guards";
 import { adminNavLabel } from "@/lib/roles";
-import { SignOutButton } from "@/components/sign-out-button";
 import { prisma } from "@/lib/db";
 import { PeriodSource } from "@/generated/prisma/client";
 import { money } from "@/lib/format";
@@ -21,6 +20,7 @@ import { PeriodAgentsGustoTable } from "@/app/admin/periods/period-agents-gusto-
 import { listBonusesForPeriod } from "@/lib/manager-bonuses";
 import { ManagerReimbursementsSection } from "@/components/manager-reimbursements-section";
 import { agentSignedByNameForPeriod } from "@/lib/statements";
+import { ManagerTopNav } from "@/app/manager/manager-top-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -110,12 +110,10 @@ export default async function ManagerPeriodPage({
         description={<>Status: {period.status === "open" ? "Open" : "Closed"}</>}
         actions={
           <>
-            <Link
-              href="/manager/files"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              All files
-            </Link>
+            <ManagerTopNav
+              active="commissions"
+              showAgentPortal={Boolean(session.user.agentId)}
+            />
             {role === "admin" ? (
               <Link
                 href={`/admin/periods/${period.id}`}
@@ -124,7 +122,6 @@ export default async function ManagerPeriodPage({
                 {adminNavLabel(session.user.role)} view
               </Link>
             ) : null}
-            <SignOutButton />
           </>
         }
       />

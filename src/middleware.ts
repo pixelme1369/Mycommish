@@ -22,7 +22,15 @@ export default auth((req) => {
   const isSuperAdmin = user?.role === "super_admin";
   const canStaffView = isAdmin || roleHasManagerCapabilities(user?.role);
 
-  if (pathname.startsWith("/api/auth") || pathname === "/" || pathname.startsWith("/api/cron")) {
+  if (pathname.startsWith("/api/auth") || pathname.startsWith("/api/cron")) {
+    return NextResponse.next();
+  }
+
+  // Logged-in users hitting `/` go to their role home (managers → /manager).
+  if (pathname === "/") {
+    if (isLoggedIn) {
+      return NextResponse.redirect(new URL(homePath(user), req.nextUrl.origin));
+    }
     return NextResponse.next();
   }
 

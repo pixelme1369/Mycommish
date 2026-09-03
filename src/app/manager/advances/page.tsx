@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requireManagerOrAdmin, isAdminUser } from "@/lib/auth-guards";
 import { adminHomeLinkLabel, formatRoleLabel } from "@/lib/roles";
-import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
 import { Badge } from "@/components/ui/badge";
@@ -17,16 +16,22 @@ import {
 } from "@/lib/advances";
 import { CreateAdvanceForm } from "./create-advance-form";
 import { CancelAdvanceButton } from "./cancel-advance-button";
+import { ManagerTopNav } from "@/app/manager/manager-top-nav";
+import { prisma } from "@/lib/db";
+import { FileClaimStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManagerAdvancesPage() {
   const session = await requireManagerOrAdmin();
   const admin = isAdminUser(session);
-  const [agents, periodLabels, advances] = await Promise.all([
+  const [agents, periodLabels, advances, pendingClaims] = await Promise.all([
     listAdvanceAgentChoices(),
     listCalculatedPeriodLabels(),
     listAdvances({ includeCancelled: true }),
+    prisma.fileClaim
+      .count({ where: { status: FileClaimStatus.pending } })
+      .catch(() => 0),
   ]);
 
   const active = advances.filter((a) => !a.cancelledAt);
@@ -45,13 +50,19 @@ export default async function ManagerAdvancesPage() {
         description="Managers, admins, and super admins · company cash early · survives CRM delete/re-upload"
         actions={
           <>
-            <Link
-              href={admin ? "/admin" : "/manager"}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              {admin ? adminHomeLinkLabel(session.user.role) : "← Manager"}
-            </Link>
-            <SignOutButton />
+            <ManagerTopNav
+              active="advances"
+              pendingClaims={pendingClaims}
+              showAgentPortal={Boolean(session.user.agentId)}
+            />
+            {admin ? (
+              <Link
+                href="/admin"
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              >
+                {adminHomeLinkLabel(session.user.role)}
+              </Link>
+            ) : null}
           </>
         }
       />

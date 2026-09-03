@@ -30,13 +30,14 @@ export function PortalTopBar({
   openerManager?: boolean;
 }) {
   const pathname = usePathname() || "/portal";
+  const commissionsPath = commissionsHref.split("?")[0] || "/portal";
 
   const nav = [
     {
       href: commissionsHref,
       label: opener ? "Transfers" : "Commissions",
       match: (p: string) =>
-        p === commissionsHref ||
+        p === commissionsPath ||
         p.startsWith("/portal/period/") ||
         p.startsWith("/manager/period/"),
     },

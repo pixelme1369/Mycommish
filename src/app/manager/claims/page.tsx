@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requireManagerOrAdmin, isAdminUser } from "@/lib/auth-guards";
 import { formatRoleLabel } from "@/lib/roles";
-import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FileClaimsQueue } from "@/components/file-claims-queue";
 import { loadFileClaimsQueueData } from "@/lib/claims/load-queue";
+import { ManagerTopNav } from "@/app/manager/manager-top-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -41,24 +41,11 @@ export default async function ManagerClaimsPage() {
         }
         actions={
           <>
-            <Link
-              href="/manager"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              ← Manager
-            </Link>
-            <Link
-              href="/manager/openers"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Openers
-            </Link>
-            <Link
-              href="/manager/files"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              All files
-            </Link>
+            <ManagerTopNav
+              active="claims"
+              pendingClaims={pendingCount}
+              showAgentPortal={Boolean(session.user.agentId)}
+            />
             {admin ? (
               <Link
                 href="/admin/claims"
@@ -67,7 +54,6 @@ export default async function ManagerClaimsPage() {
                 Admin claims
               </Link>
             ) : null}
-            <SignOutButton />
           </>
         }
       />

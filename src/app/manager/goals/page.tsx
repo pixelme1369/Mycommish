@@ -1,20 +1,27 @@
 import Link from "next/link";
 import { requireManagerOrAdmin, sessionRole } from "@/lib/auth-guards";
 import { adminNavLabel, formatRoleLabel } from "@/lib/roles";
-import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { listEnrolledGoalsForAdmin } from "@/lib/portal/monthly-goal";
 import { AgentGoalsRoster } from "@/components/agent-goals-roster";
+import { ManagerTopNav } from "@/app/manager/manager-top-nav";
+import { prisma } from "@/lib/db";
+import { FileClaimStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManagerGoalsPage() {
   const session = await requireManagerOrAdmin();
   const role = sessionRole(session);
-  const { monthTitle, rows } = await listEnrolledGoalsForAdmin();
+  const [{ monthTitle, rows }, pendingClaims] = await Promise.all([
+    listEnrolledGoalsForAdmin(),
+    prisma.fileClaim
+      .count({ where: { status: FileClaimStatus.pending } })
+      .catch(() => 0),
+  ]);
 
   return (
     <AppShell wide>
@@ -29,31 +36,11 @@ export default async function ManagerGoalsPage() {
         description={`${monthTitle} · every agent’s enrolled goal and progress`}
         actions={
           <>
-            <Link
-              href="/manager"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Commissions
-            </Link>
-            <Link
-              href="/manager/goals"
-              aria-current="page"
-              className={cn(buttonVariants({ variant: "default", size: "sm" }))}
-            >
-              Goals
-            </Link>
-            <Link
-              href="/manager/openers"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Openers
-            </Link>
-            <Link
-              href="/portal/daily-tasks"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Daily Tasks
-            </Link>
+            <ManagerTopNav
+              active="goals"
+              pendingClaims={pendingClaims}
+              showAgentPortal={Boolean(session.user.agentId)}
+            />
             {role === "admin" ? (
               <Link
                 href="/admin"
@@ -62,7 +49,6 @@ export default async function ManagerGoalsPage() {
                 {adminNavLabel(session.user.role)}
               </Link>
             ) : null}
-            <SignOutButton />
           </>
         }
       />
