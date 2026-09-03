@@ -58,7 +58,7 @@ export function OpenerSummaryTable({
       </div>
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-[56rem] border-collapse text-left text-sm">
-          <thead className="bg-[#1e4d8c] text-white">
+          <thead className="border-b border-border bg-muted/40 text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 font-medium">Opener</th>
               <th className="px-4 py-2.5 text-right font-medium">Approved Transfers</th>

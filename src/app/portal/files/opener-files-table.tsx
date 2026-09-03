@@ -46,7 +46,6 @@ export function OpenerFilesTable({ rows }: { rows: OpenerFileRow[] }) {
         (r.openerName || "").toLowerCase().includes(needle) ||
         (r.status || "").toLowerCase().includes(needle) ||
         (r.stageTitle || "").toLowerCase().includes(needle) ||
-        (r.notes || "").toLowerCase().includes(needle) ||
         formatOpenerPayStatus(r.payStatus).toLowerCase().includes(needle),
     );
   }, [rows, q]);
@@ -58,8 +57,8 @@ export function OpenerFilesTable({ rows }: { rows: OpenerFileRow[] }) {
         onChange={(e) => setQ(e.target.value)}
         placeholder={
           showOpener
-            ? "Filter by opener, File ID, status, stage, or notes…"
-            : "Filter by File ID, status, stage, or notes…"
+            ? "Filter by opener, File ID, status, or stage…"
+            : "Filter by File ID, status, or stage…"
         }
         className="max-w-sm"
       />
@@ -80,7 +79,6 @@ export function OpenerFilesTable({ rows }: { rows: OpenerFileRow[] }) {
                 <TableHead>Status</TableHead>
                 <TableHead>Commission</TableHead>
                 <TableHead>Pay Status</TableHead>
-                <TableHead>Notes</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -112,13 +110,12 @@ export function OpenerFilesTable({ rows }: { rows: OpenerFileRow[] }) {
                   </TableCell>
                   <TableCell>{r.stageTitle || "—"}</TableCell>
                   <TableCell>{r.status || "—"}</TableCell>
-                  <TableCell className="tabular-nums">
-                    {r.unmatched ? "—" : money(openerCommissionForPayStatus(r.debtLoad, r.payStatus))}
+                  <TableCell className="font-semibold tabular-nums text-money">
+                    {r.unmatched
+                      ? "—"
+                      : money(openerCommissionForPayStatus(r.debtLoad, r.payStatus))}
                   </TableCell>
                   <TableCell>{formatOpenerPayStatus(r.payStatus)}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {r.notes || "—"}
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

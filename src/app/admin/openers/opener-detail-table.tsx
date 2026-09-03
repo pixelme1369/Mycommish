@@ -5,8 +5,6 @@ import {
   type OpenerPayStatusName,
 } from "@/lib/opener/payout";
 import { OpenerPayStatusSelect } from "./pay-status-select";
-import { OpenerNotesInput } from "./opener-notes-input";
-import { setOpenerLogNotesStaffAction } from "./actions";
 
 export type OpenerDetailRow = {
   id: string;
@@ -33,8 +31,8 @@ export function OpenerDetailTable({
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[64rem] border-collapse text-left text-sm">
-        <thead className="bg-muted/40 text-muted-foreground">
+      <table className="w-full min-w-[56rem] border-collapse text-left text-sm">
+        <thead className="border-b border-border bg-muted/40 text-muted-foreground">
           <tr>
             <th className="px-3 py-2.5 font-medium">Transfer Date</th>
             <th className="px-3 py-2.5 font-medium">File ID</th>
@@ -43,13 +41,12 @@ export function OpenerDetailTable({
             <th className="px-3 py-2.5 font-medium">Status (CRM)</th>
             <th className="px-3 py-2.5 font-medium">Commission</th>
             <th className="px-3 py-2.5 font-medium">Pay Status</th>
-            <th className="px-3 py-2.5 font-medium">Notes</th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
+              <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
                 No transfers logged.
               </td>
             </tr>
@@ -77,8 +74,10 @@ export function OpenerDetailTable({
                 </td>
                 <td className="px-3 py-2">{r.stageTitle || "—"}</td>
                 <td className="px-3 py-2">{r.status || "—"}</td>
-                <td className="px-3 py-2 tabular-nums">
-                  {r.unmatched ? "—" : money(openerCommissionForPayStatus(r.debtLoad, r.payStatus))}
+                <td className="px-3 py-2 font-semibold tabular-nums text-money">
+                  {r.unmatched
+                    ? "—"
+                    : money(openerCommissionForPayStatus(r.debtLoad, r.payStatus))}
                 </td>
                 <td className="px-3 py-2">
                   {canEditPayStatus && !locked ? (
@@ -89,17 +88,6 @@ export function OpenerDetailTable({
                     />
                   ) : (
                     formatOpenerPayStatus(r.payStatus)
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  {locked ? (
-                    <span className="text-muted-foreground">{r.notes || "—"}</span>
-                  ) : (
-                    <OpenerNotesInput
-                      logId={r.id}
-                      notes={r.notes}
-                      action={setOpenerLogNotesStaffAction}
-                    />
                   )}
                 </td>
               </tr>

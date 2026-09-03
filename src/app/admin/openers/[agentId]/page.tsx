@@ -69,7 +69,7 @@ export default async function AdminOpenerDetailPage({
           <AdminTopNav
             isSuperAdmin={superAdmin}
             pendingManualBonusCount={pendingManualBonusCount}
-            active="openers"
+            active="commissions"
           />
         }
       />

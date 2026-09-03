@@ -4,12 +4,13 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AdminDocumentsMenu } from "@/app/admin/admin-documents-menu";
 import { AdminFileClaimsMenu } from "@/app/admin/admin-file-claims-menu";
+import { AdminCommissionsMenu } from "@/app/admin/admin-commissions-menu";
 
 export type AdminTopNavActive =
   | "manual-inputs"
   | "goals"
   | "documents"
-  | "openers"
+  | "commissions"
   | "file-claims";
 
 export function AdminTopNav({
@@ -40,18 +41,7 @@ export function AdminTopNav({
         showOpeners={isSuperAdmin}
       />
       <AdminDocumentsMenu active={active === "documents"} />
-      <Link
-        href="/admin/openers"
-        aria-current={active === "openers" ? "page" : undefined}
-        className={cn(
-          buttonVariants({
-            variant: active === "openers" ? "default" : "outline",
-            size: "sm",
-          }),
-        )}
-      >
-        Openers
-      </Link>
+      <AdminCommissionsMenu active={active === "commissions"} />
       <Link
         href="/admin/agents"
         className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
