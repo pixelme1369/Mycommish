@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  OPENER_MIN_PERIOD_LABEL,
   OPENER_PAY_APPROVED,
   OPENER_PAY_EXCLUDED,
   openerPayoutForDebt,
@@ -15,6 +16,14 @@ import {
   ymdInOpenerMonth,
   clampYmdToOpenerMonth,
 } from "./payout";
+
+describe("OPENER_MIN_PERIOD_LABEL", () => {
+  it("starts opener pay periods at August 2026", () => {
+    expect(OPENER_MIN_PERIOD_LABEL).toBe("2026-08");
+    expect("2026-07" < OPENER_MIN_PERIOD_LABEL).toBe(true);
+    expect("2026-08" >= OPENER_MIN_PERIOD_LABEL).toBe(true);
+  });
+});
 
 describe("openerPayoutForDebt", () => {
   it("blocks under $5,000", () => {

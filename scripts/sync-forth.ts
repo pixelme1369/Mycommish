@@ -18,6 +18,7 @@ async function main() {
       upserted: result.upserted,
       skipped: result.skipped,
       transferAgentsResolved: result.transferAgentsResolved,
+      openerLogsCreated: result.openerLogsCreated,
       unmatchedCount: result.unmatchedAgents.length,
       unmatchedSample: result.unmatchedAgents.slice(0, 15),
       openerLogsChecked: result.openerLogsChecked,

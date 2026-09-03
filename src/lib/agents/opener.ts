@@ -8,6 +8,8 @@ import { AgentRole } from "@/generated/prisma/client";
 import { agentIdentityKey } from "@/lib/commission/calculator";
 import { listDismissedKeys } from "@/lib/agents/dismissal";
 
+export { openerIdForTransferAgent } from "@/lib/agents/opener-match";
+
 /** Both opener logins sit on the opener transfer-pay plan, not ADP agent commission. */
 export const OPENER_PLAN_ROLES: AgentRole[] = [
   AgentRole.opener,
@@ -59,6 +61,45 @@ export async function listOpenerAliasKeys(): Promise<Set<string>> {
     // Stale Prisma client or DB enum not migrated yet — treat as no openers.
     return new Set();
   }
+}
+
+/**
+ * Map Forth Transfer Agent display names (and opener aliases) → opener agentId.
+ * Ambiguous names (two openers share a spelling) are omitted.
+ */
+export async function listOpenerTransferAgentIdByName(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const ambiguous = new Set<string>();
+
+  function put(name: string, agentId: string) {
+    const key = agentIdentityKey(name);
+    if (!key || !agentId) return;
+    if (ambiguous.has(key)) return;
+    const prev = map.get(key);
+    if (prev && prev !== agentId) {
+      map.delete(key);
+      ambiguous.add(key);
+      return;
+    }
+    map.set(key, agentId);
+  }
+
+  try {
+    const [agents, aliases] = await Promise.all([
+      listOpenerPlanAgents(),
+      prisma.$queryRaw<{ agentName: string; agentId: string }[]>`
+        SELECT al."agentName" AS "agentName", al."agentId" AS "agentId"
+        FROM "AgentAlias" al
+        INNER JOIN "Agent" a ON a.id = al."agentId"
+        WHERE a.role::text IN ('opener', 'opener_manager')
+      `,
+    ]);
+    for (const a of agents) put(a.displayName, a.id);
+    for (const al of aliases) put(al.agentName, al.agentId);
+  } catch {
+    return new Map();
+  }
+  return map;
 }
 
 /** Dismissed sales reps + opener aliases — hidden from commission pay. */

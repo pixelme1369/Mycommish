@@ -1,5 +1,8 @@
 import { paymentDateForPeriod } from "@/lib/commission/calculator";
 
+/** First opener pay month shown in the period dropdown (YYYY-MM). */
+export const OPENER_MIN_PERIOD_LABEL = "2026-08";
+
 export const OPENER_PAY_APPROVED = "approved" as const;
 export const OPENER_PAY_EXCLUDED = "excluded_canceled" as const;
 export type OpenerPayStatusName =
