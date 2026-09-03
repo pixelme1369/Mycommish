@@ -30,10 +30,12 @@ export type OpenerFileRow = {
   payStatus: OpenerPayStatusName;
   unmatched: boolean;
   notes: string;
+  openerName?: string;
 };
 
 export function OpenerFilesTable({ rows }: { rows: OpenerFileRow[] }) {
   const [q, setQ] = useState("");
+  const showOpener = rows.some((r) => r.openerName);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -41,6 +43,7 @@ export function OpenerFilesTable({ rows }: { rows: OpenerFileRow[] }) {
     return rows.filter(
       (r) =>
         r.forthId.toLowerCase().includes(needle) ||
+        (r.openerName || "").toLowerCase().includes(needle) ||
         (r.status || "").toLowerCase().includes(needle) ||
         (r.stageTitle || "").toLowerCase().includes(needle) ||
         (r.notes || "").toLowerCase().includes(needle) ||
@@ -53,7 +56,11 @@ export function OpenerFilesTable({ rows }: { rows: OpenerFileRow[] }) {
       <Input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Filter by File ID, status, stage, or notes…"
+        placeholder={
+          showOpener
+            ? "Filter by opener, File ID, status, stage, or notes…"
+            : "Filter by File ID, status, stage, or notes…"
+        }
         className="max-w-sm"
       />
       {filtered.length === 0 ? (
@@ -66,6 +73,7 @@ export function OpenerFilesTable({ rows }: { rows: OpenerFileRow[] }) {
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead>Transfer Date</TableHead>
+                {showOpener ? <TableHead>Opener</TableHead> : null}
                 <TableHead>File ID</TableHead>
                 <TableHead>Debt Load</TableHead>
                 <TableHead>Stage</TableHead>
@@ -86,6 +94,11 @@ export function OpenerFilesTable({ rows }: { rows: OpenerFileRow[] }) {
                   <TableCell className="whitespace-nowrap tabular-nums">
                     {formatOpenerTransferDay(r.transferYmd)}
                   </TableCell>
+                  {showOpener ? (
+                    <TableCell className="whitespace-nowrap">
+                      {r.openerName || "—"}
+                    </TableCell>
+                  ) : null}
                   <TableCell className="font-medium tabular-nums">
                     {r.forthId}
                     {r.unmatched ? (

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { AgentRole, PeriodStatus } from "@/generated/prisma/client";
+import { PeriodStatus } from "@/generated/prisma/client";
+import { listOpenerPlanAgents } from "@/lib/agents/opener";
 import {
   openerCommissionForPayStatus,
   openerPeriodFromYmd,
@@ -135,10 +136,7 @@ export async function logOpenerPeriodAsPaid(opts: {
       where: { monthLabel },
       include: { agent: { select: { displayName: true } } },
     }),
-    prisma.agent.findMany({
-      where: { role: AgentRole.opener },
-      select: { id: true, displayName: true },
-    }),
+    listOpenerPlanAgents(),
   ]);
   const nameById = new Map(openers.map((o) => [o.id, o.displayName]));
 

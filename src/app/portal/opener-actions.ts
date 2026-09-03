@@ -24,6 +24,8 @@ export type { OpenerLogActionResult };
 
 function revalidateOpenerPaths(agentId: string) {
   revalidatePath("/portal");
+  revalidatePath("/portal/files");
+  revalidatePath("/portal/openers-transfers");
   revalidatePath("/admin/openers");
   revalidatePath(`/admin/openers/${agentId}`);
   revalidatePath("/manager/openers");

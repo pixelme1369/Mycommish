@@ -7,11 +7,15 @@ import { Card } from "@/components/ui/card";
 import { mapForthAssignedToAction } from "@/app/admin/agents/actions";
 import { sortUsersForForthName } from "@/lib/forth/unmatched-match";
 import type { ForthMapUser, UnmatchedForthName } from "@/lib/forth/unmatched";
+import { isOpenerManagerRole, isOpenerRole } from "@/lib/roles";
 
 function optionLabel(user: ForthMapUser) {
   const aliasBit =
     user.aliases.length === 0 ? "no CRM alias" : user.aliases.join(", ");
-  if (user.role === "opener") {
+  if (isOpenerManagerRole(user.role)) {
+    return `${user.displayName} · opener manager · ${aliasBit}`;
+  }
+  if (isOpenerRole(user.role)) {
     return `${user.displayName} · opener · ${aliasBit}`;
   }
   return `${user.displayName} · ${aliasBit}`;
@@ -38,7 +42,7 @@ function UnmatchedRow({
     [users],
   );
   const openers = useMemo(
-    () => alphabetical.filter((u) => u.role === "opener"),
+    () => alphabetical.filter((u) => isOpenerRole(u.role)),
     [alphabetical],
   );
 

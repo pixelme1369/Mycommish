@@ -19,8 +19,6 @@ export type PortalDocumentItem = {
   filedRecord?: boolean;
 };
 
-const SIGN_ROLES: AgentRole[] = [AgentRole.agent, AgentRole.opener, AgentRole.manager];
-
 export async function listPortalDocuments(opts: {
   agentId: string;
   aliasNames: string[];
@@ -143,13 +141,11 @@ export async function listPortalDocuments(opts: {
 }
 
 export async function listDocumentRecipients() {
-  return prisma.agent.findMany({
-    where: {
-      role: { in: SIGN_ROLES },
-      suspendedAt: null,
-    },
-    select: { id: true },
-  });
+  return prisma.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "Agent"
+    WHERE "suspendedAt" IS NULL
+      AND role::text IN ('agent', 'opener', 'opener_manager', 'manager')
+  `;
 }
 
 export async function listDocumentAgents() {
@@ -166,12 +162,12 @@ export async function listDocumentAgents() {
 }
 
 export async function countSignableAgents(): Promise<number> {
-  return prisma.agent.count({
-    where: {
-      role: { in: SIGN_ROLES },
-      suspendedAt: null,
-    },
-  });
+  const rows = await prisma.$queryRaw<{ count: bigint }[]>`
+    SELECT COUNT(*)::bigint AS count FROM "Agent"
+    WHERE "suspendedAt" IS NULL
+      AND role::text IN ('agent', 'opener', 'opener_manager', 'manager')
+  `;
+  return Number(rows[0]?.count ?? 0);
 }
 
 export async function listAdminUploadedDocuments() {

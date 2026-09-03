@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { isSuperAdminUser, requireSession, sessionRole } from "@/lib/auth-guards";
-import { adminNavLabel, isOpenerRole } from "@/lib/roles";
+import { adminNavLabel, isOpenerManagerRole, isOpenerRole } from "@/lib/roles";
 import { AppShell } from "@/components/app-shell";
 import { PortalTopBar } from "@/components/portal-top-bar";
 import { listPortalDocuments } from "@/lib/portal/signed-documents";
@@ -37,6 +37,7 @@ export default async function PortalDocumentsPage() {
       staffHref={staffHref}
       staffLabel={staffLabel}
       opener={isOpenerRole(session.user.role)}
+      openerManager={isOpenerManagerRole(session.user.role)}
       openersHref={isManagerHome ? "/manager/openers" : undefined}
     />
   );

@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireSession, canViewAllCommissions } from "@/lib/auth-guards";
 import { isOpenerRole } from "@/lib/roles";
-import { prisma } from "@/lib/db";
-import { AgentRole } from "@/generated/prisma/client";
+import { findOpenerPlanAgent } from "@/lib/agents/opener";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { BrandMark } from "@/components/brand-mark";
 import { defaultOpenerPeriodLabel } from "@/lib/opener/logs";
@@ -30,10 +29,7 @@ export default async function OpenerStatementPage({
   const own = isOpenerRole(session.user.role) && session.user.agentId === agentId;
   if (!staff && !own) notFound();
 
-  const opener = await prisma.agent.findFirst({
-    where: { id: agentId, role: AgentRole.opener },
-    select: { id: true, displayName: true },
-  });
+  const opener = await findOpenerPlanAgent(agentId);
   if (!opener) notFound();
 
   const statement = openerStatementViewFromRow(

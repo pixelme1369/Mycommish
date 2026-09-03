@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { AgentRole } from "@/generated/prisma/client";
+import { listOpenerPlanAgents } from "@/lib/agents/opener";
 import {
   addOpenerLogToCounts,
   emptyOpenerLogCounts,
@@ -21,11 +21,7 @@ export async function buildOpenerPeriodWorkbook(monthLabel: string) {
   if (!/^\d{4}-\d{2}$/.test(monthLabel)) return null;
 
   const [openers, logs, upscores] = await Promise.all([
-    prisma.agent.findMany({
-      where: { role: AgentRole.opener },
-      select: { id: true, displayName: true },
-      orderBy: { displayName: "asc" },
-    }),
+    listOpenerPlanAgents(),
     prisma.openerTransferLog.findMany({
       where: { transferYmd: { startsWith: monthLabel } },
       select: {

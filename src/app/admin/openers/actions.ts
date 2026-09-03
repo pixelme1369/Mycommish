@@ -20,6 +20,8 @@ import type { OpenerLogActionResult } from "@/lib/opener/action-types";
 
 function revalidate(agentId: string) {
   revalidatePath("/portal");
+  revalidatePath("/portal/files");
+  revalidatePath("/portal/openers-transfers");
   revalidatePath("/admin/openers");
   revalidatePath(`/admin/openers/${agentId}`);
   revalidatePath("/manager/openers");
@@ -116,6 +118,7 @@ export async function setOpenerLogNotesStaffAction(
 
 function revalidateOpenerPeriod(monthLabel: string) {
   revalidatePath("/portal");
+  revalidatePath("/portal/openers-transfers");
   revalidatePath("/admin/openers");
   revalidatePath("/manager/openers");
   revalidatePath("/admin");

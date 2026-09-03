@@ -114,12 +114,14 @@ export function AddUserPanel({ salesReps = [] }: { salesReps?: string[] }) {
           >
             <option value="agent">Agent</option>
             <option value="opener">Opener</option>
+            <option value="opener_manager">Opener manager</option>
             <option value="manager">Manager</option>
             <option value="admin">Admin</option>
             <option value="super_admin">Super admin</option>
           </select>
           <p className="text-[11px] text-muted-foreground">
             Openers are not included in agent commission — their pay is calculated separately.
+            Opener manager is an opener who can also see every opener’s transfer log.
           </p>
         </div>
         <div className="space-y-1.5 sm:col-span-2">

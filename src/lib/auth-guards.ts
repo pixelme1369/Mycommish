@@ -6,6 +6,7 @@ import {
   roleHasManagerCapabilities,
   toAppRole,
   isOpenerRole,
+  isOpenerManagerRole,
   type AppRole,
 } from "@/lib/roles";
 
@@ -87,5 +88,12 @@ export async function requireManagerOrAdmin() {
 export async function requireOpener() {
   const session = await requireSession();
   if (!isOpenerRole(session.user.role)) redirect(homePathForSession(session));
+  return session;
+}
+
+/** Opener manager — same portal as openers, plus the team transfer log. */
+export async function requireOpenerManager() {
+  const session = await requireSession();
+  if (!isOpenerManagerRole(session.user.role)) redirect(homePathForSession(session));
   return session;
 }

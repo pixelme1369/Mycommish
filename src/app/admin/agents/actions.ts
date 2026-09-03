@@ -23,6 +23,7 @@ function parseRole(raw: FormDataEntryValue | null): AgentRole {
   if (v === "admin") return AgentRole.admin;
   if (v === "manager") return AgentRole.manager;
   if (v === "opener") return AgentRole.opener;
+  if (v === "opener_manager") return AgentRole.opener_manager;
   return AgentRole.agent;
 }
 
@@ -203,6 +204,55 @@ export async function updateDisplayNameAction(formData: FormData) {
     data: { displayName },
   });
   revalidatePath("/admin/agents");
+}
+
+export type UpdateEmailResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function updateEmailAction(
+  _prev: UpdateEmailResult | null,
+  formData: FormData,
+): Promise<UpdateEmailResult> {
+  await requireAdmin();
+  const agentId = String(formData.get("agentId") || "");
+  const email = String(formData.get("email") || "")
+    .trim()
+    .toLowerCase();
+  if (!agentId) return { ok: false, error: "Missing user." };
+  if (!email || !email.includes("@") || !email.includes(".")) {
+    return { ok: false, error: "Enter a valid email." };
+  }
+
+  const taken = await prisma.agent.findFirst({
+    where: { email, NOT: { id: agentId } },
+    select: { id: true, displayName: true },
+  });
+  if (taken) {
+    return {
+      ok: false,
+      error: `That email is already used by “${taken.displayName}”.`,
+    };
+  }
+
+  try {
+    await prisma.agent.update({
+      where: { id: agentId },
+      data: { email },
+    });
+  } catch (err) {
+    const code =
+      err && typeof err === "object" && "code" in err
+        ? String((err as { code: unknown }).code)
+        : "";
+    if (code === "P2002") {
+      return { ok: false, error: "That email is already registered." };
+    }
+    throw err;
+  }
+
+  revalidateAgentPortal();
+  return { ok: true };
 }
 
 export async function updateEmploymentAction(formData: FormData) {

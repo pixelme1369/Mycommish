@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import type { AgentRoleName } from "@/lib/roles";
 
 /**
  * Edge-safe config (no Prisma). Middleware uses this to decode the JWT cookie.
@@ -25,12 +26,8 @@ export const authConfig = {
           (token.employmentType as "employee" | "contractor" | undefined) || "employee";
         session.user.companyName = (token.companyName as string | null | undefined) ?? null;
         session.user.role =
-          (token.role as
-            | "super_admin"
-            | "admin"
-            | "manager"
-            | "agent"
-            | undefined) || (session.user.isAdmin ? "admin" : "agent");
+          (token.role as AgentRoleName | undefined) ||
+          (session.user.isAdmin ? "admin" : "agent");
         session.user.impersonatorAgentId = token.impersonatorAgentId as
           | string
           | undefined;

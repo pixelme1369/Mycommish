@@ -26,6 +26,8 @@ enum AgentRole {
   agent
   /// Separate opener comp plan — not included in ADP agent commission.
   opener
+  /// Opener who can also view every opener’s transfer log.
+  opener_manager
 }
 
 model Agent {

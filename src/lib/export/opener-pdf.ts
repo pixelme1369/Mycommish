@@ -1,6 +1,6 @@
 import PDFDocument from "pdfkit";
 import { prisma } from "@/lib/db";
-import { AgentRole } from "@/generated/prisma/client";
+import { findOpenerPlanAgent } from "@/lib/agents/opener";
 import {
   formatOpenerPayDate,
   formatOpenerPayStatus,
@@ -34,10 +34,7 @@ export async function buildOpenerCommissionStatementPdf(opts: {
   const { agentId, monthLabel } = opts;
   if (!/^\d{4}-\d{2}$/.test(monthLabel)) return null;
 
-  const agent = await prisma.agent.findFirst({
-    where: { id: agentId, role: AgentRole.opener },
-    select: { id: true, displayName: true },
-  });
+  const agent = await findOpenerPlanAgent(agentId);
   if (!agent) return null;
 
   const [logs, upscoreRow, statement] = await Promise.all([

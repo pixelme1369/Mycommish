@@ -4,6 +4,8 @@ import {
   useMemo,
   useState,
   useTransition,
+  useEffect,
+  useActionState,
   Fragment,
   type ReactNode,
 } from "react";
@@ -28,11 +30,19 @@ import { cn } from "@/lib/utils";
 import { AliasAutocomplete } from "./alias-autocomplete";
 import { DeleteAgentButton, DeleteAliasButton } from "./delete-buttons";
 import {
+  DEFAULT_USER_COLUMNS,
+  loadUserColumns,
+  USER_COLUMN_STORAGE_KEY,
+  UsersColumnPicker,
+  type UserColumnId,
+} from "./users-column-picker";
+import {
   activateAgentAction,
   clearPasswordAction,
   setPasswordAction,
   suspendAgentAction,
   updateDisplayNameAction,
+  updateEmailAction,
   updateEmploymentAction,
   updateGustoProfileAction,
   updateRoleAction,
@@ -40,7 +50,13 @@ import {
 import { updateAgentPhoneAction } from "@/app/portal/phone-actions";
 import { formatPhoneForDisplay } from "@/lib/agents/phone";
 
-export type AgentRoleView = "super_admin" | "admin" | "manager" | "agent" | "opener";
+export type AgentRoleView =
+  | "super_admin"
+  | "admin"
+  | "manager"
+  | "agent"
+  | "opener"
+  | "opener_manager";
 export type EmploymentTypeView = "employee" | "contractor";
 
 export type AgentRowView = {
@@ -74,8 +90,33 @@ function roleLabel(role: AgentRoleView) {
       return "Manager";
     case "opener":
       return "Opener";
+    case "opener_manager":
+      return "Opener manager";
     default:
       return "Agent";
+  }
+}
+
+function columnLabel(id: UserColumnId) {
+  switch (id) {
+    case "status":
+      return "Status";
+    case "name":
+      return "Name";
+    case "email":
+      return "Email";
+    case "role":
+      return "Role";
+    case "employment":
+      return "Employment";
+    case "phone":
+      return "Phone";
+    case "aliases":
+      return "Aliases";
+    case "lastLogin":
+      return "Last login";
+    case "login":
+      return "Login";
   }
 }
 
@@ -90,6 +131,79 @@ function formatLastLogin(iso: string | null) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function UserColumnCell({
+  column,
+  agent,
+  onNameClick,
+}: {
+  column: UserColumnId;
+  agent: AgentRowView;
+  onNameClick: () => void;
+}) {
+  const suspended = Boolean(agent.suspendedAt);
+  switch (column) {
+    case "status":
+      return (
+        <Badge
+          variant={suspended ? "secondary" : "outline"}
+          className={cn("font-normal", !suspended && "border-money/50 text-money")}
+        >
+          {suspended ? "Suspended" : "Active"}
+        </Badge>
+      );
+    case "name":
+      return (
+        <button
+          type="button"
+          className="text-left font-medium whitespace-nowrap hover:underline"
+          onClick={onNameClick}
+        >
+          {agent.displayName}
+        </button>
+      );
+    case "email":
+      return (
+        <span className="text-muted-foreground text-xs whitespace-nowrap">{agent.email}</span>
+      );
+    case "role":
+      return <span className="text-xs">{roleLabel(agent.role)}</span>;
+    case "employment":
+      return (
+        <span className="text-xs text-muted-foreground">
+          {agent.employmentType === "contractor"
+            ? agent.companyName
+              ? `1099 · ${agent.companyName}`
+              : "1099"
+            : "Employee"}
+        </span>
+      );
+    case "phone":
+      return (
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {formatPhoneForDisplay(agent.phone) || "—"}
+        </span>
+      );
+    case "aliases":
+      return (
+        <span className="block max-w-[10rem] truncate text-xs font-mono text-muted-foreground">
+          {agent.aliases.length ? agent.aliases.map((al) => al.agentName).join(", ") : "—"}
+        </span>
+      );
+    case "lastLogin":
+      return (
+        <span className="whitespace-nowrap text-xs text-muted-foreground">
+          {formatLastLogin(agent.lastLoginAt)}
+        </span>
+      );
+    case "login":
+      return (
+        <span className="text-xs text-muted-foreground">
+          {agent.hasPassword ? "Google · Password" : "Google"}
+        </span>
+      );
+  }
 }
 
 export function AgentsUsersTable({
@@ -115,6 +229,22 @@ export function AgentsUsersTable({
   } | null>(null);
   const [busy, start] = useTransition();
   const { loginAs, pending: loginAsPending } = useLoginAsUser();
+  const [visibleColumns, setVisibleColumns] = useState<UserColumnId[]>(DEFAULT_USER_COLUMNS);
+  const [columnsReady, setColumnsReady] = useState(false);
+
+  useEffect(() => {
+    setVisibleColumns(loadUserColumns());
+    setColumnsReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!columnsReady) return;
+    try {
+      localStorage.setItem(USER_COLUMN_STORAGE_KEY, JSON.stringify(visibleColumns));
+    } catch {
+      /* ignore */
+    }
+  }, [visibleColumns, columnsReady]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -174,6 +304,7 @@ export function AgentsUsersTable({
             <option value="all">Any role</option>
             <option value="agent">Agent</option>
             <option value="opener">Opener</option>
+            <option value="opener_manager">Opener manager</option>
             <option value="manager">Manager</option>
             <option value="admin">Admin</option>
             <option value="super_admin">Super admin</option>
@@ -197,27 +328,28 @@ export function AgentsUsersTable({
         <p className="pb-2 text-xs text-muted-foreground">
           {filtered.length} of {agents.length}
         </p>
+        <UsersColumnPicker visible={visibleColumns} onChange={setVisibleColumns} />
       </div>
 
       <div className="overflow-x-auto rounded-xl ring-1 ring-border/70">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead className="w-[5.5rem]">Status</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Employment</TableHead>
-              <TableHead>Aliases</TableHead>
-              <TableHead>Last login</TableHead>
-              <TableHead>Login</TableHead>
+              {visibleColumns.map((id) => (
+                <TableHead
+                  key={id}
+                  className={id === "status" ? "w-[5.5rem]" : undefined}
+                >
+                  {columnLabel(id)}
+                </TableHead>
+              ))}
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={visibleColumns.length + 1} className="py-8 text-center text-sm text-muted-foreground">
                   No users match.
                 </TableCell>
               </TableRow>
@@ -231,48 +363,15 @@ export function AgentsUsersTable({
                     <TableRow
                       className={cn(suspended && "bg-muted/20", expanded && "bg-muted/10")}
                     >
-                      <TableCell>
-                        <Badge
-                          variant={suspended ? "secondary" : "outline"}
-                          className={cn(
-                            "font-normal",
-                            !suspended && "border-money/50 text-money",
-                          )}
-                        >
-                          {suspended ? "Suspended" : "Active"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium whitespace-nowrap">
-                        <button
-                          type="button"
-                          className="text-left hover:underline"
-                          onClick={() => toggleExpand(a.id)}
-                        >
-                          {a.displayName}
-                        </button>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
-                        {a.email}
-                      </TableCell>
-                      <TableCell className="text-xs">{roleLabel(a.role)}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {a.employmentType === "contractor"
-                          ? a.companyName
-                            ? `1099 · ${a.companyName}`
-                            : "1099"
-                          : "Employee"}
-                      </TableCell>
-                      <TableCell className="max-w-[10rem] truncate text-xs font-mono text-muted-foreground">
-                        {a.aliases.length
-                          ? a.aliases.map((al) => al.agentName).join(", ")
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                        {formatLastLogin(a.lastLoginAt)}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {a.hasPassword ? "Google · Password" : "Google"}
-                      </TableCell>
+                      {visibleColumns.map((col) => (
+                        <TableCell key={col}>
+                          <UserColumnCell
+                            column={col}
+                            agent={a}
+                            onNameClick={() => toggleExpand(a.id)}
+                          />
+                        </TableCell>
+                      ))}
                       <TableCell>
                         <MoreActionsMenu estimatedHeight={310} menuWidth={180}>
                           {(close) => (
@@ -355,7 +454,7 @@ export function AgentsUsersTable({
                     </TableRow>
                     {expanded ? (
                       <TableRow className="hover:bg-transparent">
-                        <TableCell colSpan={9} className="bg-muted/20 p-0">
+                        <TableCell colSpan={visibleColumns.length + 1} className="bg-muted/20 p-0">
                           <AgentDetailPanel
                             agent={a}
                             salesReps={salesReps}
@@ -437,6 +536,35 @@ function Field({
       </Label>
       {children}
     </div>
+  );
+}
+
+function EmailEditForm({ agent }: { agent: AgentRowView }) {
+  const [state, action] = useActionState(updateEmailAction, null);
+  return (
+    <form
+      action={action}
+      className="flex min-w-[12rem] flex-[1.3] flex-wrap items-end gap-1.5"
+    >
+      <input type="hidden" name="agentId" value={agent.id} />
+      <Field label="Email" htmlFor={`email-${agent.id}`} className="min-w-[12rem] flex-1">
+        <Input
+          id={`email-${agent.id}`}
+          name="email"
+          type="email"
+          required
+          defaultValue={agent.email}
+          placeholder="email@example.com"
+          className="h-8"
+        />
+      </Field>
+      <Button type="submit" size="sm" variant="outline" className="h-8 shrink-0 px-2.5">
+        Save
+      </Button>
+      {state && !state.ok ? (
+        <p className="basis-full text-[11px] text-destructive">{state.error}</p>
+      ) : null}
+    </form>
   );
 }
 
@@ -529,6 +657,8 @@ function AgentDetailPanel({
             </Button>
           </form>
 
+          <EmailEditForm key={`email-${agent.id}-${agent.email}`} agent={agent} />
+
           <form
             key={`role-${agent.id}-${agent.role}`}
             action={updateRoleAction}
@@ -543,6 +673,7 @@ function AgentDetailPanel({
               >
                 <option value="agent">Agent</option>
                 <option value="opener">Opener</option>
+                <option value="opener_manager">Opener manager</option>
                 <option value="manager">Manager</option>
                 <option value="admin">Admin</option>
                 <option value="super_admin">Super admin</option>

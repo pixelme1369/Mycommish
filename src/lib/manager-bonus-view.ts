@@ -8,7 +8,8 @@ export type ManagerBonusRoleValue =
   | "admin"
   | "manager"
   | "agent"
-  | "opener";
+  | "opener"
+  | "opener_manager";
 
 export type ManagerBonusRow = {
   id: string;

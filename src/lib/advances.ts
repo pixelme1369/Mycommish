@@ -6,6 +6,7 @@ import {
 } from "@/generated/prisma/client";
 import { recomputeAgentPeriodClawbacks } from "@/lib/ingest/recompute-agent-period";
 import { paymentDateForPeriod } from "@/lib/commission/calculator";
+import { isOpenerRole } from "@/lib/roles";
 
 function dec(n: number) {
   return new Prisma.Decimal(n);
@@ -432,7 +433,7 @@ export async function listAdvanceAgentChoices() {
 
   for (const a of aliases) {
     if (a.agent.suspendedAt) continue;
-    if (a.agent.role === "opener") continue;
+    if (isOpenerRole(a.agent.role)) continue;
     byName.set(a.agentName, {
       agentName: a.agentName,
       agentId: a.agentId,

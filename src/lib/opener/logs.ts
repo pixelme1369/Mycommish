@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { AgentRole, PeriodSource, Prisma } from "@/generated/prisma/client";
+import { PeriodSource, Prisma } from "@/generated/prisma/client";
+import { listOpenerPlanAgents, isOpenerPlanAgentId } from "@/lib/agents/opener";
 import {
   openerPayoutForDebt,
   openerPeriodFromYmd,
@@ -158,6 +159,20 @@ export async function listOpenerLogsForAgent(agentId: string, monthLabel?: strin
   });
 }
 
+export async function listAllOpenerTransferLogs(monthLabel?: string) {
+  if (monthLabel && /^\d{4}-\d{2}$/.test(monthLabel)) {
+    const { isOpenerMonthLocked } = await import("@/lib/opener/period");
+    if (!(await isOpenerMonthLocked(monthLabel))) {
+      await syncOpenerLogCommissions(monthLabel);
+    }
+  }
+  return prisma.openerTransferLog.findMany({
+    where: monthLabel ? { transferYmd: { startsWith: monthLabel } } : {},
+    include: { agent: { select: { displayName: true } } },
+    orderBy: [{ transferYmd: "desc" }, { forthId: "asc" }],
+  });
+}
+
 export type OpenerSummaryRow = {
   agentId: string;
   displayName: string;
@@ -175,11 +190,7 @@ export async function listOpenerSummaries(
 ): Promise<OpenerSummaryRow[]> {
   const month = monthLabel && /^\d{4}-\d{2}$/.test(monthLabel) ? monthLabel : undefined;
   const [openers, logs, upscores] = await Promise.all([
-    prisma.agent.findMany({
-      where: { role: AgentRole.opener },
-      select: { id: true, displayName: true },
-      orderBy: { displayName: "asc" },
-    }),
+    listOpenerPlanAgents(),
     prisma.openerTransferLog.findMany({
       where: month ? { transferYmd: { startsWith: month } } : undefined,
       select: {
@@ -257,11 +268,7 @@ export async function setOpenerUpscore(opts: {
   if (amount == null) return { ok: false, error: "Enter a valid dollar amount." };
   if (amount > 100_000) return { ok: false, error: "Upscore is too large." };
 
-  const agent = await prisma.agent.findUnique({
-    where: { id: opts.agentId },
-    select: { id: true, role: true },
-  });
-  if (!agent || agent.role !== AgentRole.opener) {
+  if (!(await isOpenerPlanAgentId(opts.agentId))) {
     return { ok: false, error: "Opener not found." };
   }
 

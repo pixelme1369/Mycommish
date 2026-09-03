@@ -15,6 +15,7 @@ export function PortalTopBar({
   dailyTasksHref = "/portal/daily-tasks",
   openersHref,
   opener = false,
+  openerManager = false,
 }: {
   staffHref?: string;
   staffLabel?: string;
@@ -25,6 +26,8 @@ export function PortalTopBar({
   openersHref?: string;
   /** Opener home is the transfer log, not agent commissions. */
   opener?: boolean;
+  /** Extra tab to review every opener’s transfer log. */
+  openerManager?: boolean;
 }) {
   const pathname = usePathname() || "/portal";
 
@@ -44,6 +47,15 @@ export function PortalTopBar({
             label: "Openers",
             match: (p: string) =>
               p.startsWith("/manager/openers") || p.startsWith("/admin/openers"),
+          },
+        ]
+      : []),
+    ...(opener && openerManager
+      ? [
+          {
+            href: "/portal/openers-transfers",
+            label: "Openers Transfers",
+            match: (p: string) => p.startsWith("/portal/openers-transfers"),
           },
         ]
       : []),
