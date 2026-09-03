@@ -367,8 +367,8 @@ function OpenerLogRow({
       <TableCell className="font-medium tabular-nums">
         {row.forthId}
         {row.unmatched ? (
-          <span className="ml-2 text-[11px] font-normal uppercase tracking-wide text-amber-800">
-            Unmatched
+          <span className="ml-2 text-[11px] font-normal tracking-wide text-amber-800">
+            Not Enrolled
           </span>
         ) : null}
       </TableCell>

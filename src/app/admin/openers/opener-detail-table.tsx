@@ -67,8 +67,8 @@ export function OpenerDetailTable({
                 <td className="px-3 py-2 font-medium tabular-nums">
                   {r.forthId}
                   {r.unmatched ? (
-                    <span className="ml-2 text-[11px] font-normal uppercase tracking-wide text-amber-800">
-                      Unmatched
+                    <span className="ml-2 text-[11px] font-normal tracking-wide text-amber-800">
+                      Not Enrolled
                     </span>
                   ) : null}
                 </td>
