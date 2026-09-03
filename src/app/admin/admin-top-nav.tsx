@@ -3,8 +3,14 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AdminDocumentsMenu } from "@/app/admin/admin-documents-menu";
+import { AdminFileClaimsMenu } from "@/app/admin/admin-file-claims-menu";
 
-export type AdminTopNavActive = "manual-inputs" | "goals" | "documents" | "openers";
+export type AdminTopNavActive =
+  | "manual-inputs"
+  | "goals"
+  | "documents"
+  | "openers"
+  | "file-claims";
 
 export function AdminTopNav({
   isSuperAdmin,
@@ -29,12 +35,10 @@ export function AdminTopNav({
       >
         Advances
       </Link>
-      <Link
-        href="/admin/claims"
-        className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-      >
-        File claims
-      </Link>
+      <AdminFileClaimsMenu
+        active={active === "file-claims"}
+        showOpeners={isSuperAdmin}
+      />
       <AdminDocumentsMenu active={active === "documents"} />
       <Link
         href="/admin/openers"

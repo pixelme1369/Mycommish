@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   isAdminUser,
+  isSuperAdminUser,
   requireManagerOrAdmin,
 } from "@/lib/auth-guards";
 import { adminHomeLinkLabel, formatRoleLabel } from "@/lib/roles";
@@ -18,6 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminClaimsPage() {
   const session = await requireManagerOrAdmin();
   const admin = isAdminUser(session);
+  const superAdmin = isSuperAdminUser(session);
   const { claims, pendingCount, totalClaimCount, identityByClaimId, eventByCrm } =
     await loadFileClaimsQueueData();
 
@@ -30,11 +32,19 @@ export default async function AdminClaimsPage() {
             <span>· {formatRoleLabel(session.user.role)}</span>
           </span>
         }
-        title="File claims"
+        title="File claims · Agent"
         description={`${pendingCount} pending · External ID (= Cordoba ID) · Accept locks Sales Rep for future CRM + moves open-period rows (incl. dropped/clawback); closed periods stay locked`}
         actions={
           <>
             {admin ? <ClearAllClaimsButton claimCount={totalClaimCount} /> : null}
+            {superAdmin ? (
+              <Link
+                href="/admin/opener-claims"
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              >
+                Openers
+              </Link>
+            ) : null}
             <Link
               href={admin ? "/admin" : "/manager"}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}

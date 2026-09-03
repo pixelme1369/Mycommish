@@ -21,6 +21,12 @@ import {
 } from "./actions";
 import type { LookupChatResult, LookupHitView } from "./lookup-action";
 
+type ClaimLookupFn = (
+  externalId: string,
+  clientName: string,
+  note?: string,
+) => Promise<ClaimActionState>;
+
 export type AgentFileRowView = {
   crmId: string;
   externalId?: string | null;
@@ -155,10 +161,12 @@ type ChatMessage = {
 function ClaimButton({
   externalId,
   clientName,
+  claimAction = claimFileFromLookupAction,
   onDone,
 }: {
   externalId: string;
   clientName: string;
+  claimAction?: ClaimLookupFn;
   onDone: (result: ClaimActionState) => void;
 }) {
   const [pending, start] = useTransition();
@@ -173,7 +181,7 @@ function ClaimButton({
       disabled={pending || done || !externalId || !clientName}
       onClick={() => {
         start(async () => {
-          const res = await claimFileFromLookupAction(externalId, clientName);
+          const res = await claimAction(externalId, clientName);
           if (res?.ok) setDone(true);
           onDone(res);
         });
@@ -186,14 +194,20 @@ function ClaimButton({
 
 export function FileLookupChat({
   lookupAction,
+  claimAction = claimFileFromLookupAction,
+  intro = "Ask about a file by External ID (ADP CRM) or client name. I’ll show status and when the 1st payment cleared (from CRM). Use Claim to send it to My claims for admin review.",
+  clearedLabel = "1st payment cleared",
 }: {
   lookupAction: (query: string) => Promise<LookupChatResult>;
+  claimAction?: ClaimLookupFn;
+  intro?: string;
+  clearedLabel?: string;
 }) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "bot",
-      text: "Ask about a file by External ID (ADP CRM) or client name. I’ll show status and when the 1st payment cleared (from CRM). Use Claim to send it to My claims for admin review.",
+      text: intro,
     },
   ]);
   const [pending, start] = useTransition();
@@ -254,7 +268,7 @@ export function FileLookupChat({
                           <br />
                           Enrolled: {h.enrolledDate || "—"}
                           <br />
-                          1st payment cleared:{" "}
+                          {clearedLabel}:{" "}
                           <span className="font-medium">
                             {h.firstPaymentClearedDate || "—"}
                           </span>
@@ -269,11 +283,12 @@ export function FileLookupChat({
                           <ClaimButton
                             externalId={ext}
                             clientName={h.clientName || "Unknown"}
+                            claimAction={claimAction}
                             onDone={(res) => {
                               if (!res) return;
                               pushBotNote(
                                 res.ok
-                                  ? `Claimed ${ext} — it’s in My claims for admin review.`
+                                  ? `Claimed ${ext} — it’s in My claims for review.`
                                   : res.error,
                               );
                             }}
@@ -294,11 +309,12 @@ export function FileLookupChat({
                   <ClaimButton
                     externalId={m.claimDraft.externalId}
                     clientName={m.claimDraft.clientName}
+                    claimAction={claimAction}
                     onDone={(res) => {
                       if (!res) return;
                       pushBotNote(
                         res.ok
-                          ? `Claimed ${m.claimDraft!.externalId} — it’s in My claims for admin review.`
+                          ? `Claimed ${m.claimDraft!.externalId} — it’s in My claims for review.`
                           : res.error,
                       );
                     }}

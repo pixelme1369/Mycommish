@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { createFileClaimAction, type ClaimActionState } from "./actions";
+import { createOpenerFileClaimAction } from "./opener-claim-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,3 +56,45 @@ export function MissingFileClaimForm() {
   );
 }
 
+export function OpenerMissingFileClaimForm() {
+  const [state, action, pending] = useActionState(createOpenerFileClaimAction, initial);
+
+  return (
+    <form action={action} className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="forthId">File ID</Label>
+          <Input
+            id="forthId"
+            name="forthId"
+            required
+            placeholder="Forth or Cordoba External ID"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="clientName">Name</Label>
+          <Input id="clientName" name="clientName" required placeholder="Client full name" />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="note">Note (optional)</Label>
+        <Input id="note" name="note" placeholder="Why this should be on your book" />
+      </div>
+      <Button type="submit" disabled={pending} size="sm">
+        {pending ? "Submitting…" : "Submit for super-admin review"}
+      </Button>
+      {state?.ok === false ? (
+        <Alert variant="destructive">
+          <AlertTitle>Couldn’t submit</AlertTitle>
+          <AlertDescription>{state.error}</AlertDescription>
+        </Alert>
+      ) : null}
+      {state?.ok === true ? (
+        <Alert>
+          <AlertTitle>Sent</AlertTitle>
+          <AlertDescription>{state.message}</AlertDescription>
+        </Alert>
+      ) : null}
+    </form>
+  );
+}

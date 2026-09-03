@@ -60,6 +60,8 @@ model Agent {
   uploads UploadBatch[]
   fileClaims FileClaim[]
   reviewedClaims FileClaim[] @relation("FileClaimReviewer")
+  openerFileClaims OpenerFileClaim[]
+  reviewedOpenerFileClaims OpenerFileClaim[] @relation("OpenerFileClaimReviewer")
   agentSignedStatements CommissionStatement[] @relation("StatementAgentSigner")
   managerSignedStatements CommissionStatement[] @relation("StatementManagerSigner")
   bonusesPaid           ManagerBonusPayout[] @relation("ManagerBonusPaidBy")
@@ -382,6 +384,32 @@ model FileClaim {
   @@index([agentId, status])
   @@index([status, createdAt])
   @@index([crmId])
+}
+
+/// Opener reports a Forth file missing / wrong Transfer Agent; super-admin reviews.
+model OpenerFileClaim {
+  id           String          @id @default(cuid())
+  agentId      String
+  /// Forth contact id or Cordoba/tp id the opener claimed with.
+  forthId      String
+  clientName   String
+  note         String?
+  /// Snapshot answers shown when they claimed (for admin context).
+  transferAgentSnapshot String?
+  enrolledSnapshot      Boolean?
+  status       FileClaimStatus @default(pending)
+  adminNote    String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  agent      Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  reviewedBy Agent? @relation("OpenerFileClaimReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([agentId, status])
+  @@index([status, createdAt])
+  @@index([forthId])
 }
 
 /// Day-1 / day-5 follow-up checklist (Email, SMS, Call) for portal Daily Tasks.
