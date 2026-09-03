@@ -4,8 +4,10 @@ import {
   openerPayoutForDebt,
   openerPeriodFromYmd,
   openerSnapshotFromForth,
+  openerCommissionForPayStatus,
   previousOpenerMonthLabel,
   type OpenerForthSnapshot,
+  type OpenerPayStatusName,
 } from "@/lib/opener/payout";
 import { pacificTodayYmd } from "@/lib/portal/daily-tasks-dates";
 import {
@@ -85,8 +87,10 @@ export async function refreshOpenerTransferLogs(): Promise<{
       : row.payStatusOverridden
         ? row.payStatus
         : snap.payStatus;
-    const nextCommission = locked ? Number(row.commission) : snap.commission;
     const nextDebt = locked ? Number(row.debtLoad) : snap.debtLoad;
+    const nextCommission = locked
+      ? Number(row.commission)
+      : openerCommissionForPayStatus(nextDebt, nextPay);
     const same =
       Number(row.debtLoad) === nextDebt &&
       (row.stageTitle || null) === snap.stageTitle &&
@@ -112,7 +116,39 @@ export async function refreshOpenerTransferLogs(): Promise<{
   return { checked: logs.length, updated };
 }
 
+/** Write $0 on excluded files so lock/pay snapshots do not freeze a band amount. */
+export async function syncOpenerLogCommissions(
+  monthLabel: string,
+  db: Prisma.TransactionClient | typeof prisma = prisma,
+): Promise<number> {
+  if (!/^\d{4}-\d{2}$/.test(monthLabel)) return 0;
+  const logs = await db.openerTransferLog.findMany({
+    where: { transferYmd: { startsWith: monthLabel } },
+    select: { id: true, debtLoad: true, payStatus: true, commission: true },
+  });
+  let updated = 0;
+  for (const row of logs) {
+    const commission = openerCommissionForPayStatus(
+      Number(row.debtLoad),
+      row.payStatus as OpenerPayStatusName,
+    );
+    if (Number(row.commission) === commission) continue;
+    await db.openerTransferLog.update({
+      where: { id: row.id },
+      data: { commission },
+    });
+    updated += 1;
+  }
+  return updated;
+}
+
 export async function listOpenerLogsForAgent(agentId: string, monthLabel?: string) {
+  if (monthLabel && /^\d{4}-\d{2}$/.test(monthLabel)) {
+    const { isOpenerMonthLocked } = await import("@/lib/opener/period");
+    if (!(await isOpenerMonthLocked(monthLabel))) {
+      await syncOpenerLogCommissions(monthLabel);
+    }
+  }
   return prisma.openerTransferLog.findMany({
     where: {
       agentId,
@@ -149,7 +185,7 @@ export async function listOpenerSummaries(
       select: {
         agentId: true,
         payStatus: true,
-        commission: true,
+        debtLoad: true,
         unmatched: true,
         agent: { select: { displayName: true } },
       },
@@ -179,7 +215,10 @@ export async function listOpenerSummaries(
       );
     addOpenerLogToCounts(cur, {
       payStatus: row.payStatus,
-      commission: Number(row.commission),
+      commission: openerCommissionForPayStatus(
+        Number(row.debtLoad),
+        row.payStatus as OpenerPayStatusName,
+      ),
       unmatched: row.unmatched,
     });
     cur.totalPayout = cur.commissionTotal + cur.upscore;

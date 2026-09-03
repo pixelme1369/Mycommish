@@ -20,6 +20,7 @@ import {
   formatOpenerPayStatus,
   formatOpenerPeriodName,
   formatOpenerTransferDay,
+  openerCommissionForPayStatus,
   openerMonthDays,
   OPENER_PAY_APPROVED,
   type OpenerForthSnapshot,
@@ -106,7 +107,10 @@ export function OpenerTransfersPanel({
     () => rows.filter((r) => r.payStatus === OPENER_PAY_APPROVED),
     [rows],
   );
-  const approvedTotal = approved.reduce((s, r) => s + r.commission, 0);
+  const approvedTotal = approved.reduce(
+    (s, r) => s + openerCommissionForPayStatus(r.debtLoad, r.payStatus),
+    0,
+  );
   const snap = lookup?.snapshot;
   const blockSave = Boolean(lookup?.debtTooLow || lookup?.existing);
   const transferDays = openerMonthDays(monthLabel);
@@ -374,7 +378,7 @@ function OpenerLogRow({
       <TableCell>{row.stageTitle || "—"}</TableCell>
       <TableCell>{row.status || "—"}</TableCell>
       <TableCell className="tabular-nums">
-        {row.unmatched ? "—" : money(row.commission)}
+        {row.unmatched ? "—" : money(openerCommissionForPayStatus(row.debtLoad, row.payStatus))}
       </TableCell>
       <TableCell>{formatOpenerPayStatus(row.payStatus)}</TableCell>
       <TableCell>

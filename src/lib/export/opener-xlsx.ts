@@ -5,6 +5,10 @@ import {
   emptyOpenerLogCounts,
 } from "@/lib/opener/summary";
 import {
+  openerCommissionForPayStatus,
+  type OpenerPayStatusName,
+} from "@/lib/opener/payout";
+import {
   writeOpenerWorkbook,
   type OpenerExportLogRow,
   type OpenerExportSummaryRow,
@@ -57,9 +61,13 @@ export async function buildOpenerPeriodWorkbook(monthLabel: string) {
 
   const exportLogs: OpenerExportLogRow[] = logs.map((row) => {
     const counts = countsByAgent.get(row.agentId) ?? emptyOpenerLogCounts();
+    const commission = openerCommissionForPayStatus(
+      Number(row.debtLoad),
+      row.payStatus as OpenerPayStatusName,
+    );
     addOpenerLogToCounts(counts, {
       payStatus: row.payStatus,
-      commission: Number(row.commission),
+      commission,
       unmatched: row.unmatched,
     });
     countsByAgent.set(row.agentId, counts);
@@ -71,7 +79,7 @@ export async function buildOpenerPeriodWorkbook(monthLabel: string) {
       debtLoad: Number(row.debtLoad),
       stageTitle: row.stageTitle,
       status: row.status,
-      commission: Number(row.commission),
+      commission,
       payStatus: row.payStatus,
       notes: row.notes || "",
       unmatched: row.unmatched,

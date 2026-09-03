@@ -6,6 +6,7 @@ import { requireAdmin, requireManagerOrAdmin } from "@/lib/auth-guards";
 import {
   OPENER_PAY_APPROVED,
   OPENER_PAY_EXCLUDED,
+  openerCommissionForPayStatus,
   openerPayStatusFromForthStatus,
 } from "@/lib/opener/payout";
 import { setOpenerLogNotes, setOpenerUpscore } from "@/lib/opener/logs";
@@ -36,19 +37,22 @@ export async function setOpenerPayStatusAction(
 
   const row = await prisma.openerTransferLog.findUnique({
     where: { id },
-    select: { id: true, agentId: true, status: true },
+    select: { id: true, agentId: true, status: true, debtLoad: true },
   });
   if (!row) return { ok: false, error: "Row not found." };
 
   const monthGate = await assertOpenerLogMonthOpen({ logId: id });
   if (!monthGate.ok) return monthGate;
 
+  const debtLoad = Number(row.debtLoad);
   if (value === "auto") {
+    const payStatus = openerPayStatusFromForthStatus(row.status);
     await prisma.openerTransferLog.update({
       where: { id },
       data: {
-        payStatus: openerPayStatusFromForthStatus(row.status),
+        payStatus,
         payStatusOverridden: false,
+        commission: openerCommissionForPayStatus(debtLoad, payStatus),
       },
     });
   } else if (value === OPENER_PAY_APPROVED || value === OPENER_PAY_EXCLUDED) {
@@ -57,6 +61,7 @@ export async function setOpenerPayStatusAction(
       data: {
         payStatus: value,
         payStatusOverridden: true,
+        commission: openerCommissionForPayStatus(debtLoad, value),
       },
     });
   } else {

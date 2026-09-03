@@ -6,6 +6,7 @@ import {
   openerPayStatusFromForthStatus,
   openerPeriodFromYmd,
   openerSnapshotFromForth,
+  openerCommissionForPayStatus,
   formatOpenerPayDate,
   openerMonthYmdRange,
   openerMonthDays,
@@ -49,6 +50,9 @@ describe("openerPayStatusFromForthStatus", () => {
 
   it("excludes everything else", () => {
     expect(openerPayStatusFromForthStatus("Cancelled")).toBe(OPENER_PAY_EXCLUDED);
+    expect(
+      openerPayStatusFromForthStatus("Pending Affiliate Cancellation"),
+    ).toBe(OPENER_PAY_EXCLUDED);
     expect(openerPayStatusFromForthStatus(null)).toBe(OPENER_PAY_EXCLUDED);
   });
 });
@@ -71,6 +75,31 @@ describe("openerSnapshotFromForth", () => {
     expect(snap.debtLoad).toBe(32_000);
     expect(snap.commission).toBe(30);
     expect(snap.payStatus).toBe(OPENER_PAY_APPROVED);
+  });
+
+  it("pays $0 when the file is excluded", () => {
+    const cancelled = openerSnapshotFromForth({
+      enrolledAmount: 17_305,
+      stageTitle: "Cordoba Cancelled",
+      status: "Cancelled",
+    });
+    expect(cancelled.payStatus).toBe(OPENER_PAY_EXCLUDED);
+    expect(cancelled.commission).toBe(0);
+
+    const pending = openerSnapshotFromForth({
+      enrolledAmount: 14_571,
+      stageTitle: "Cordoba Servicing",
+      status: "Pending Affiliate Cancellation",
+    });
+    expect(pending.payStatus).toBe(OPENER_PAY_EXCLUDED);
+    expect(pending.commission).toBe(0);
+
+    expect(
+      openerCommissionForPayStatus(55_422, OPENER_PAY_EXCLUDED),
+    ).toBe(0);
+    expect(
+      openerCommissionForPayStatus(55_422, OPENER_PAY_APPROVED),
+    ).toBe(50);
   });
 });
 

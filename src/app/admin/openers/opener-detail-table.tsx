@@ -1,6 +1,7 @@
 import { money } from "@/lib/format";
 import {
   formatOpenerPayStatus,
+  openerCommissionForPayStatus,
   type OpenerPayStatusName,
 } from "@/lib/opener/payout";
 import { OpenerPayStatusSelect } from "./pay-status-select";
@@ -77,7 +78,7 @@ export function OpenerDetailTable({
                 <td className="px-3 py-2">{r.stageTitle || "—"}</td>
                 <td className="px-3 py-2">{r.status || "—"}</td>
                 <td className="px-3 py-2 tabular-nums">
-                  {r.unmatched ? "—" : money(r.commission)}
+                  {r.unmatched ? "—" : money(openerCommissionForPayStatus(r.debtLoad, r.payStatus))}
                 </td>
                 <td className="px-3 py-2">
                   {canEditPayStatus && !locked ? (

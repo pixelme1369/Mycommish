@@ -14,6 +14,7 @@ import { money } from "@/lib/format";
 import {
   formatOpenerPayStatus,
   formatOpenerTransferDay,
+  openerCommissionForPayStatus,
   OPENER_PAY_EXCLUDED,
   type OpenerPayStatusName,
 } from "@/lib/opener/payout";
@@ -99,7 +100,7 @@ export function OpenerFilesTable({ rows }: { rows: OpenerFileRow[] }) {
                   <TableCell>{r.stageTitle || "—"}</TableCell>
                   <TableCell>{r.status || "—"}</TableCell>
                   <TableCell className="tabular-nums">
-                    {r.unmatched ? "—" : money(r.commission)}
+                    {r.unmatched ? "—" : money(openerCommissionForPayStatus(r.debtLoad, r.payStatus))}
                   </TableCell>
                   <TableCell>{formatOpenerPayStatus(r.payStatus)}</TableCell>
                   <TableCell className="text-muted-foreground">

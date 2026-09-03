@@ -5,6 +5,7 @@ import {
   formatOpenerPayDate,
   formatOpenerPayStatus,
   formatOpenerPeriodName,
+  openerCommissionForPayStatus,
   type OpenerPayStatusName,
 } from "@/lib/opener/payout";
 import { money } from "@/lib/format";
@@ -49,7 +50,15 @@ export async function buildOpenerCommissionStatementPdf(opts: {
   ]);
 
   const approved = logs.filter((r) => r.payStatus === "approved");
-  const commissionTotal = approved.reduce((s, r) => s + Number(r.commission), 0);
+  const commissionTotal = approved.reduce(
+    (s, r) =>
+      s +
+      openerCommissionForPayStatus(
+        Number(r.debtLoad),
+        r.payStatus as OpenerPayStatusName,
+      ),
+    0,
+  );
   const upscore = Number(upscoreRow?.amount ?? statement?.upscore ?? 0);
   const totalPayout = commissionTotal + upscore;
 
@@ -119,7 +128,7 @@ export async function buildOpenerCommissionStatementPdf(opts: {
       row.forthId,
       row.unmatched ? "—" : money(Number(row.debtLoad)),
       row.status || "—",
-      row.unmatched ? "—" : money(Number(row.commission)),
+      row.unmatched ? "—" : money(openerCommissionForPayStatus(Number(row.debtLoad), row.payStatus as OpenerPayStatusName)),
       formatOpenerPayStatus(row.payStatus as OpenerPayStatusName),
     ];
     x = left;

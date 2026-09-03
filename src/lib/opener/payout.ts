@@ -20,6 +20,15 @@ export function openerPayoutForDebt(debtLoad: number): number | null {
   return 50;
 }
 
+/** Band amount only when Approved. Excluded / unmatched pay $0. */
+export function openerCommissionForPayStatus(
+  debtLoad: number,
+  payStatus: OpenerPayStatusName,
+): number {
+  if (payStatus !== OPENER_PAY_APPROVED) return 0;
+  return openerPayoutForDebt(debtLoad) ?? 0;
+}
+
 export function openerPayStatusFromForthStatus(
   status: string | null | undefined,
 ): OpenerPayStatusName {
@@ -144,12 +153,13 @@ export function openerSnapshotFromForth(
     };
   }
   const debtLoad = Number(contact.enrolledAmount) || 0;
+  const payStatus = openerPayStatusFromForthStatus(contact.status);
   return {
     debtLoad,
     stageTitle: contact.stageTitle,
     status: contact.status,
-    commission: openerPayoutForDebt(debtLoad) ?? 0,
-    payStatus: openerPayStatusFromForthStatus(contact.status),
+    commission: openerCommissionForPayStatus(debtLoad, payStatus),
+    payStatus,
     unmatched: false,
   };
 }

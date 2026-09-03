@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/db";
 import { AgentRole, PeriodStatus } from "@/generated/prisma/client";
-import { openerPeriodFromYmd } from "@/lib/opener/payout";
+import {
+  openerCommissionForPayStatus,
+  openerPeriodFromYmd,
+  type OpenerPayStatusName,
+} from "@/lib/opener/payout";
 
 export const OPENER_PERIOD_LOCKED = "This pay period is closed.";
 
@@ -91,6 +95,8 @@ export async function closeOpenerPeriod(monthLabel: string) {
   if (existing?.status === PeriodStatus.closed) {
     return { ok: false as const, error: "This period is already closed." };
   }
+  const { syncOpenerLogCommissions } = await import("@/lib/opener/logs");
+  await syncOpenerLogCommissions(monthLabel);
   await prisma.openerCommissionPeriod.upsert({
     where: { monthLabel },
     create: {
@@ -138,6 +144,8 @@ export async function logOpenerPeriodAsPaid(opts: {
 
   const now = new Date();
   await prisma.$transaction(async (tx) => {
+    const { syncOpenerLogCommissions } = await import("@/lib/opener/logs");
+    await syncOpenerLogCommissions(monthLabel, tx);
     const period = await tx.openerCommissionPeriod.upsert({
       where: { monthLabel },
       create: {
@@ -169,7 +177,10 @@ export async function logOpenerPeriodAsPaid(opts: {
           debtLoad: row.debtLoad,
           stageTitle: row.stageTitle,
           status: row.status,
-          commission: row.commission,
+          commission: openerCommissionForPayStatus(
+            Number(row.debtLoad),
+            row.payStatus as OpenerPayStatusName,
+          ),
           payStatus: row.payStatus,
           notes: row.notes,
           unmatched: row.unmatched,
