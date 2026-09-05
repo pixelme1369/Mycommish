@@ -391,6 +391,13 @@ export async function promoteCalculatedPeriodToHistory(
     data: { summaryJson: summary as object },
   });
 
+  if (source.status !== PeriodStatus.closed) {
+    await prisma.commissionPeriod.update({
+      where: { id: source.id },
+      data: { status: PeriodStatus.closed, closedAt: source.closedAt ?? new Date() },
+    });
+  }
+
   return {
     ok: true,
     historyPeriodId: periodRow.id,

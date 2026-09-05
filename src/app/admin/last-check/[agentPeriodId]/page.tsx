@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth-guards";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AppShell, PageHeader } from "@/components/app-shell";
@@ -10,6 +9,7 @@ import { ratePercent } from "@/lib/format";
 import { loadLastCheck } from "@/lib/agents/last-check-load";
 import { LastCheckExportButtons } from "./last-check-export";
 import { LastCheckDetails } from "../last-check-details";
+import { PeriodRebuiltMissing } from "@/components/period-rebuilt-missing";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +21,11 @@ export default async function LastCheckPage({
   await requireAdmin();
   const { agentPeriodId } = await params;
   const view = await loadLastCheck(agentPeriodId);
-  if (!view) notFound();
+  if (!view) {
+    return (
+      <PeriodRebuiltMissing homeHref="/admin" homeLabel="Back to pay periods" />
+    );
+  }
 
   return (
     <AppShell wide>

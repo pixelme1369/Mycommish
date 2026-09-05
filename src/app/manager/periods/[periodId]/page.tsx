@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { requireManagerOrAdmin, sessionRole } from "@/lib/auth-guards";
 import { adminNavLabel } from "@/lib/roles";
 import { prisma } from "@/lib/db";
@@ -20,7 +19,9 @@ import { PeriodAgentsGustoTable } from "@/app/admin/periods/period-agents-gusto-
 import { listBonusesForPeriod } from "@/lib/manager-bonuses";
 import { ManagerReimbursementsSection } from "@/components/manager-reimbursements-section";
 import { agentSignedByNameForPeriod } from "@/lib/statements";
+import { PeriodRebuiltMissing } from "@/components/period-rebuilt-missing";
 import { ManagerTopNav } from "@/app/manager/manager-top-nav";
+import { persistCalculatedPeriodLocks } from "@/lib/ingest/period-lock";
 
 export const dynamic = "force-dynamic";
 
@@ -33,10 +34,18 @@ export default async function ManagerPeriodPage({
   const role = sessionRole(session);
   const { periodId } = await params;
 
+  await persistCalculatedPeriodLocks().catch((err) => {
+    console.error("persistCalculatedPeriodLocks failed", err);
+  });
+
   const period = await prisma.commissionPeriod.findFirst({
     where: { id: periodId, source: PeriodSource.calculated },
   });
-  if (!period) notFound();
+  if (!period) {
+    return (
+      <PeriodRebuiltMissing homeHref="/manager" homeLabel="Back to manager home" />
+    );
+  }
 
   const ownOnly = role !== "admin";
   const paidById = session.user.agentId || undefined;
@@ -107,7 +116,12 @@ export default async function ManagerPeriodPage({
           </Link>
         }
         title={period.periodLabel}
-        description={<>Status: {period.status === "open" ? "Open" : "Closed"}</>}
+        description={
+          <>
+            Status: {period.status === "open" ? "Open" : "Closed"}
+            {period.status !== "open" ? " · units/gross locked" : ""}
+          </>
+        }
         actions={
           <>
             <ManagerTopNav

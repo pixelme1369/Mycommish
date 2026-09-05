@@ -1,7 +1,7 @@
 /**
  * Persist CRM parse results into the ledger-backed schema.
- * Open calculated periods are wiped first so a new export can rebuild units/gross.
- * Lock-after-pay: closed calculated periods refuse new unit/gross rewrites;
+ * Open calculated periods are emptied first so a new export can rebuild units/gross
+ * on the same period ids. Paid / payday-locked months are closed and never rewritten;
  * clawbacks may still land (owner policy).
  */
 
@@ -20,7 +20,12 @@ import { relinkManualBonuses } from "@/lib/manual-bonuses";
 import { relinkAdvances } from "@/lib/advances";
 import { applyTeamLeadBonusesForPeriod } from "@/lib/teams/team-lead-bonus";
 import { listOpenerAliasKeys } from "@/lib/agents/opener";
-import { deleteOpenCalculatedPeriods } from "@/lib/ingest/delete-periods";
+import {
+  clearOpenCalculatedPeriods,
+  clearPeriodContents,
+  deletePeriodsByIds,
+} from "@/lib/ingest/delete-periods";
+import { isCalculatedPeriodLocked } from "@/lib/ingest/period-lock";
 import {
   ClientEventKind,
   LedgerType,
@@ -64,6 +69,8 @@ export type SaveCrmSummary = {
   uploadBatchId: string;
   periodsCreated: string[];
   periodsReplacedOpen: string[];
+  /** label → admin period URL for rebuilt/created months */
+  periodHrefs: Record<string, string>;
   periodsUpdatedClawbacks: string[];
   periodsSkippedClosed: string[];
   periodsSkippedExistingOpen: string[];
@@ -156,7 +163,7 @@ export async function ingestCrmUpload(
     throw new Error(headerError);
   }
 
-  const replacedOpen = await deleteOpenCalculatedPeriods();
+  const clearedOpen = await clearOpenCalculatedPeriods();
   const [ctx, salesRepOverrides] = await Promise.all([
     loadCrmContextFromDb(),
     loadAcceptedSalesRepOverrides(),
@@ -170,9 +177,24 @@ export async function ingestCrmUpload(
   });
 
   const summary = await saveCrmPeriodResults(periods, filename, uploadedById);
-  const replacedSet = new Set(replacedOpen);
-  summary.periodsReplacedOpen = replacedOpen;
+  const replacedSet = new Set(summary.periodsReplacedOpen);
   summary.periodsCreated = summary.periodsCreated.filter((label) => !replacedSet.has(label));
+
+  const leftoverIds = clearedOpen.length
+    ? (
+        await prisma.commissionPeriod.findMany({
+          where: {
+            id: { in: clearedOpen.map((p) => p.id) },
+            agentPeriods: { none: {} },
+          },
+          select: { id: true },
+        })
+      ).map((p) => p.id)
+    : [];
+  if (leftoverIds.length) {
+    await deletePeriodsByIds(leftoverIds);
+  }
+
   return summary;
 }
 
@@ -185,6 +207,7 @@ export async function saveCrmPeriodResults(
     uploadBatchId: "",
     periodsCreated: [],
     periodsReplacedOpen: [],
+    periodHrefs: {},
     periodsUpdatedClawbacks: [],
     periodsSkippedClosed: [],
     periodsSkippedExistingOpen: [],
@@ -206,6 +229,14 @@ export async function saveCrmPeriodResults(
   summary.uploadBatchId = batch.id;
 
   const openerKeys = await listOpenerAliasKeys();
+  const historyLabels = new Set(
+    (
+      await prisma.commissionPeriod.findMany({
+        where: { source: PeriodSource.history },
+        select: { periodLabel: true },
+      })
+    ).map((p) => p.periodLabel),
+  );
 
   // Upsert full CRM directory (External ID + Sales Rep) even for not-yet-cleared files.
   // Batched — full exports are large; per-row upserts were taking minutes.
@@ -225,7 +256,11 @@ export async function saveCrmPeriodResults(
     });
 
     const closedByPayday = isPeriodClosedByPayday(period.periodLabel);
-    const isClosed = existing?.status === PeriodStatus.closed || closedByPayday;
+    const isClosed = isCalculatedPeriodLocked({
+      status: existing?.status ?? PeriodStatus.open,
+      periodLabel: period.periodLabel,
+      hasHistory: historyLabels.has(period.periodLabel),
+    });
 
     const commissionResults = withoutOpeners(period.results, openerKeys);
     const hasNewUnits = commissionResults.some((r) => r.unitsCleared > 0);
@@ -241,25 +276,28 @@ export async function saveCrmPeriodResults(
     }
 
     if (existing && !isClosed && hasNewUnits) {
-      // Safety net: rewriteable open months are deleted before parse.
-      // Still apply new clawbacks if a row somehow remains.
-      summary.periodsSkippedExistingOpen.push(period.periodLabel);
-      if (hasClawbacks) {
-        await applyClawbacksOnly(existing.id, period, batch.id, openerKeys);
-        summary.periodsUpdatedClawbacks.push(period.periodLabel);
-      }
+      const id = await createFullPeriod(
+        period,
+        batch.id,
+        existing.status,
+        openerKeys,
+        existing.id,
+      );
+      summary.periodsReplacedOpen.push(period.periodLabel);
+      summary.periodHrefs[period.periodLabel] = `/admin/periods/${id}`;
       continue;
     }
 
     if (!existing) {
       if (commissionResults.length === 0) continue;
-      await createFullPeriod(
+      const id = await createFullPeriod(
         period,
         batch.id,
         closedByPayday ? PeriodStatus.closed : PeriodStatus.open,
         openerKeys,
       );
       summary.periodsCreated.push(period.periodLabel);
+      summary.periodHrefs[period.periodLabel] = `/admin/periods/${id}`;
     } else if (!hasNewUnits && hasClawbacks) {
       await applyClawbacksOnly(existing.id, period, batch.id, openerKeys);
       summary.periodsUpdatedClawbacks.push(period.periodLabel);
@@ -279,16 +317,29 @@ async function createFullPeriod(
   uploadBatchId: string,
   status: PeriodStatus,
   openerKeys: Set<string>,
-) {
-  const periodRow = await prisma.commissionPeriod.create({
-    data: {
-      periodLabel: period.periodLabel!,
-      source: PeriodSource.calculated,
-      status,
-      filename: period.filename,
-      closedAt: status === PeriodStatus.closed ? new Date() : null,
-    },
-  });
+  existingId?: string,
+): Promise<string> {
+  let periodRow;
+  if (existingId) {
+    await clearPeriodContents([existingId]);
+    periodRow = await prisma.commissionPeriod.update({
+      where: { id: existingId },
+      data: {
+        filename: period.filename,
+        uploadedAt: new Date(),
+      },
+    });
+  } else {
+    periodRow = await prisma.commissionPeriod.create({
+      data: {
+        periodLabel: period.periodLabel!,
+        source: PeriodSource.calculated,
+        status,
+        filename: period.filename,
+        closedAt: status === PeriodStatus.closed ? new Date() : null,
+      },
+    });
+  }
 
   // Batch identities (one round-trip) before events reference them.
   // Directory upsert above usually already wrote these; skipDuplicates covers races.
@@ -506,6 +557,7 @@ async function createFullPeriod(
   } catch (err) {
     console.error("applyTeamLeadBonusesForPeriod failed", err);
   }
+  return periodRow.id;
 }
 
 async function applyClawbacksOnly(

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 type NoteGroup = {
@@ -74,7 +75,10 @@ export function UploadResultCard({
 }: {
   title: string;
   batchId?: string;
-  rows?: Array<{ label: string; items: string[] } | { label: string; value: string }>;
+  rows?: Array<
+    | { label: string; items: string[]; hrefs?: Record<string, string> }
+    | { label: string; value: string }
+  >;
   notes?: string[];
   children?: React.ReactNode;
 }) {
@@ -90,17 +94,46 @@ export function UploadResultCard({
       {rows && rows.length > 0 ? (
         <dl className="mt-3 grid gap-2 sm:grid-cols-2">
           {rows.map((row) => {
-            const value =
-              "value" in row
-                ? row.value
-                : formatPeriodList(row.items);
+            if ("value" in row) {
+              return (
+                <div key={row.label} className="min-w-0 rounded-md bg-muted/40 px-3 py-2">
+                  <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">
+                    {row.label}
+                  </dt>
+                  <dd className="mt-0.5 truncate font-medium text-foreground" title={row.value}>
+                    {row.value}
+                  </dd>
+                </div>
+              );
+            }
+            const hrefs = row.hrefs ?? {};
+            const linked = row.items.filter((item) => hrefs[item]);
+            const plain = row.items.filter((item) => !hrefs[item]);
+            const titleText = formatPeriodList(row.items);
             return (
               <div key={row.label} className="min-w-0 rounded-md bg-muted/40 px-3 py-2">
                 <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">
                   {row.label}
                 </dt>
-                <dd className="mt-0.5 truncate font-medium text-foreground" title={value}>
-                  {value}
+                <dd className="mt-0.5 font-medium text-foreground" title={titleText}>
+                  {row.items.length === 0 ? (
+                    "none"
+                  ) : (
+                    <span className="flex flex-wrap gap-x-2 gap-y-0.5">
+                      {linked.map((item) => (
+                        <Link
+                          key={item}
+                          href={hrefs[item]}
+                          className="text-primary hover:underline"
+                        >
+                          {item}
+                        </Link>
+                      ))}
+                      {plain.length > 0 ? (
+                        <span className="truncate">{formatPeriodList(plain)}</span>
+                      ) : null}
+                    </span>
+                  )}
                 </dd>
               </div>
             );

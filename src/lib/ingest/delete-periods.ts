@@ -5,13 +5,14 @@
  */
 
 import { prisma } from "@/lib/db";
-import { isPeriodClosedByPayday } from "@/lib/commission/calculator";
-import { PeriodSource, PeriodStatus } from "@/generated/prisma/client";
+import { persistCalculatedPeriodLocks, type OpenPeriodRef } from "@/lib/ingest/period-lock";
 
-export async function deletePeriodsByIds(periodIds: string[]) {
+export type { OpenPeriodRef };
+
+/** Detach advances + delete ledger/events/agent rows. Keeps CommissionPeriod. */
+export async function clearPeriodContents(periodIds: string[]) {
   if (!periodIds.length) return;
 
-  // Detach advances first so ledger/period deletes never remove the durable rows.
   const linkedAdvances = await prisma.commissionAdvance.findMany({
     where: {
       OR: [
@@ -38,21 +39,23 @@ export async function deletePeriodsByIds(periodIds: string[]) {
   await prisma.ledgerEntry.deleteMany({ where: { periodId: { in: periodIds } } });
   await prisma.clientEvent.deleteMany({ where: { periodId: { in: periodIds } } });
   await prisma.agentPeriod.deleteMany({ where: { periodId: { in: periodIds } } });
+}
+
+export async function deletePeriodsByIds(periodIds: string[]) {
+  if (!periodIds.length) return;
+  await clearPeriodContents(periodIds);
   await prisma.commissionPeriod.deleteMany({ where: { id: { in: periodIds } } });
 }
 
 /**
- * Drop rewriteable calculated months so a new CRM export can rebuild units/gross.
- * Closed (status or payday lock) and history periods are never touched.
+ * Empty rewriteable calculated months so a new CRM export can rebuild units/gross
+ * on the same period ids (admin/portal links keep working).
+ * Closed, payday-locked, History-paid, and history source periods are never touched.
  */
-export async function deleteOpenCalculatedPeriods(
+export async function clearOpenCalculatedPeriods(
   asOf: Date = new Date(),
-): Promise<string[]> {
-  const open = await prisma.commissionPeriod.findMany({
-    where: { source: PeriodSource.calculated, status: PeriodStatus.open },
-    select: { id: true, periodLabel: true },
-  });
-  const toDelete = open.filter((p) => !isPeriodClosedByPayday(p.periodLabel, asOf));
-  await deletePeriodsByIds(toDelete.map((p) => p.id));
-  return [...new Set(toDelete.map((p) => p.periodLabel))].sort();
+): Promise<OpenPeriodRef[]> {
+  const rewriteable = await persistCalculatedPeriodLocks(asOf);
+  await clearPeriodContents(rewriteable.map((p) => p.id));
+  return rewriteable;
 }

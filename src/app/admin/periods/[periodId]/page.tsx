@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth-guards";
 import { adminHomeLinkLabel } from "@/lib/roles";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -26,6 +25,8 @@ import { PeriodAgentsGustoTable } from "../period-agents-gusto-table";
 import { listBonusesForPeriod } from "@/lib/manager-bonuses";
 import { ManagerReimbursementsSection } from "@/components/manager-reimbursements-section";
 import { agentSignedByNameForPeriod } from "@/lib/statements";
+import { PeriodRebuiltMissing } from "@/components/period-rebuilt-missing";
+import { persistCalculatedPeriodLocks } from "@/lib/ingest/period-lock";
 
 export const dynamic = "force-dynamic";
 
@@ -37,10 +38,16 @@ export default async function AdminPeriodPage({
   const session = await requireAdmin();
   const { periodId } = await params;
 
+  await persistCalculatedPeriodLocks().catch((err) => {
+    console.error("persistCalculatedPeriodLocks failed", err);
+  });
+
   const period = await prisma.commissionPeriod.findFirst({
     where: { id: periodId, source: PeriodSource.calculated },
   });
-  if (!period) notFound();
+  if (!period) {
+    return <PeriodRebuiltMissing homeHref="/admin" homeLabel="Back to pay periods" />;
+  }
 
   const existingHistory = await prisma.commissionPeriod.findFirst({
     where: { periodLabel: period.periodLabel, source: PeriodSource.history },
@@ -112,7 +119,13 @@ export default async function AdminPeriodPage({
           </Link>
         }
         title={period.periodLabel}
-        description={<>Status: {period.status === "open" ? "Open" : "Closed"}</>}
+        description={
+          <>
+            Status: {period.status === "open" ? "Open" : "Closed"}
+            {period.status !== "open" ? " · units/gross locked" : ""}
+            {existingHistory ? " · logged as paid" : ""}
+          </>
+        }
         actions={
           <>
             <LogAsPaidButton
@@ -132,6 +145,16 @@ export default async function AdminPeriodPage({
         <Stat label="Gross" value={money(activeTotals.gross)} />
         <Stat label="Net" value={money(activeTotals.net)} accent />
       </div>
+
+      {existingHistory ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Payroll snapshot for this month is in{" "}
+          <Link href={`/admin/history/${existingHistory.id}`} className="underline">
+            History
+          </Link>
+          . Later CRM uploads cannot rewrite units or gross here.
+        </p>
+      ) : null}
 
       <ManagerReimbursementsSection
         periodLabel={period.periodLabel}

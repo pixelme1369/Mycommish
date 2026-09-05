@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import {
   canActAsManager,
   canViewAllCommissions,
@@ -125,7 +125,19 @@ export default async function PeriodDetailPage({
     // Outside latest-2 / no remap — send home instead of a blank 404.
     if (!row) redirect("/portal");
   }
-  if (!row) notFound();
+  if (!row) {
+    // Period id often still exists after CRM rebuild; agent row ids do not.
+    const { prisma } = await import("@/lib/db");
+    const { PeriodSource } = await import("@/generated/prisma/client");
+    const period = await prisma.commissionPeriod.findFirst({
+      where: { id: periodId, source: PeriodSource.calculated },
+      select: { id: true },
+    });
+    if (period) {
+      redirect(admin ? `/admin/periods/${period.id}` : `/manager/periods/${period.id}`);
+    }
+    redirect(admin ? "/admin" : "/manager");
+  }
 
   // Keep the URL in sync after a remap so refresh stays stable.
   if (row.id !== agentPeriodId || row.periodId !== periodId) {

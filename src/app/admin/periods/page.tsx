@@ -9,6 +9,7 @@ import {
   listHistoryPeriods,
 } from "@/app/admin/actions";
 import { countActiveAgentsByPeriod } from "@/lib/agents/active-period-counts";
+import { persistCalculatedPeriodLocks } from "@/lib/ingest/period-lock";
 import { countPendingManualBonuses } from "@/lib/manual-bonuses";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,9 @@ function sortPeriodsForDashboard(periods: PeriodRow[]) {
 export default async function AdminAgentPeriodsPage() {
   const session = await requireAdmin();
   const superAdmin = isSuperAdminUser(session);
+  await persistCalculatedPeriodLocks().catch((err) => {
+    console.error("persistCalculatedPeriodLocks failed", err);
+  });
   const [periodsRaw, historyPeriodsRaw, pendingManualBonusCount] = await Promise.all([
     listCalculatedPeriods().catch(() => []),
     listHistoryPeriods().catch(() => []),

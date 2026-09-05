@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { uploadCrmAction, type UploadCrmState } from "./actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,12 @@ import { UploadResultCard } from "@/components/upload-summary-notes";
 const initial: UploadCrmState = null;
 
 export function CrmUploadForm() {
+  const router = useRouter();
   const [state, action, pending] = useActionState(uploadCrmAction, initial);
+
+  useEffect(() => {
+    if (state?.ok === true) router.refresh();
+  }, [state, router]);
 
   return (
     <div className="space-y-4">
@@ -48,8 +54,16 @@ export function CrmUploadForm() {
           title="Upload complete"
           batchId={state.summary.uploadBatchId}
           rows={[
-            { label: "Open periods rebuilt", items: state.summary.periodsReplacedOpen },
-            { label: "New periods", items: state.summary.periodsCreated },
+            {
+              label: "Open periods rebuilt",
+              items: state.summary.periodsReplacedOpen,
+              hrefs: state.summary.periodHrefs,
+            },
+            {
+              label: "New periods",
+              items: state.summary.periodsCreated,
+              hrefs: state.summary.periodHrefs,
+            },
             { label: "Clawbacks applied", items: state.summary.periodsUpdatedClawbacks },
             { label: "Skipped (closed)", items: state.summary.periodsSkippedClosed },
             {

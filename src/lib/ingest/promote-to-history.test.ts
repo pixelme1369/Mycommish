@@ -16,6 +16,7 @@ const { prismaMock } = vi.hoisted(() => {
   const commissionPeriod = {
     findFirst: vi.fn(),
     create: vi.fn(),
+    update: vi.fn(),
   };
   const agentPeriod = {
     findMany: vi.fn(),
@@ -82,6 +83,7 @@ describe("promoteCalculatedPeriodToHistory", () => {
     vi.mocked(listDismissedKeys).mockResolvedValue(new Set());
     vi.mocked(listExcludedKeysForPeriod).mockResolvedValue(new Set());
     prismaMock.agentAlias.findMany.mockResolvedValue([]);
+    prismaMock.commissionPeriod.update.mockResolvedValue({});
   });
 
   it("refuses when calculated period missing", async () => {

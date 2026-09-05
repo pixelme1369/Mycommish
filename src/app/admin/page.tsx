@@ -11,6 +11,7 @@ import { AdminTopNav } from "@/app/admin/admin-top-nav";
 import { AdminCalculatedPeriods } from "./admin-calculated-periods";
 import { AdminImportSection } from "./admin-import-section";
 import { AdminSecondarySections } from "./admin-secondary-sections";
+import { persistCalculatedPeriodLocks } from "@/lib/ingest/period-lock";
 import { countPendingManualBonuses } from "@/lib/manual-bonuses";
 import { countActiveAgentsByPeriod } from "@/lib/agents/active-period-counts";
 import {
@@ -73,6 +74,9 @@ function toDashboardRow(
 export default async function AdminHome() {
   const session = await requireAdmin();
   const superAdmin = isSuperAdminUser(session);
+  await persistCalculatedPeriodLocks().catch((err) => {
+    console.error("persistCalculatedPeriodLocks failed", err);
+  });
   const [
     periodsRaw,
     historyPeriodsRaw,
