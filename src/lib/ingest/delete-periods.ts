@@ -50,7 +50,7 @@ export async function deletePeriodsByIds(periodIds: string[]) {
 /**
  * Empty rewriteable calculated months so a new CRM export can rebuild units/gross
  * on the same period ids (admin/portal links keep working).
- * Closed, payday-locked, History-paid, and history source periods are never touched.
+ * Closed and History-paid (Log as paid) periods are never touched.
  */
 export async function clearOpenCalculatedPeriods(
   asOf: Date = new Date(),

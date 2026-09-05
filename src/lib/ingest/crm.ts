@@ -1,12 +1,12 @@
 /**
  * Persist CRM parse results into the ledger-backed schema.
  * Open calculated periods are emptied first so a new export can rebuild units/gross
- * on the same period ids. Paid / payday-locked months are closed and never rewritten;
- * clawbacks may still land (owner policy).
+ * on the same period ids. Months stay open until Log as paid; then units/gross
+ * cannot be rewritten. Clawbacks may still land (owner policy).
  */
 
 import { prisma } from "@/lib/db";
-import { isPeriodClosedByPayday, agentIdentityKey } from "@/lib/commission/calculator";
+import { agentIdentityKey } from "@/lib/commission/calculator";
 import { computeNetCommission } from "@/lib/commission/net";
 import type { CrmClient, PeriodOutput } from "@/lib/commission/crm-parser";
 import {
@@ -255,10 +255,8 @@ export async function saveCrmPeriodResults(
       include: { agentPeriods: true },
     });
 
-    const closedByPayday = isPeriodClosedByPayday(period.periodLabel);
     const isClosed = isCalculatedPeriodLocked({
       status: existing?.status ?? PeriodStatus.open,
-      periodLabel: period.periodLabel,
       hasHistory: historyLabels.has(period.periodLabel),
     });
 
@@ -293,7 +291,7 @@ export async function saveCrmPeriodResults(
       const id = await createFullPeriod(
         period,
         batch.id,
-        closedByPayday ? PeriodStatus.closed : PeriodStatus.open,
+        PeriodStatus.open,
         openerKeys,
       );
       summary.periodsCreated.push(period.periodLabel);

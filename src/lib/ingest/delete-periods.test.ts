@@ -69,7 +69,7 @@ describe("clearOpenCalculatedPeriods", () => {
     expect(prismaMock.commissionPeriod.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("closes payday-locked months instead of rebuilding them", async () => {
+  it("rebuilds open months even after payday if they were not logged as paid", async () => {
     mockOpenAndHistory([
       { id: "jul", periodLabel: "2026-07" },
       { id: "aug", periodLabel: "2026-08" },
@@ -77,13 +77,13 @@ describe("clearOpenCalculatedPeriods", () => {
 
     const cleared = await clearOpenCalculatedPeriods(asOf);
 
-    expect(cleared).toEqual([{ id: "aug", periodLabel: "2026-08" }]);
-    expect(prismaMock.commissionPeriod.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["jul"] } },
-      data: { status: PeriodStatus.closed, closedAt: asOf },
-    });
+    expect(cleared).toEqual([
+      { id: "jul", periodLabel: "2026-07" },
+      { id: "aug", periodLabel: "2026-08" },
+    ]);
+    expect(prismaMock.commissionPeriod.updateMany).not.toHaveBeenCalled();
     expect(prismaMock.ledgerEntry.deleteMany).toHaveBeenCalledWith({
-      where: { periodId: { in: ["aug"] } },
+      where: { periodId: { in: ["jul", "aug"] } },
     });
   });
 
@@ -98,16 +98,6 @@ describe("clearOpenCalculatedPeriods", () => {
       data: { status: PeriodStatus.closed, closedAt: asOf },
     });
     expect(prismaMock.ledgerEntry.deleteMany).not.toHaveBeenCalled();
-  });
-
-  it("no-ops when every open month is payday-locked", async () => {
-    mockOpenAndHistory([{ id: "jul", periodLabel: "2026-07" }]);
-
-    const cleared = await clearOpenCalculatedPeriods(asOf);
-
-    expect(cleared).toEqual([]);
-    expect(prismaMock.ledgerEntry.deleteMany).not.toHaveBeenCalled();
-    expect(prismaMock.commissionPeriod.deleteMany).not.toHaveBeenCalled();
   });
 });
 

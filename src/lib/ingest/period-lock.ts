@@ -1,24 +1,20 @@
-import { isPeriodClosedByPayday } from "@/lib/commission/calculator";
 import { PeriodSource, PeriodStatus } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 
 export type OpenPeriodRef = { id: string; periodLabel: string };
 
-/** Units/gross must not be rewritten. Clawbacks may still land (owner policy). */
+/** Units/gross lock only after Log as paid (or an already-closed status). */
 export function isCalculatedPeriodLocked(opts: {
   status: PeriodStatus | string;
-  periodLabel: string;
   hasHistory?: boolean;
-  asOf?: Date;
 }): boolean {
   if (opts.status === PeriodStatus.closed || opts.status === "closed") return true;
-  if (opts.hasHistory) return true;
-  return isPeriodClosedByPayday(opts.periodLabel, opts.asOf ?? new Date());
+  return Boolean(opts.hasHistory);
 }
 
 /**
- * Persist Closed on calculated months that are payday-locked or already logged as paid.
- * Returns months that are still rewriteable (open, not paid, before payday).
+ * Persist Closed on calculated months that were logged as paid (History exists).
+ * Returns months that are still rewriteable.
  */
 export async function persistCalculatedPeriodLocks(
   asOf: Date = new Date(),
@@ -40,9 +36,7 @@ export async function persistCalculatedPeriodLocks(
     if (
       isCalculatedPeriodLocked({
         status: PeriodStatus.open,
-        periodLabel: p.periodLabel,
         hasHistory: historyLabels.has(p.periodLabel),
-        asOf,
       })
     ) {
       locked.push(p);

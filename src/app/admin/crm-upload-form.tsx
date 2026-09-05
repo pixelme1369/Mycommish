@@ -24,9 +24,9 @@ export function CrmUploadForm() {
         <div className="space-y-2">
           <Label htmlFor="crm-file">CRM export</Label>
           <p className="text-xs text-muted-foreground">
-            Rebuilds open calculated periods from this file. Closed months are not
-            deleted (new units skipped; clawbacks can still land). Re-upload Cordoba
-            after if you need chargebacks on rebuilt months.
+            Rebuilds open calculated periods from this file. Months you Log as paid
+            stay locked (new units skipped; clawbacks can still land). Re-upload
+            Cordoba after if you need chargebacks on rebuilt months.
           </p>
           <input
             id="crm-file"
