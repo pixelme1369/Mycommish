@@ -93,7 +93,11 @@ function renderSummary(type: string, summary: Record<string, unknown>) {
   if (type === "crm") {
     return (
       <>
-        <SummaryLine label="Periods created" items={asStringList(summary.periodsCreated)} />
+        <SummaryLine
+          label="Open periods rebuilt"
+          items={asStringList(summary.periodsReplacedOpen)}
+        />
+        <SummaryLine label="New periods" items={asStringList(summary.periodsCreated)} />
         <SummaryLine
           label="Clawbacks on existing"
           items={asStringList(summary.periodsUpdatedClawbacks)}

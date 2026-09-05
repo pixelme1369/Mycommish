@@ -1,5 +1,6 @@
 /**
  * Persist CRM parse results into the ledger-backed schema.
+ * Open calculated periods are wiped first so a new export can rebuild units/gross.
  * Lock-after-pay: closed calculated periods refuse new unit/gross rewrites;
  * clawbacks may still land (owner policy).
  */
@@ -8,13 +9,18 @@ import { prisma } from "@/lib/db";
 import { isPeriodClosedByPayday, agentIdentityKey } from "@/lib/commission/calculator";
 import { computeNetCommission } from "@/lib/commission/net";
 import type { CrmClient, PeriodOutput } from "@/lib/commission/crm-parser";
-import { isPoisonedDebtDroppedDate, parseCrmAndCalculate } from "@/lib/commission/crm-parser";
+import {
+  crmCsvHeaderError,
+  isPoisonedDebtDroppedDate,
+  parseCrmAndCalculate,
+} from "@/lib/commission/crm-parser";
 import { loadAcceptedSalesRepOverrides } from "@/lib/claims/sales-rep-overrides";
 import { relinkCommissionStatements } from "@/lib/statements";
 import { relinkManualBonuses } from "@/lib/manual-bonuses";
 import { relinkAdvances } from "@/lib/advances";
 import { applyTeamLeadBonusesForPeriod } from "@/lib/teams/team-lead-bonus";
 import { listOpenerAliasKeys } from "@/lib/agents/opener";
+import { deleteOpenCalculatedPeriods } from "@/lib/ingest/delete-periods";
 import {
   ClientEventKind,
   LedgerType,
@@ -57,6 +63,7 @@ function eventKind(unitStatus: string, clawbackApplied: boolean): ClientEventKin
 export type SaveCrmSummary = {
   uploadBatchId: string;
   periodsCreated: string[];
+  periodsReplacedOpen: string[];
   periodsUpdatedClawbacks: string[];
   periodsSkippedClosed: string[];
   periodsSkippedExistingOpen: string[];
@@ -144,6 +151,12 @@ export async function ingestCrmUpload(
   filename: string,
   uploadedById?: string,
 ): Promise<SaveCrmSummary> {
+  const headerError = crmCsvHeaderError(fileBytes);
+  if (headerError) {
+    throw new Error(headerError);
+  }
+
+  const replacedOpen = await deleteOpenCalculatedPeriods();
   const [ctx, salesRepOverrides] = await Promise.all([
     loadCrmContextFromDb(),
     loadAcceptedSalesRepOverrides(),
@@ -156,7 +169,11 @@ export async function ingestCrmUpload(
     requireClawbackPaymentEvidence: true,
   });
 
-  return saveCrmPeriodResults(periods, filename, uploadedById);
+  const summary = await saveCrmPeriodResults(periods, filename, uploadedById);
+  const replacedSet = new Set(replacedOpen);
+  summary.periodsReplacedOpen = replacedOpen;
+  summary.periodsCreated = summary.periodsCreated.filter((label) => !replacedSet.has(label));
+  return summary;
 }
 
 export async function saveCrmPeriodResults(
@@ -167,6 +184,7 @@ export async function saveCrmPeriodResults(
   const summary: SaveCrmSummary = {
     uploadBatchId: "",
     periodsCreated: [],
+    periodsReplacedOpen: [],
     periodsUpdatedClawbacks: [],
     periodsSkippedClosed: [],
     periodsSkippedExistingOpen: [],
@@ -223,8 +241,8 @@ export async function saveCrmPeriodResults(
     }
 
     if (existing && !isClosed && hasNewUnits) {
-      // Open period already exists: skip re-import of units (delete first to redo).
-      // Still apply new clawbacks.
+      // Safety net: rewriteable open months are deleted before parse.
+      // Still apply new clawbacks if a row somehow remains.
       summary.periodsSkippedExistingOpen.push(period.periodLabel);
       if (hasClawbacks) {
         await applyClawbacksOnly(existing.id, period, batch.id, openerKeys);

@@ -18,7 +18,9 @@ export function CrmUploadForm() {
         <div className="space-y-2">
           <Label htmlFor="crm-file">CRM export</Label>
           <p className="text-xs text-muted-foreground">
-            Builds calculated periods · closed months skip new units
+            Rebuilds open calculated periods from this file. Closed months are not
+            deleted (new units skipped; clawbacks can still land). Re-upload Cordoba
+            after if you need chargebacks on rebuilt months.
           </p>
           <input
             id="crm-file"
@@ -46,7 +48,8 @@ export function CrmUploadForm() {
           title="Upload complete"
           batchId={state.summary.uploadBatchId}
           rows={[
-            { label: "Periods created", items: state.summary.periodsCreated },
+            { label: "Open periods rebuilt", items: state.summary.periodsReplacedOpen },
+            { label: "New periods", items: state.summary.periodsCreated },
             { label: "Clawbacks applied", items: state.summary.periodsUpdatedClawbacks },
             { label: "Skipped (closed)", items: state.summary.periodsSkippedClosed },
             {

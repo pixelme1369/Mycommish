@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clientRow,
   crmCsv,
+  crmCsvHeaderError,
   isMonthlyPayFreq,
   parseCrmAndCalculate,
   repairSplitEnrolledDebt,
@@ -322,5 +323,19 @@ describe("validation", () => {
   it("missing columns", () => {
     const out = parseCrmAndCalculate("Sales Rep,Status\nMaria,Active\n", "bad.csv");
     expect(out[0].errors[0]).toMatch(/Missing required CRM columns/);
+  });
+});
+
+describe("crmCsvHeaderError", () => {
+  it("rejects missing required columns before ingest can wipe open periods", () => {
+    expect(crmCsvHeaderError("Sales Rep,Status\nMaria,Active\n")).toMatch(
+      /Missing required CRM columns/,
+    );
+  });
+
+  it("accepts a header with required CRM columns", () => {
+    const header =
+      "Sales Rep,1st Payment Cleared Date,Dropped Date,Status,Enrolled Debt,# NSF";
+    expect(crmCsvHeaderError(header)).toBeNull();
   });
 });

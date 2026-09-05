@@ -243,6 +243,37 @@ function zeroUnitHoldingResult(agentName: string): PeriodResult {
   };
 }
 
+function decodeCrmCsvText(fileBytes: Uint8Array | Buffer | string): string {
+  return typeof fileBytes === "string"
+    ? fileBytes.replace(/^\uFEFF/, "")
+    : new TextDecoder("utf-8").decode(fileBytes).replace(/^\uFEFF/, "");
+}
+
+/** Cheap header check so a bad file cannot wipe open periods before ingest. */
+export function crmCsvHeaderError(fileBytes: Uint8Array | Buffer | string): string | null {
+  let text: string;
+  try {
+    text = decodeCrmCsvText(fileBytes);
+  } catch {
+    return "File must be UTF-8 encoded.";
+  }
+  const headerOnly = parseCsvSync(text, {
+    columns: false,
+    to_line: 1,
+    relax_column_count: true,
+    bom: true,
+    trim: true,
+  }) as string[][];
+  const headers = (headerOnly[0] ?? []).map((c) => String(c ?? "").trim()).filter(Boolean);
+  if (!headers.length) return "CSV file is empty or has no header row.";
+  const actualCols = new Set(headers.map((c) => c.toLowerCase()));
+  const missing = [...CRM_REQUIRED_COLUMNS].filter((c) => !actualCols.has(c));
+  if (missing.length) {
+    return `Missing required CRM columns: ${missing.sort().join(", ")}`;
+  }
+  return null;
+}
+
 function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
   // Use csv-parse (RFC-style) — our previous handmade splitter stripped quotes while
   // joining lines, so values like "$45,296.00" split across Enrolled Debt / Dropped Date
@@ -306,10 +337,7 @@ export function parseCrmAndCalculate(
 
   let text: string;
   try {
-    text =
-      typeof fileBytes === "string"
-        ? fileBytes.replace(/^\uFEFF/, "")
-        : new TextDecoder("utf-8").decode(fileBytes).replace(/^\uFEFF/, "");
+    text = decodeCrmCsvText(fileBytes);
   } catch {
     return [{ errors: ["File must be UTF-8 encoded."], periodLabel: null, filename, results: [], clientRows: [] }];
   }
