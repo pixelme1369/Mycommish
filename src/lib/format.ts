@@ -16,3 +16,24 @@ export function cancelRatePercent(pctValue: number | string | { toString(): stri
   const v = typeof pctValue === "number" ? pctValue : Number(pctValue);
   return `${v.toFixed(1)}%`;
 }
+
+const PACIFIC = "America/Los_Angeles";
+
+/** `2026-09-05 3:35 PM PDT` in America/Los_Angeles. */
+export function formatPacificDateAndTime(iso: string | Date): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  if (Number.isNaN(d.getTime())) return "";
+  const day = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PACIFIC,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+  const time = new Intl.DateTimeFormat("en-US", {
+    timeZone: PACIFIC,
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(d);
+  return `${day} ${time}`;
+}

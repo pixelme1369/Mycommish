@@ -170,6 +170,7 @@ export default async function AdminHome() {
         <AdminSecondarySections
           historyGroups={historyGroups}
           historyCount={historyPeriods.length}
+          showBatchTime={superAdmin}
           uploads={uploads.slice(0, 8).map((u) => ({
             id: u.id,
             type: u.type,

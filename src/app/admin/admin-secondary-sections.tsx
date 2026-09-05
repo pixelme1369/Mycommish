@@ -10,6 +10,7 @@ import { HistoryPeriodRowMenu } from "./period-row-menu";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { formatPacificDateAndTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type HistoryPeriod = {
@@ -34,10 +35,12 @@ export function AdminSecondarySections({
   historyGroups,
   historyCount,
   uploads,
+  showBatchTime = false,
 }: {
   historyGroups: HistoryGroup[];
   historyCount: number;
   uploads: UploadRow[];
+  showBatchTime?: boolean;
 }) {
   const [showHistory, setShowHistory] = useState(false);
   const [showBatches, setShowBatches] = useState(false);
@@ -167,9 +170,11 @@ export function AdminSecondarySections({
                     </div>
                     <Link
                       href={`/admin/uploads/${u.id}`}
-                      className="shrink-0 text-xs text-muted-foreground hover:underline"
+                      className="shrink-0 whitespace-nowrap text-xs text-muted-foreground hover:underline"
                     >
-                      {u.createdAt.slice(0, 10)}
+                      {showBatchTime
+                        ? formatPacificDateAndTime(u.createdAt)
+                        : u.createdAt.slice(0, 10)}
                     </Link>
                   </li>
                 ))}
