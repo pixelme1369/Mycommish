@@ -14,13 +14,13 @@ import {
 import { cn } from "@/lib/utils";
 import { ALEX_DIRECTOR_OVERRIDE_BANDS } from "@/lib/commission/director-plan";
 
-function money(n: number) {
+function money(n: number | undefined) {
   const v = Number(n);
   if (!Number.isFinite(v)) return "$0.00";
   return v.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
-function num(n: number) {
+function num(n: number | undefined) {
   const v = Number(n);
   return Number.isFinite(v) ? v : 0;
 }
