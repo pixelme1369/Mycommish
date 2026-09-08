@@ -28,7 +28,10 @@ describe("tiers", () => {
 describe("fixed rates", () => {
   it("Alex / Peter", () => {
     expect(getFixedRate("Alex Tambouly")).toBe(0.02);
+    expect(getFixedRate("Alex Tambouly", "2026-08")).toBe(0.02);
+    expect(getFixedRate("Alex Tambouly", "2026-09")).toBeNull();
     expect(getFixedRate(" peter godwin ")).toBe(0.0175);
+    expect(getFixedRate("Peter Godwin", "2026-09")).toBe(0.0175);
   });
   it("ignores cancellation penalty", () => {
     const r = calculateAgentCommission({
@@ -36,10 +39,23 @@ describe("fixed rates", () => {
       unitsCleared: 25,
       totalClearedDebt: 100_000,
       cancellationRatePct: 50,
+      periodLabel: "2026-08",
     });
     expect(r.tierRate).toBe(0.02);
     expect(r.cancellationPenaltyApplied).toBe(false);
     expect(r.grossCommission).toBe(2000);
+  });
+  it("Alex Director plan from 2026-09 is $0 personal commission", () => {
+    const r = calculateAgentCommission({
+      agentName: "Alex Tambouly",
+      unitsCleared: 18,
+      totalClearedDebt: 1_250_000,
+      cancellationRatePct: 10,
+      periodLabel: "2026-09",
+    });
+    expect(r.tierRate).toBe(0);
+    expect(r.grossCommission).toBe(0);
+    expect(r.notes).toMatch(/house deals/i);
   });
 });
 
@@ -109,8 +125,12 @@ describe("cancellation penalty", () => {
 
 describe("clawback", () => {
   it("fixed rate ignores units shortcut", () => {
-    const cb = calculateClawbackAmount(1, 10000, 0, 0, 10000, "Alex Tambouly");
+    const cb = calculateClawbackAmount(1, 10000, 0, 0, 10000, "Alex Tambouly", "2026-08");
     expect(cb).toBe(200);
+  });
+  it("Alex Director house deals have no clawback", () => {
+    const cb = calculateClawbackAmount(1, 10000, 0, 0, 10000, "Alex Tambouly", "2026-09");
+    expect(cb).toBe(0);
   });
   it("single unit claws full gross", () => {
     const cb = calculateClawbackAmount(1, 10000, 100, 0, 10000, "Test");

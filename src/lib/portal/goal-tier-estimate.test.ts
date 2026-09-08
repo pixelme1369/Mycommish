@@ -26,6 +26,20 @@ describe("enrollmentPayPreview", () => {
     expect(r.pay).toBe(1750);
   });
 
+  it("Alex Director plan from 2026-09 shows $0 personal", () => {
+    const r = enrollmentPayPreview("Alex Tambouly", 18, 1_250_000, "2026-09");
+    expect(r.pay).toBe(0);
+    expect(r.rate).toBe(0);
+    expect(r.label).toMatch(/house deals/i);
+  });
+
+  it("Alex still on 2% for 2026-08 goals", () => {
+    const r = enrollmentPayPreview("Alex Tambouly", 10, 100_000, "2026-08");
+    expect(r.fixed).toBe(true);
+    expect(r.rate).toBe(0.02);
+    expect(r.pay).toBe(2000);
+  });
+
   it("uses Artin's grandfathered bands", () => {
     const r = enrollmentPayPreview("Artin Namjoo", 16, 80_000);
     expect(r.tier).toBe(2);

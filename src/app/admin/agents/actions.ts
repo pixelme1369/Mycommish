@@ -16,6 +16,7 @@ import {
   attachForthAssignedToUser,
   backfillForthContactsForAlias,
 } from "@/lib/forth/unmatched";
+import { applyDirectorOverrideToOpenPeriods } from "@/lib/ingest/director-override";
 
 function parseRole(raw: FormDataEntryValue | null): AgentRole {
   const v = String(raw || "").trim().toLowerCase();
@@ -410,6 +411,9 @@ export async function suspendAgentAction(formData: FormData) {
       suspendedById: session.user.agentId || null,
     },
   });
+  await applyDirectorOverrideToOpenPeriods().catch((err) => {
+    console.error("applyDirectorOverrideToOpenPeriods failed", err);
+  });
   revalidatePath("/admin/agents");
 }
 
@@ -424,6 +428,9 @@ export async function activateAgentAction(formData: FormData) {
       suspendedAt: null,
       suspendedById: null,
     },
+  });
+  await applyDirectorOverrideToOpenPeriods().catch((err) => {
+    console.error("applyDirectorOverrideToOpenPeriods failed", err);
   });
   revalidatePath("/admin/agents");
 }

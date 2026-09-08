@@ -251,6 +251,7 @@ export async function loadLastCheck(agentPeriodId: string): Promise<LastCheckVie
     unitsCleared: units,
     totalClearedDebt: enrolledDebt,
     cancellationRatePct: cancelPct,
+    periodLabel: primary.period.periodLabel,
   });
   const files: LastCheckFileRow[] = passed.map((s) => ({
     id: s.event.id,
@@ -293,6 +294,10 @@ export async function loadLastCheck(agentPeriodId: string): Promise<LastCheckVie
     advancePaidAmount: agentPeriods.reduce((s, ap) => s + num(ap.advancePaidAmount), 0),
     advanceRepayAmount: agentPeriods.reduce((s, ap) => s + num(ap.advanceRepayAmount), 0),
     teamLeadBonusAmount: agentPeriods.reduce((s, ap) => s + num(ap.teamLeadBonusAmount), 0),
+    directorOverrideAmount: agentPeriods.reduce(
+      (s, ap) => s + num(ap.directorOverrideAmount),
+      0,
+    ),
   });
   const profile = await gustoProfile(primary.agentName);
   const periodLabels = [...new Set(agentPeriods.map((ap) => ap.period.periodLabel))].sort();
@@ -312,6 +317,7 @@ export async function loadLastCheck(agentPeriodId: string): Promise<LastCheckVie
       agentName: primary.agentName,
       unitsCleared: units,
       result: calc,
+      periodLabel: primary.period.periodLabel,
     }),
     tierRate,
     grossCommission,

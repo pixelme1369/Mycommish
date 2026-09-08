@@ -19,6 +19,7 @@ import { relinkCommissionStatements } from "@/lib/statements";
 import { relinkManualBonuses } from "@/lib/manual-bonuses";
 import { relinkAdvances } from "@/lib/advances";
 import { applyTeamLeadBonusesForPeriod } from "@/lib/teams/team-lead-bonus";
+import { applyDirectorOverrideForPeriod } from "@/lib/ingest/director-override";
 import { listOpenerAliasKeys } from "@/lib/agents/opener";
 import {
   clearOpenCalculatedPeriods,
@@ -555,6 +556,11 @@ async function createFullPeriod(
   } catch (err) {
     console.error("applyTeamLeadBonusesForPeriod failed", err);
   }
+  try {
+    await applyDirectorOverrideForPeriod(periodRow.id);
+  } catch (err) {
+    console.error("applyDirectorOverrideForPeriod failed", err);
+  }
   return periodRow.id;
 }
 
@@ -642,6 +648,7 @@ async function applyClawbacksOnly(
       const gross = Number(agentPeriod.grossCommission);
       const manualBonus = Number(agentPeriod.manualBonusAmount);
       const teamLeadBonus = Number(agentPeriod.teamLeadBonusAmount);
+      const directorOverride = Number(agentPeriod.directorOverrideAmount);
       const advancePaid = Number(agentPeriod.advancePaidAmount);
       const advanceRepay = Number(agentPeriod.advanceRepayAmount);
       await prisma.agentPeriod.update({
@@ -656,6 +663,7 @@ async function applyClawbacksOnly(
               advancePaid,
               advanceRepay,
               teamLeadBonus,
+              directorOverride,
             ),
           ),
           notes: agentPeriod.notes

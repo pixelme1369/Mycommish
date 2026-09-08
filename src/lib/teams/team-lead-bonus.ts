@@ -14,6 +14,7 @@ import { listDismissedKeys } from "@/lib/agents/dismissal";
 import { listOpenerAliasKeys } from "@/lib/agents/opener";
 import { listExcludedKeysForPeriod } from "@/lib/agents/period-exclusion";
 import { agentIdentityKey } from "@/lib/commission/calculator";
+import { isAlexDirectorPlan } from "@/lib/commission/director-plan";
 import { computeTeamLeadBonusAmount, parseTeamLeadBonusNote } from "@/lib/commission/net";
 import { recomputeAgentPeriodClawbacks } from "@/lib/ingest/recompute-agent-period";
 
@@ -252,6 +253,17 @@ export async function applyTeamLeadBonusesForPeriod(periodId: string) {
   }
 
   for (const lead of leads) {
+    if (isAlexDirectorPlan(lead.leadAgentName, period.periodLabel)) {
+      await setTeamLeadBonus({
+        periodId,
+        leadAgentName: lead.leadAgentName,
+        amount: 0,
+        teamUnits: 0,
+        ratePerUnit: Number(lead.ratePerUnit),
+        notePrefix: "Team bonus",
+      });
+      continue;
+    }
     let teamUnits = 0;
     let notePrefix = "Team bonus";
     if (lead.bonusScope === "all_period_units") {
@@ -297,6 +309,14 @@ async function setTeamLeadBonus(opts: {
       },
     },
   });
+  // CRM casing can differ from TeamLead.leadAgentName — still find the row to clear/update.
+  if (!ap) {
+    const key = agentIdentityKey(opts.leadAgentName);
+    const rows = await prisma.agentPeriod.findMany({
+      where: { periodId: opts.periodId },
+    });
+    ap = rows.find((r) => agentIdentityKey(r.agentName) === key) ?? null;
+  }
 
   if (!ap && opts.amount <= 0) return;
 

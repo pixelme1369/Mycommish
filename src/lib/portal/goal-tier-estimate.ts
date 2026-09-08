@@ -5,6 +5,7 @@ import {
   usesCustomTier,
   type TierBand,
 } from "@/lib/commission/calculator";
+import { isAlexDirectorPlan } from "@/lib/commission/director-plan";
 
 export type EnrollmentPayPreview = {
   units: number;
@@ -20,7 +21,9 @@ export type EnrollmentPayPreview = {
 export function pickCommissionAgentName(aliases: string[]): string | null {
   const names = aliases.map((n) => n.trim()).filter(Boolean);
   for (const n of names) {
-    if (getFixedRate(n) != null || usesCustomTier(n)) return n;
+    if (getFixedRate(n) != null || usesCustomTier(n) || isAlexDirectorPlan(n, "2099-01")) {
+      return n;
+    }
   }
   return names[0] ?? null;
 }
@@ -29,11 +32,25 @@ export function enrollmentPayPreview(
   agentName: string | null,
   units: number,
   enrolledDebt: number,
+  periodLabel?: string | null,
 ): EnrollmentPayPreview {
   const debt = enrolledDebt > 0 ? enrolledDebt : 0;
   const u = Math.max(0, Math.floor(units));
-  const fixed = getFixedRate(agentName);
+  const director = isAlexDirectorPlan(agentName, periodLabel);
+  const fixed = director ? null : getFixedRate(agentName, periodLabel);
   const pay = (rate: number) => Math.round(rate * debt * 100) / 100;
+
+  if (director) {
+    return {
+      units: u,
+      debt,
+      rate: 0,
+      pay: 0,
+      label: "Director plan — house deals ($0 personal)",
+      tier: null,
+      fixed: false,
+    };
+  }
 
   if (u < 1 || debt <= 0) {
     return {

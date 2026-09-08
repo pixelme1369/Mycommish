@@ -6,6 +6,7 @@ import {
   excludeAgentFromPeriod,
   includeAgentInPeriod,
 } from "@/lib/agents/period-exclusion";
+import { applyDirectorOverrideForPeriodLabel } from "@/lib/ingest/director-override";
 
 export async function excludeAgentFromPeriodAction(formData: FormData) {
   const session = await requireAdmin();
@@ -20,6 +21,9 @@ export async function excludeAgentFromPeriodAction(formData: FormData) {
     agentName,
     createdById: session.user.agentId,
     note,
+  });
+  await applyDirectorOverrideForPeriodLabel(periodLabel).catch((err) => {
+    console.error("applyDirectorOverrideForPeriodLabel failed", err);
   });
 
   revalidatePath("/admin");
@@ -37,6 +41,9 @@ export async function includeAgentInPeriodAction(formData: FormData) {
   if (!agentName || !periodLabel) return;
 
   await includeAgentInPeriod({ periodLabel, agentName });
+  await applyDirectorOverrideForPeriodLabel(periodLabel).catch((err) => {
+    console.error("applyDirectorOverrideForPeriodLabel failed", err);
+  });
 
   revalidatePath("/admin");
   revalidatePath("/admin/periods");

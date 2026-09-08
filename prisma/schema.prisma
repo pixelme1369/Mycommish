@@ -663,6 +663,8 @@ model AgentPeriod {
   manualBonusAmount        Decimal @default(0) @db.Decimal(14, 2)
   /// Team-lead per-unit bonus from teammate clears (ledger team_lead_bonus).
   teamLeadBonusAmount      Decimal @default(0) @db.Decimal(14, 2)
+  /// Alex Director override from 2026-09 (ledger director_override).
+  directorOverrideAmount   Decimal @default(0) @db.Decimal(14, 2)
   /// Advances paid out on this period's paycheck (ledger advance_paid).
   advancePaidAmount        Decimal @default(0) @db.Decimal(14, 2)
   /// Advances recovered on this period (ledger advance_repay).
@@ -830,6 +832,8 @@ enum LedgerType {
   manual_bonus
   /// Team-lead bonus: rate × teammate cleared units (added into net).
   team_lead_bonus
+  /// Alex Director company-file override (from 2026-09).
+  director_override
   /// Company advance included on this period's paycheck.
   advance_paid
   /// Company advance recovered from this period's paycheck.

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { calculateAgentCommission, agentIdentityKey } from "@/lib/commission/calculator";
 import { computeNetCommission } from "@/lib/commission/net";
+import { applyDirectorOverrideToOpenPeriods } from "@/lib/ingest/director-override";
 import {
   ClientEventKind,
   FileClaimStatus,
@@ -174,6 +175,14 @@ export async function acceptFileClaimReassign(opts: {
     return { ok: false, error: msg };
   }
 
+  if (!alreadyOnClaimer && openEvents.length > 0) {
+    try {
+      await applyDirectorOverrideToOpenPeriods();
+    } catch (err) {
+      console.error("applyDirectorOverrideToOpenPeriods failed", err);
+    }
+  }
+
   const closedNote =
     closedCount > 0
       ? ` Closed period row(s) left unchanged (${CLOSED_PERIOD_ERROR.replace(/\.$/, "")}).`
@@ -298,7 +307,10 @@ async function recomputeAgentPeriodAfterReassign(
   agentPeriodId: string,
   movedCrmId: string,
 ) {
-  const ap = await tx.agentPeriod.findUnique({ where: { id: agentPeriodId } });
+  const ap = await tx.agentPeriod.findUnique({
+    where: { id: agentPeriodId },
+    include: { period: { select: { periodLabel: true } } },
+  });
   if (!ap) return;
 
   const events = await tx.clientEvent.findMany({
@@ -321,6 +333,7 @@ async function recomputeAgentPeriodAfterReassign(
           unitsCleared,
           totalClearedDebt,
           cancellationRatePct: cancelPct,
+          periodLabel: ap.period?.periodLabel ?? null,
         })
       : {
           agentName: ap.agentName,
@@ -406,6 +419,20 @@ async function recomputeAgentPeriodAfterReassign(
         .filter((e) => !e.reversedBy)
         .reduce((s, e) => s + Number(e.amount), 0) * 100,
     ) / 100;
+  const directorEntries = await tx.ledgerEntry.findMany({
+    where: {
+      agentPeriodId,
+      type: LedgerType.director_override,
+      reversesEntryId: null,
+    },
+    include: { reversedBy: true },
+  });
+  const directorOverrideAmount =
+    Math.round(
+      directorEntries
+        .filter((e) => !e.reversedBy)
+        .reduce((s, e) => s + Number(e.amount), 0) * 100,
+    ) / 100;
   const advancePaidEntries = await tx.ledgerEntry.findMany({
     where: {
       agentPeriodId,
@@ -442,6 +469,7 @@ async function recomputeAgentPeriodAfterReassign(
     advancePaidAmount,
     advanceRepayAmount,
     teamLeadBonusAmount,
+    directorOverrideAmount,
   );
 
   const noteBit = `file claim reassign ${movedCrmId}`;
@@ -463,6 +491,7 @@ async function recomputeAgentPeriodAfterReassign(
       clawbackAmount: dec(clawbackAmount),
       manualBonusAmount: dec(manualBonusAmount),
       teamLeadBonusAmount: dec(teamLeadBonusAmount),
+      directorOverrideAmount: dec(directorOverrideAmount),
       advancePaidAmount: dec(advancePaidAmount),
       advanceRepayAmount: dec(advanceRepayAmount),
       netCommission: dec(netCommission),

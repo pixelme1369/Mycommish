@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-guards";
 import { dismissSalesRep, reinstateSalesRep } from "@/lib/agents/dismissal";
+import { applyDirectorOverrideToOpenPeriods } from "@/lib/ingest/director-override";
 import {
   loadLastCheckPreview,
   resolveLastCheckAgentPeriodId,
@@ -28,6 +29,9 @@ export async function dismissSalesRepAction(formData: FormData): Promise<{
   const agentPeriodId = String(formData.get("agentPeriodId") || "").trim() || null;
   if (!agentName) return { ok: true, agentPeriodId };
   await dismissSalesRep(agentName, note);
+  await applyDirectorOverrideToOpenPeriods().catch((err) => {
+    console.error("applyDirectorOverrideToOpenPeriods failed", err);
+  });
   revalidatePath("/admin");
   revalidatePath("/admin/agents");
   revalidatePath("/admin/periods");
@@ -45,6 +49,9 @@ export async function reinstateSalesRepAction(formData: FormData) {
   const agentName = String(formData.get("agentName") || "").trim();
   if (!agentName) return;
   await reinstateSalesRep(agentName);
+  await applyDirectorOverrideToOpenPeriods().catch((err) => {
+    console.error("applyDirectorOverrideToOpenPeriods failed", err);
+  });
   revalidatePath("/admin");
   revalidatePath("/admin/agents");
   revalidatePath("/admin/periods");

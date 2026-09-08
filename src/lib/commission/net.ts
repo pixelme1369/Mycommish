@@ -1,4 +1,4 @@
-/** Net pay: gross − clawbacks + manual bonuses + team-lead bonus + advances paid − advance repayments (floored at 0). */
+/** Net pay: gross − clawbacks + manual bonuses + team-lead bonus + director override + advances paid − advance repayments (floored at 0). */
 export function computeNetCommission(
   grossCommission: number,
   clawbackAmount: number,
@@ -6,6 +6,7 @@ export function computeNetCommission(
   advancePaidAmount = 0,
   advanceRepayAmount = 0,
   teamLeadBonusAmount = 0,
+  directorOverrideAmount = 0,
 ): number {
   return Math.max(
     0,
@@ -14,6 +15,7 @@ export function computeNetCommission(
         clawbackAmount +
         manualBonusAmount +
         teamLeadBonusAmount +
+        directorOverrideAmount +
         advancePaidAmount -
         advanceRepayAmount) *
         100,

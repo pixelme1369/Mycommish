@@ -85,6 +85,7 @@ export default async function AdminPeriodPage({
     tierRate: Number(a.tierRate),
     grossCommission: Number(a.grossCommission),
     clawbackAmount: Number(a.clawbackAmount),
+    directorOverrideAmount: Number(a.directorOverrideAmount),
     netCommission: Number(a.netCommission),
     cancellationRate: Number(a.cancellationRate),
     dismissed: dismissedKeys.has(dismissalKey(a.agentName)),

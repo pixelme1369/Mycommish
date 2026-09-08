@@ -14,6 +14,7 @@ import {
   getFixedRate,
   isPeriodClosedByPayday,
 } from "@/lib/commission/calculator";
+import { isAlexDirectorPlan } from "@/lib/commission/director-plan";
 import { parseCordobaPayout, type CordobaChargebackRow } from "@/lib/commission/cordoba-parser";
 import { parseDate, periodOf } from "@/lib/commission/crm-parser";
 import { clawbackAmountFromPaidRate } from "@/lib/portal/clawback-paid-rate-math";
@@ -355,6 +356,11 @@ export async function ingestCordobaUpload(
         ? Number(cleared.paidRate)
         : null;
 
+    const origPeriodLabel = cleared.period?.periodLabel ?? null;
+    if (isAlexDirectorPlan(agentName, origPeriodLabel)) {
+      continue;
+    }
+
     let cb = 0;
     if (knownPaidRate != null) {
       // History Rate / super-admin override: debt × paidRate (same as CRM clawbacks).
@@ -367,9 +373,10 @@ export async function ingestCordobaUpload(
         Number(origAp.cancellationRate),
         clientDebt,
         agentName,
+        origPeriodLabel,
       );
     } else {
-      cb = Math.round(clientDebt * (getFixedRate(agentName) || 0.01) * 100) / 100;
+      cb = Math.round(clientDebt * (getFixedRate(agentName, origPeriodLabel) || 0.01) * 100) / 100;
     }
     if (cb <= 0) continue;
 

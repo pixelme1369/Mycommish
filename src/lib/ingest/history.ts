@@ -84,7 +84,11 @@ export async function ingestHistoryUpload(
   let missingCreditScoreCount = 0;
   let sheetCommissionCount = 0;
   const periodsWithScores = parsed.periods.map((p) => {
-    const applied = applyCrmCreditScoresToHistoryResults(p.results, creditScoreByCrmId);
+    const applied = applyCrmCreditScoresToHistoryResults(
+      p.results,
+      creditScoreByCrmId,
+      p.periodLabel,
+    );
     lowCreditZeroPayCount += applied.lowCreditCount;
     missingCreditScoreCount += applied.missingScoreCount;
     sheetCommissionCount += applied.sheetCommissionCount;

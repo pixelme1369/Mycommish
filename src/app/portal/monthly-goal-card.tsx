@@ -287,11 +287,12 @@ function GoalTierPanel({
     view.debtGoal > 0 ? view.debtGoal : view.debtActual,
     clearPct,
   );
-  const now = enrollmentPayPreview(agentName, enrolledNow.units, enrolledNow.debt);
+  const now = enrollmentPayPreview(agentName, enrolledNow.units, enrolledNow.debt, view.monthLabel);
   const atGoal = enrollmentPayPreview(
     agentName,
     enrolledGoal.units,
     enrolledGoal.debt,
+    view.monthLabel,
   );
   const bands = commissionBandsForAgent(agentName);
   const showGoal =

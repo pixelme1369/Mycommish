@@ -319,6 +319,90 @@ describe("CRM directory for file lookup", () => {
   });
 });
 
+describe("Alex Director plan (2026-09+)", () => {
+  it("pays 2026-08 at 2% and 2026-09 personal at $0", () => {
+    const periods = parse([
+      clientRow("A1", {
+        rep: "Alex Tambouly",
+        enrolled: "08/01/26",
+        cleared: "08/10/26",
+        debt: "100000",
+      }),
+      clientRow("S1", {
+        rep: "Alex Tambouly",
+        enrolled: "09/01/26",
+        cleared: "09/10/26",
+        debt: "100000",
+      }),
+    ]);
+    const map = byPeriod(periods);
+    expect(map["2026-08"].results[0].tierRate).toBe(0.02);
+    expect(map["2026-08"].results[0].grossCommission).toBe(2000);
+    expect(map["2026-09"].results[0].tierRate).toBe(0);
+    expect(map["2026-09"].results[0].grossCommission).toBe(0);
+    expect(map["2026-09"].clientRows[0]?.commissionOnClient).toBe(0);
+  });
+
+  it("does not claw back a 2026-09 house deal", () => {
+    const periods = parse(
+      [
+        clientRow("H1", {
+          rep: "Alex Tambouly",
+          enrolled: "09/01/26",
+          cleared: "09/10/26",
+          dropped: "10/26/26",
+          payments: "1",
+          debt: "50000",
+        }),
+      ],
+      { alreadyClearedCrmIds: new Set(["H1"]) },
+    );
+    const oct = byPeriod(periods)["2026-10"];
+    expect(oct?.results[0]?.clawbackAmount ?? 0).toBe(0);
+    // House deal: still no clawback row / dollars (may omit empty holding period).
+    const anyCb = periods.reduce(
+      (s, p) => s + p.results.reduce((a, r) => a + r.clawbackAmount, 0),
+      0,
+    );
+    expect(anyCb).toBe(0);
+  });
+
+  it("still claws a 2026-08 paid file that drops after payday", () => {
+    const periods = parse(
+      [
+        clientRow("OLD", {
+          rep: "Alex Tambouly",
+          enrolled: "08/01/26",
+          cleared: "08/10/26",
+          dropped: "10/01/26",
+          payments: "1",
+          debt: "10000",
+        }),
+      ],
+      {
+        alreadyClearedCrmIds: new Set(["OLD"]),
+        knownRateByCrmId: { OLD: 0.02 },
+      },
+    );
+    const map = byPeriod(periods);
+    expect(map["2026-10"]).toBeDefined();
+    expect(map["2026-10"].results[0].clawbackAmount).toBe(200);
+  });
+
+  it("does not apply Director $0 clawback to a 2026-08 clear", () => {
+    const periods = parse([
+      clientRow("A1", {
+        rep: "Alex Tambouly",
+        enrolled: "08/01/26",
+        cleared: "08/10/26",
+        debt: "10000",
+      }),
+    ]);
+    expect(byPeriod(periods)["2026-08"].results[0].tierRate).toBe(0.02);
+    expect(byPeriod(periods)["2026-08"].results[0].grossCommission).toBe(200);
+  });
+});
+
 describe("validation", () => {
   it("missing columns", () => {
     const out = parseCrmAndCalculate("Sales Rep,Status\nMaria,Active\n", "bad.csv");

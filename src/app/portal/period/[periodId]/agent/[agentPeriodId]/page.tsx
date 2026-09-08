@@ -32,18 +32,30 @@ import {
   getFixedRate,
   unitsToNextTier,
 } from "@/lib/commission/calculator";
+import {
+  isAlexDirectorPlan,
+  personalProductionProgress,
+  calculateDirectorOverride,
+} from "@/lib/commission/director-plan";
 import { NextTierCard } from "@/components/next-tier-card";
+import { PersonalProductionCard } from "@/components/personal-production-card";
 import { ClawbackPaidRateEditor } from "./clawback-paid-rate-editor";
 import { StatementSignPanel } from "./statement-sign-panel";
 import { WaitingFirstPaymentSection } from "./waiting-first-payment-section";
 import { CancelRateBreakdownSection } from "./cancel-rate-breakdown";
 import { ManualBonusSection } from "./manual-bonus-section";
 import { TeamLeadBonusMetric } from "./team-lead-bonus-metric";
+import { DirectorOverrideMetric } from "./director-override-metric";
+import { NetCommissionMetric } from "./net-commission-metric";
 import { PeriodPayStatusChip } from "@/components/period-pay-status-chip";
 import { listManualBonusesForAgentPeriod } from "@/lib/manual-bonuses";
 import { listAdvancesForAgentPeriod } from "@/lib/advances";
 import { getStatementForAgentPeriodRow } from "@/lib/statements";
 import { getTeamLeadBonusBreakdown } from "@/lib/teams/team-lead-bonus";
+import {
+  countCompanyUnitsClearedForPeriod,
+  getDirectorOverrideBreakdown,
+} from "@/lib/ingest/director-override";
 import { StatementSignStatus } from "@/generated/prisma/client";
 import type { ClientEvent } from "@/generated/prisma/client";
 type PortalClientEvent = ClientEvent & {
@@ -207,6 +219,23 @@ export default async function PeriodDetailPage({
     Number(row.teamLeadBonusAmount) > 0
       ? await getTeamLeadBonusBreakdown(row.id)
       : null;
+  const directorPlan = isAlexDirectorPlan(row.agentName, row.period.periodLabel);
+  const directorOverrideBreakdown =
+    Number(row.directorOverrideAmount) > 0
+      ? await getDirectorOverrideBreakdown(row.id)
+      : null;
+  const directorTier = directorPlan
+    ? calculateDirectorOverride({
+        companySurvivingFiles: await countCompanyUnitsClearedForPeriod(
+          periodId,
+          row.period.periodLabel,
+        ),
+        personalCancelRatePct: Number(row.cancellationRate),
+      })
+    : null;
+  const personalProduction = directorPlan
+    ? personalProductionProgress(Number(row.totalClearedDebt))
+    : null;
   const periodIsPaid = (
     await paidPeriodLabels([row.period.periodLabel])
   ).has(row.period.periodLabel);
@@ -282,36 +311,76 @@ export default async function PeriodDetailPage({
       />
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-stretch">
-        <NextTierCard
-          className="sm:w-44 sm:shrink-0"
-          unitsNeeded={unitsToNextTier(row.unitsCleared, row.agentName)}
-          gain={commissionGainAtNextTier(
-            row.adjustedTier,
-            Number(row.totalClearedDebt),
-            Number(row.grossCommission),
-            row.agentName,
-          )}
-          atTopTier={row.adjustedTier >= 6}
-          fixedRate={getFixedRate(row.agentName) !== null}
-        />
+        {personalProduction ? (
+          <PersonalProductionCard
+            className="sm:w-48 sm:shrink-0"
+            progress={personalProduction}
+          />
+        ) : (
+          <NextTierCard
+            className="sm:w-44 sm:shrink-0"
+            unitsNeeded={unitsToNextTier(
+              row.unitsCleared,
+              row.agentName,
+              row.period.periodLabel,
+            )}
+            gain={commissionGainAtNextTier(
+              row.adjustedTier,
+              Number(row.totalClearedDebt),
+              Number(row.grossCommission),
+              row.agentName,
+              row.period.periodLabel,
+            )}
+            atTopTier={row.adjustedTier >= 6}
+            fixedRate={getFixedRate(row.agentName, row.period.periodLabel) !== null}
+          />
+        )}
         <div className="min-w-0 flex-1 overflow-hidden rounded-xl ring-1 ring-border/70">
           <div className="grid grid-cols-2 gap-px bg-border/50 sm:grid-cols-3 lg:grid-cols-4">
-            <Metric label="Units" value={String(row.unitsCleared)} />
             <Metric
-              label="Tier / rate"
+              label={directorPlan ? "Personal units" : "Units"}
+              value={String(row.unitsCleared)}
+            />
+            <Metric
+              label={directorPlan ? "Plan / rate" : "Tier / rate"}
               value={
-                row.cancellationPenaltyApplied
-                  ? `${row.rawTier}→${row.adjustedTier} · ${ratePercent(row.tierRate)}`
-                  : `${row.adjustedTier || "—"} · ${ratePercent(row.tierRate)}`
+                directorPlan
+                  ? "Director · house deals"
+                  : row.cancellationPenaltyApplied
+                    ? `${row.rawTier}→${row.adjustedTier} · ${ratePercent(row.tierRate)}`
+                    : `${row.adjustedTier || "—"} · ${ratePercent(row.tierRate)}`
               }
             />
-            <Metric label="Gross" value={money(row.grossCommission)} />
-            <Metric label="Net" value={money(row.netCommission)} accent />
             <Metric
-              label="Clawback"
-              value={Number(row.clawbackAmount) > 0 ? `-${money(row.clawbackAmount)}` : "—"}
-              danger={Number(row.clawbackAmount) > 0}
+              label={directorPlan ? "Personal gross" : "Gross"}
+              value={money(row.grossCommission)}
             />
+            <NetCommissionMetric
+              breakdown={{
+                net: Number(row.netCommission) || 0,
+                gross: Number(row.grossCommission) || 0,
+                clawback: Number(row.clawbackAmount) || 0,
+                manualBonus: Number(row.manualBonusAmount) || 0,
+                teamLeadBonus: Number(row.teamLeadBonusAmount) || 0,
+                directorOverride:
+                  Number(row.directorOverrideAmount) ||
+                  directorTier?.amount ||
+                  0,
+                advancePaid: Number(row.advancePaidAmount) || 0,
+                advanceRepay: Number(row.advanceRepayAmount) || 0,
+                directorPlan,
+                companyUnits: directorTier?.companyFiles,
+                directorSlices: directorTier?.slices,
+                penaltyApplied: directorTier?.penaltyApplied,
+              }}
+            />
+            {!directorPlan ? (
+              <Metric
+                label="Clawback"
+                value={Number(row.clawbackAmount) > 0 ? `-${money(row.clawbackAmount)}` : "—"}
+                danger={Number(row.clawbackAmount) > 0}
+              />
+            ) : null}
             {Number(row.advancePaidAmount) > 0 ? (
               <Metric
                 label="Advance paid"
@@ -325,7 +394,17 @@ export default async function PeriodDetailPage({
                 danger
               />
             ) : null}
-            {Number(row.teamLeadBonusAmount) > 0 ? (
+            {Number(row.directorOverrideAmount) > 0 ? (
+              directorOverrideBreakdown ? (
+                <DirectorOverrideMetric breakdown={directorOverrideBreakdown} />
+              ) : (
+                <Metric
+                  label="Director override"
+                  value={`+${money(row.directorOverrideAmount)}`}
+                />
+              )
+            ) : null}
+            {!directorPlan && Number(row.teamLeadBonusAmount) > 0 ? (
               teamLeadBonusBreakdown ? (
                 <TeamLeadBonusMetric breakdown={teamLeadBonusBreakdown} />
               ) : (
@@ -337,7 +416,12 @@ export default async function PeriodDetailPage({
             ) : null}
             <Metric label="Cancel rate" value={cancelRatePercent(row.cancellationRate)} />
             <Metric label="Pending cancellations" value={String(row.pendingUnits)} />
-            <Metric label="Cleared debt" value={money(row.totalClearedDebt)} />
+            {!directorPlan ? (
+              <Metric
+                label="Cleared debt"
+                value={money(row.totalClearedDebt)}
+              />
+            ) : null}
           </div>
         </div>
       </div>

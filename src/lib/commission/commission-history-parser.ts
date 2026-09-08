@@ -353,6 +353,7 @@ export async function parseCommissionHistory(
             totalClearedDebt,
             cancellationRatePct: cancelRatePct,
             hourlyDraw: 0,
+            periodLabel,
           })
         : zeroUnitResult(agentName);
 
@@ -403,6 +404,7 @@ export async function parseCommissionHistory(
 export function applyCrmCreditScoresToHistoryResults(
   results: HistoryAgentResult[],
   creditScoreByCrmId: Record<string, number | null | undefined>,
+  periodLabel?: string | null,
 ): {
   results: HistoryAgentResult[];
   lowCreditCount: number;
@@ -443,6 +445,7 @@ export function applyCrmCreditScoresToHistoryResults(
             totalClearedDebt,
             cancellationRatePct: cancelRatePct,
             hourlyDraw: 0,
+            periodLabel: periodLabel ?? null,
           })
         : zeroUnitResult(r.agentName);
 

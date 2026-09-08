@@ -5,7 +5,10 @@
  * Standard TIERS apply to all agents unless overridden by:
  * - AGENT_FIXED_RATES (flat contract %, ignores unit ladder)
  * - AGENT_CUSTOM_TIERS (alternate unit ladder; Artin Namjoo only today)
+ * - Alex Tambouly Director plan from 2026-09 (house deals + company-file override)
  */
+
+import { isAlexDirectorPlan } from "./director-plan";
 
 export type TierBand = {
   low: number;
@@ -53,7 +56,11 @@ export function agentIdentityKey(agentName: string): string {
   return (agentName || "").trim().toLowerCase();
 }
 
-export function getFixedRate(agentName: string | null | undefined): number | null {
+export function getFixedRate(
+  agentName: string | null | undefined,
+  periodLabel?: string | null,
+): number | null {
+  if (isAlexDirectorPlan(agentName, periodLabel)) return null;
   const rate = AGENT_FIXED_RATES[agentIdentityKey(agentName || "")];
   return rate === undefined ? null : rate;
 }
@@ -156,9 +163,37 @@ export function calculateAgentCommission(opts: {
   totalClearedDebt: number;
   cancellationRatePct: number;
   hourlyDraw?: number;
+  periodLabel?: string | null;
 }): AgentCommissionResult {
   const { agentName, unitsCleared, totalClearedDebt, cancellationRatePct } = opts;
   const hourlyDraw = opts.hourlyDraw ?? 0;
+  if (isAlexDirectorPlan(agentName, opts.periodLabel)) {
+    const notesParts = [
+      "Director plan: personal files are house deals ($0 commission, no clawback)",
+      "Pay is the company surviving-file override (credited separately)",
+    ];
+    if (cancellationRatePct > CANCELLATION_PENALTY_THRESHOLD) {
+      notesParts.push(
+        `Personal cancel rate ${cancellationRatePct.toFixed(1)}% > ${CANCELLATION_PENALTY_THRESHOLD}% — override bands −$5/file`,
+      );
+    }
+    return {
+      agentName,
+      unitsCleared,
+      totalClearedDebt,
+      cancellationRate: cancellationRatePct,
+      hourlyDraw,
+      rawTier: 0,
+      adjustedTier: 0,
+      tierRate: 0,
+      grossCommission: 0,
+      payout: 0,
+      payoutType: "commission",
+      qualityBonusEligible: false,
+      cancellationPenaltyApplied: cancellationRatePct > CANCELLATION_PENALTY_THRESHOLD,
+      notes: notesParts.join(" | "),
+    };
+  }
   const table = getTierTable(agentName);
 
   const raw = getTier(unitsCleared, agentName);
@@ -167,7 +202,7 @@ export function calculateAgentCommission(opts: {
   let tierRate = table[adjustedTier - 1].rate;
   let tierLabel = table[adjustedTier - 1].label;
 
-  const fixedRate = getFixedRate(agentName);
+  const fixedRate = getFixedRate(agentName, opts.periodLabel);
   if (fixedRate !== null) {
     penaltyApplied = false;
     adjustedTier = raw.tier;
@@ -224,8 +259,13 @@ export function getAdjustedTierRate(
   units: number,
   cancellationRatePct: number,
   agentName?: string | null,
+  periodLabel?: string | null,
 ): { tier: number; rate: number } {
-  const fixed = getFixedRate(agentName);
+  if (isAlexDirectorPlan(agentName, periodLabel)) {
+    const rawTier = units > 0 ? getTier(units, agentName).tier : 0;
+    return { tier: rawTier, rate: 0 };
+  }
+  const fixed = getFixedRate(agentName, periodLabel);
   if (fixed !== null) {
     const rawTier = units > 0 ? getTier(units, agentName).tier : 0;
     return { tier: rawTier, rate: fixed };
@@ -245,8 +285,10 @@ export function calculateClawbackAmount(
   origCancellationRatePct: number,
   clientDebt: number,
   agentName?: string | null,
+  periodLabel?: string | null,
 ): number {
-  const fixed = getFixedRate(agentName);
+  if (isAlexDirectorPlan(agentName, periodLabel)) return 0;
+  const fixed = getFixedRate(agentName, periodLabel);
   if (fixed !== null) {
     return Math.max(0, Math.round(clientDebt * fixed * 100) / 100);
   }
@@ -259,11 +301,13 @@ export function calculateClawbackAmount(
     newUnits,
     origCancellationRatePct,
     agentName,
+    periodLabel,
   );
   const { rate: origRate } = getAdjustedTierRate(
     origUnits,
     origCancellationRatePct,
     agentName,
+    periodLabel,
   );
   let cb: number;
   if (newRate !== origRate) {
@@ -309,8 +353,10 @@ export function canAgentSignStatementForPeriod(
 export function unitsToNextTier(
   unitsCleared: number,
   agentName?: string | null,
+  periodLabel?: string | null,
 ): number | null {
-  if (getFixedRate(agentName) !== null) return null;
+  if (isAlexDirectorPlan(agentName, periodLabel)) return null;
+  if (getFixedRate(agentName, periodLabel) !== null) return null;
   const table = getTierTable(agentName);
   if (unitsCleared < 1) return table[0].low - unitsCleared;
   const { tier } = getTier(unitsCleared, agentName);
@@ -328,8 +374,10 @@ export function commissionGainAtNextTier(
   totalClearedDebt: number,
   grossCommission: number,
   agentName?: string | null,
+  periodLabel?: string | null,
 ): number | null {
-  if (getFixedRate(agentName) !== null) return null;
+  if (isAlexDirectorPlan(agentName, periodLabel)) return null;
+  if (getFixedRate(agentName, periodLabel) !== null) return null;
   const table = getTierTable(agentName);
   if (adjustedTier < 1 || adjustedTier >= table.length) return null;
   const nextRate = table[adjustedTier].rate; // next tier (0-indexed)

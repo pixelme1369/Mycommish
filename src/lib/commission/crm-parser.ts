@@ -17,6 +17,7 @@ import {
   paymentDateForPeriod,
   type AgentCommissionResult,
 } from "./calculator";
+import { isAlexDirectorPlan } from "./director-plan";
 import { applySalesRepOverrides } from "@/lib/claims/apply-sales-rep-overrides";
 
 export const NSF_FLAG_THRESHOLD = 3;
@@ -629,6 +630,7 @@ export function parseCrmAndCalculate(
       totalClearedDebt,
       cancellationRatePct: cancelRatePct,
       hourlyDraw: 0,
+      periodLabel,
     });
 
     const result: PeriodResult = {
@@ -713,6 +715,10 @@ export function parseCrmAndCalculate(
     }
 
     const knownRate = crmId ? knownRateByCrmId[crmId] : undefined;
+    if (isAlexDirectorPlan(agentName, clearedPeriod)) {
+      c.clawbackAmount = 0;
+      continue;
+    }
     if (knownRate != null) {
       const cb = Math.round(c.enrolledDebt * knownRate * 100) / 100;
       c.clawbackAmount = cb;
@@ -731,7 +737,7 @@ export function parseCrmAndCalculate(
       : agentPeriodResults.get(origKey);
 
     if (!origResult) {
-      const fallbackRate = getFixedRate(agentName) || 0.01;
+      const fallbackRate = getFixedRate(agentName, clearedPeriod) || 0.01;
       c.clawbackAmount = Math.round(c.enrolledDebt * fallbackRate * 100) / 100;
       push(clawbackByTarget, keyOf(agentName, targetPeriod), c);
       continue;
@@ -744,6 +750,7 @@ export function parseCrmAndCalculate(
       origResult.cancellationRate,
       c.enrolledDebt,
       agentName,
+      clearedPeriod,
     );
     c.clawbackAmount = cb;
     push(clawbackByTarget, keyOf(agentName, targetPeriod), c);

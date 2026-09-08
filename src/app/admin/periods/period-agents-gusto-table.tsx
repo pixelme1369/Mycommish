@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { cancelRatePercent, money, ratePercent } from "@/lib/format";
 import { getFixedRate, unitsToNextTier } from "@/lib/commission/calculator";
+import { isAlexDirectorPlan } from "@/lib/commission/director-plan";
 import { resolveEmployment } from "@/lib/agents/contractors";
 import { formatRoleLabel } from "@/lib/roles";
 import { PeriodAgentRowActions } from "./period-agent-row-actions";
@@ -23,6 +24,7 @@ export type PeriodAgentRow = {
   tierRate: number | string;
   grossCommission: number | string;
   clawbackAmount: number | string;
+  directorOverrideAmount?: number | string;
   netCommission: number | string;
   cancellationRate: number | string;
   dismissed?: boolean;
@@ -574,8 +576,10 @@ export function PeriodAgentsGustoTable({
           </thead>
           <tbody className="divide-y divide-border/70">
             {visibleAgents.map((r) => {
-              const toNext = unitsToNextTier(r.unitsCleared, r.agentName);
-              const fixed = getFixedRate(r.agentName) !== null;
+              const directorPlan = isAlexDirectorPlan(r.agentName, periodLabel);
+              const toNext = unitsToNextTier(r.unitsCleared, r.agentName, periodLabel);
+              const fixed =
+                !directorPlan && getFixedRate(r.agentName, periodLabel) !== null;
               const hot = toNext != null && toNext <= 3;
               const warm = toNext != null && toNext <= 10;
               const employment = resolveEmployment(r.agentName);
@@ -674,7 +678,9 @@ export function PeriodAgentsGustoTable({
                     )}
                   </td>
                   <td className="whitespace-nowrap px-2 py-2 text-right align-middle">
-                    {toNext == null ? (
+                    {directorPlan ? (
+                      <span className="text-muted-foreground">Director</span>
+                    ) : toNext == null ? (
                       <span className="text-muted-foreground">
                         {fixed ? "Fixed" : r.adjustedTier >= 6 ? "Top" : "—"}
                       </span>
@@ -692,12 +698,18 @@ export function PeriodAgentsGustoTable({
                     )}
                   </td>
                   <td className="whitespace-nowrap px-2 py-2 text-right align-middle tabular-nums">
-                    {r.cancellationPenaltyApplied
-                      ? `${r.rawTier}→${r.adjustedTier}`
-                      : r.adjustedTier || "—"}
+                    {directorPlan
+                      ? "—"
+                      : r.cancellationPenaltyApplied
+                        ? `${r.rawTier}→${r.adjustedTier}`
+                        : r.adjustedTier || "—"}
                   </td>
                   <td className="whitespace-nowrap px-2 py-2 text-right align-middle tabular-nums">
-                    {ratePercent(r.tierRate)}
+                    {directorPlan
+                      ? Number(r.directorOverrideAmount ?? 0) > 0
+                        ? money(r.directorOverrideAmount ?? 0)
+                        : "House"
+                      : ratePercent(r.tierRate)}
                   </td>
                   <td className="whitespace-nowrap px-2 py-2 text-right align-middle tabular-nums">
                     {money(r.grossCommission)}

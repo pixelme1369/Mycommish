@@ -45,6 +45,9 @@ export async function recomputeAgentPeriodClawbacks(
   const teamLeadBonusAmount = await sumActiveLedger(agentPeriodId, [
     LedgerType.team_lead_bonus,
   ]);
+  const directorOverrideAmount = await sumActiveLedger(agentPeriodId, [
+    LedgerType.director_override,
+  ]);
   const advancePaidAmount = await sumActiveLedger(agentPeriodId, [
     LedgerType.advance_paid,
   ]);
@@ -59,6 +62,7 @@ export async function recomputeAgentPeriodClawbacks(
     advancePaidAmount,
     advanceRepayAmount,
     teamLeadBonusAmount,
+    directorOverrideAmount,
   );
 
   let notes = ap.notes || "";
@@ -72,6 +76,7 @@ export async function recomputeAgentPeriodClawbacks(
       clawbackAmount: dec(Math.round(clawbackAmount * 100) / 100),
       manualBonusAmount: dec(Math.round(manualBonusAmount * 100) / 100),
       teamLeadBonusAmount: dec(Math.round(teamLeadBonusAmount * 100) / 100),
+      directorOverrideAmount: dec(Math.round(directorOverrideAmount * 100) / 100),
       advancePaidAmount: dec(Math.round(advancePaidAmount * 100) / 100),
       advanceRepayAmount: dec(Math.round(advanceRepayAmount * 100) / 100),
       netCommission: dec(netCommission),

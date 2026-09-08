@@ -4,6 +4,7 @@ import {
   getFixedRate,
   type AgentCommissionResult,
 } from "@/lib/commission/calculator";
+import { isAlexDirectorPlan } from "@/lib/commission/director-plan";
 import { computeNetCommission } from "@/lib/commission/net";
 import {
   isMonthlyPayFreq,
@@ -101,6 +102,7 @@ export function lastCheckCommission(opts: {
   unitsCleared: number;
   totalClearedDebt: number;
   cancellationRatePct: number;
+  periodLabel?: string | null;
 }): AgentCommissionResult | null {
   if (opts.unitsCleared < 1 || opts.totalClearedDebt <= 0) return null;
   return calculateAgentCommission({
@@ -108,6 +110,7 @@ export function lastCheckCommission(opts: {
     unitsCleared: opts.unitsCleared,
     totalClearedDebt: opts.totalClearedDebt,
     cancellationRatePct: opts.cancellationRatePct,
+    periodLabel: opts.periodLabel,
   });
 }
 
@@ -118,6 +121,7 @@ export function lastCheckGustoAmount(opts: {
   advancePaidAmount?: number;
   advanceRepayAmount?: number;
   teamLeadBonusAmount?: number;
+  directorOverrideAmount?: number;
 }): number {
   return computeNetCommission(
     opts.grossCommission,
@@ -126,6 +130,7 @@ export function lastCheckGustoAmount(opts: {
     opts.advancePaidAmount ?? 0,
     opts.advanceRepayAmount ?? 0,
     opts.teamLeadBonusAmount ?? 0,
+    opts.directorOverrideAmount ?? 0,
   );
 }
 
@@ -133,8 +138,10 @@ export function lastCheckTierLabel(opts: {
   agentName: string;
   unitsCleared: number;
   result: AgentCommissionResult | null;
+  periodLabel?: string | null;
 }): string {
-  if (getFixedRate(opts.agentName) != null) return "Fixed rate";
+  if (isAlexDirectorPlan(opts.agentName, opts.periodLabel)) return "Director";
+  if (getFixedRate(opts.agentName, opts.periodLabel) != null) return "Fixed rate";
   if (!opts.result || opts.unitsCleared < 1) return "—";
   return `Tier ${opts.result.adjustedTier}`;
 }

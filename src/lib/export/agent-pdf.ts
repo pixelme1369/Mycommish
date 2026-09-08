@@ -7,6 +7,8 @@ import PDFDocument from "pdfkit";
 import { prisma } from "@/lib/db";
 import { ClientEventKind, PeriodSource } from "@/generated/prisma/client";
 import { getTeamLeadBonusBreakdown } from "@/lib/teams/team-lead-bonus";
+import { getDirectorOverrideBreakdown } from "@/lib/ingest/director-override";
+import { isAlexDirectorPlan } from "@/lib/commission/director-plan";
 
 function num(n: unknown) {
   return Number(n) || 0;
@@ -131,6 +133,10 @@ export async function buildAgentCommissionStatementPdf(
   const teamLeadBonus = num(row.teamLeadBonusAmount);
   const tlbBreakdown =
     teamLeadBonus > 0 ? await getTeamLeadBonusBreakdown(row.id) : null;
+  const directorOverride = num(row.directorOverrideAmount);
+  const directorBreakdown =
+    directorOverride > 0 ? await getDirectorOverrideBreakdown(row.id) : null;
+  const directorPlan = isAlexDirectorPlan(row.agentName, row.period.periodLabel);
   const net = num(row.netCommission);
   const debt = num(row.totalClearedDebt);
   const rate = num(row.tierRate);
@@ -174,14 +180,29 @@ export async function buildAgentCommissionStatementPdf(
   let y = doc.y;
 
   doc.fillColor("#111827").font("Helvetica").fontSize(9);
-  const summary: [string, string][] = [
-    [`Commission Rate:`, ratePct(rate)],
-    [`Enrolled Debt:`, money(debt)],
-    [`Commission on Enrolled Debt:`, money(gross)],
-    [`Chargeback Deduction:`, money(clawbackTotal)],
-  ];
+  const summary: [string, string][] = directorPlan
+    ? [
+        [`Plan:`, `Director (personal house deals)`],
+        [`Personal Cleared Debt:`, money(debt)],
+        [`Commission on Personal Debt:`, money(gross)],
+        [`Chargeback Deduction:`, money(clawbackTotal)],
+      ]
+    : [
+        [`Commission Rate:`, ratePct(rate)],
+        [`Enrolled Debt:`, money(debt)],
+        [`Commission on Enrolled Debt:`, money(gross)],
+        [`Chargeback Deduction:`, money(clawbackTotal)],
+      ];
   if (manualBonus > 0) {
     summary.push([`Manual Bonus:`, money(manualBonus)]);
+  }
+  if (directorOverride > 0) {
+    const detail = directorBreakdown?.companyFiles
+      ? ` (${directorBreakdown.companyFiles.toLocaleString("en-US")} company files)`
+      : directorBreakdown?.note
+        ? ` (${directorBreakdown.note})`
+        : "";
+    summary.push([`Director Override:`, `${money(directorOverride)}${detail}`]);
   }
   if (teamLeadBonus > 0) {
     const rateLabel = (tlbBreakdown?.ratePerUnit ?? 0).toFixed(2).replace(/\.00$/, "");
@@ -342,8 +363,8 @@ export async function buildAgentCommissionStatementPdf(
     .fontSize(8)
     .text(
       `I have reviewed the commission detail above for ${periodName} (including any chargeback deductions${
-        teamLeadBonus > 0 ? " and team lead bonus" : ""
-      }) and confirm it is accurate.`,
+        directorOverride > 0 ? ", director override" : ""
+      }${teamLeadBonus > 0 ? ", and team lead bonus" : ""}) and confirm it is accurate.`,
       left,
       y,
       { width: usable },

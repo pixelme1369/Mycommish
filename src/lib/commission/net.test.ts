@@ -21,6 +21,10 @@ describe("computeNetCommission", () => {
     // 1000 gross − 0 clawback + 0 manual + 0 advance − 0 repay + 40 team = 1040
     expect(computeNetCommission(1000, 0, 0, 0, 0, 40)).toBe(1040);
   });
+
+  it("includes director override in net", () => {
+    expect(computeNetCommission(0, 0, 0, 0, 0, 0, 39500)).toBe(39500);
+  });
 });
 
 describe("computeTeamLeadBonusAmount", () => {

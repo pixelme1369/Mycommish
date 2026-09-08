@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { paymentDateForPeriod } from "@/lib/commission/calculator";
+import { isAlexDirectorPlan } from "@/lib/commission/director-plan";
 import {
   agentRowsForLatestPeriods,
   cancelRatePercent,
@@ -258,7 +259,12 @@ export default async function PortalHome({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {unique.map((r) => (
+              {unique.map((r) => {
+                const directorPlan = isAlexDirectorPlan(
+                  r.agentName,
+                  r.period.periodLabel,
+                );
+                return (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">
                     <span className="inline-flex flex-wrap items-center gap-2">
@@ -273,11 +279,19 @@ export default async function PortalHome({
                   <TableCell>{r.agentName}</TableCell>
                   <TableCell>{r.unitsCleared}</TableCell>
                   <TableCell>
-                    {r.cancellationPenaltyApplied
-                      ? `${r.rawTier}→${r.adjustedTier}`
-                      : r.adjustedTier || "—"}
+                    {directorPlan
+                      ? "Director"
+                      : r.cancellationPenaltyApplied
+                        ? `${r.rawTier}→${r.adjustedTier}`
+                        : r.adjustedTier || "—"}
                   </TableCell>
-                  <TableCell>{ratePercent(r.tierRate)}</TableCell>
+                  <TableCell>
+                    {directorPlan
+                      ? Number(r.directorOverrideAmount) > 0
+                        ? money(r.directorOverrideAmount)
+                        : "House"
+                      : ratePercent(r.tierRate)}
+                  </TableCell>
                   <TableCell>{money(r.grossCommission)}</TableCell>
                   <TableCell>
                     {Number(r.clawbackAmount) > 0 ? (
@@ -301,7 +315,8 @@ export default async function PortalHome({
                     </Link>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </Card>

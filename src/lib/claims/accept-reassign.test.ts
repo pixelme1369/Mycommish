@@ -53,6 +53,9 @@ const { prismaMock } = vi.hoisted(() => {
 });
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+vi.mock("@/lib/ingest/director-override", () => ({
+  applyDirectorOverrideToOpenPeriods: vi.fn(async () => undefined),
+}));
 
 describe("accept-reassign helpers", () => {
   it("counts cleared / safe_cancel / low_credit toward units", () => {
@@ -415,6 +418,7 @@ describe("acceptFileClaimReassign", () => {
         cancellationRate: 5,
         notes: null,
         grossCommission: 0,
+        period: { periodLabel: "2026-08" },
       })
       .mockResolvedValueOnce({
         id: "ap-peter",
@@ -423,6 +427,7 @@ describe("acceptFileClaimReassign", () => {
         cancellationRate: 5,
         notes: null,
         grossCommission: 175,
+        period: { periodLabel: "2026-08" },
       });
 
     prismaMock.agentPeriod.findFirst.mockResolvedValue({
