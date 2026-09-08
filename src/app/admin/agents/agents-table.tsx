@@ -109,6 +109,8 @@ function columnLabel(id: UserColumnId) {
       return "Role";
     case "employment":
       return "Employment";
+    case "employeeId":
+      return "Employee ID";
     case "phone":
       return "Phone";
     case "aliases":
@@ -177,6 +179,12 @@ function UserColumnCell({
               ? `1099 · ${agent.companyName}`
               : "1099"
             : "Employee"}
+        </span>
+      );
+    case "employeeId":
+      return (
+        <span className="font-mono text-xs text-muted-foreground">
+          {agent.gustoEmployeeId?.trim() || "—"}
         </span>
       );
     case "phone":
@@ -257,6 +265,7 @@ export function AgentsUsersTable({
       return (
         a.displayName.toLowerCase().includes(needle) ||
         a.email.toLowerCase().includes(needle) ||
+        (a.gustoEmployeeId || "").toLowerCase().includes(needle) ||
         a.aliases.some((al) => al.agentName.toLowerCase().includes(needle))
       );
     });

@@ -38,6 +38,7 @@ describe("agent client details export helpers", () => {
       revShares: 1,
       tierRate: 0.0125,
       bonus: 100,
+      advance: 1500,
       totalCommissions: 11880.31,
     });
     expect(row.toSubtract).toBe(-415.07);
@@ -45,6 +46,8 @@ describe("agent client details export helpers", () => {
     expect(row.revShares).toBe(1);
     expect(row.totalUnits).toBe(23);
     expect(row.ratePct).toBe(1.25);
+    expect(row.bonus).toBe(100);
+    expect(row.advance).toBe(1500);
   });
 
   it("uses expected client detail headers", () => {

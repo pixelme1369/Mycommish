@@ -14,6 +14,7 @@ export const USER_COLUMNS = [
   { id: "email", label: "Email", locked: false, defaultOn: true },
   { id: "role", label: "Role", locked: false, defaultOn: true },
   { id: "employment", label: "Employment", locked: false, defaultOn: true },
+  { id: "employeeId", label: "Employee ID", locked: false, defaultOn: false },
   { id: "phone", label: "Phone", locked: false, defaultOn: false },
   { id: "aliases", label: "Aliases", locked: false, defaultOn: true },
   { id: "lastLogin", label: "Last login", locked: false, defaultOn: true },

@@ -71,6 +71,7 @@ export type DashboardRepRow = {
   ratePct: number;
   upscore: number;
   bonus: number;
+  advance: number;
   totalCommissions: number;
 };
 
@@ -103,6 +104,7 @@ export function buildDashboardRepRow(opts: {
   tierRate: number;
   upscore?: number;
   bonus: number;
+  advance?: number;
   totalCommissions: number;
 }): DashboardRepRow {
   const revShares = opts.revShares ?? 0;
@@ -117,6 +119,7 @@ export function buildDashboardRepRow(opts: {
     ratePct: rateAsPercentNumber(opts.tierRate),
     upscore: opts.upscore ?? 0,
     bonus: opts.bonus,
+    advance: opts.advance ?? 0,
     totalCommissions: opts.totalCommissions,
   };
 }

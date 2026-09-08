@@ -110,6 +110,7 @@ type AgentBundle = {
   totalClearedDebt: number;
   clawbackAmount: number;
   manualBonusAmount: number;
+  advancePaidAmount: number;
   netCommission: number;
   events: DetailEvent[];
 };
@@ -230,7 +231,14 @@ function writeDashboard(ws: ExcelJS.Worksheet, reps: DashboardRepRow[]) {
     "RevShares",
     "Total Units",
   ];
-  const rightHeaders = ["Sales Rep", "Rate %", "Upscore", "Bonus", "Total Commissions"];
+  const rightHeaders = [
+    "Sales Rep",
+    "Rate %",
+    "Upscore",
+    "Bonus",
+    "Advance",
+    "Total Commissions",
+  ];
   leftHeaders.forEach((h, i) => {
     ws.getCell(2, i + 1).value = h;
     ws.getCell(2, i + 1).font = { bold: true };
@@ -246,6 +254,7 @@ function writeDashboard(ws: ExcelJS.Worksheet, reps: DashboardRepRow[]) {
   let sumRev = 0;
   let sumTotalUnits = 0;
   let sumBonus = 0;
+  let sumAdvance = 0;
   let sumComm = 0;
 
   reps.forEach((r, idx) => {
@@ -266,8 +275,10 @@ function writeDashboard(ws: ExcelJS.Worksheet, reps: DashboardRepRow[]) {
     if (r.upscore) moneyFmt(ws.getCell(row, 10));
     ws.getCell(row, 11).value = r.bonus || null;
     if (r.bonus) moneyFmt(ws.getCell(row, 11));
-    ws.getCell(row, 12).value = r.totalCommissions;
-    moneyFmt(ws.getCell(row, 12));
+    ws.getCell(row, 12).value = r.advance || null;
+    if (r.advance) moneyFmt(ws.getCell(row, 12));
+    ws.getCell(row, 13).value = r.totalCommissions;
+    moneyFmt(ws.getCell(row, 13));
 
     sumDebt += r.enrolledDebt;
     sumSub += r.toSubtract;
@@ -275,6 +286,7 @@ function writeDashboard(ws: ExcelJS.Worksheet, reps: DashboardRepRow[]) {
     sumRev += r.revShares;
     sumTotalUnits += r.totalUnits;
     sumBonus += r.bonus;
+    sumAdvance += r.advance;
     sumComm += r.totalCommissions;
   });
 
@@ -291,14 +303,14 @@ function writeDashboard(ws: ExcelJS.Worksheet, reps: DashboardRepRow[]) {
   for (let c = 1; c <= 6; c++) ws.getCell(totalRow, c).font = { bold: true };
 
   const agentTotalRow = totalRow + 2;
-  ws.getCell(agentTotalRow, 11).value = "Agent Commissions";
-  ws.getCell(agentTotalRow, 11).font = { bold: true };
-  ws.getCell(agentTotalRow, 12).value = sumComm;
-  moneyFmt(ws.getCell(agentTotalRow, 12));
+  ws.getCell(agentTotalRow, 12).value = "Agent Commissions";
   ws.getCell(agentTotalRow, 12).font = { bold: true };
+  ws.getCell(agentTotalRow, 13).value = sumComm;
+  moneyFmt(ws.getCell(agentTotalRow, 13));
+  ws.getCell(agentTotalRow, 13).font = { bold: true };
 
-  // Suppress unused warning for sumBonus — shown in Bonus column totals if needed later
   void sumBonus;
+  void sumAdvance;
 
   ws.getColumn(1).width = 18;
   ws.getColumn(2).width = 18;
@@ -310,7 +322,8 @@ function writeDashboard(ws: ExcelJS.Worksheet, reps: DashboardRepRow[]) {
   ws.getColumn(9).width = 10;
   ws.getColumn(10).width = 10;
   ws.getColumn(11).width = 12;
-  ws.getColumn(12).width = 16;
+  ws.getColumn(12).width = 12;
+  ws.getColumn(13).width = 16;
 }
 
 export type AgentClientDetailsBuildResult = {
@@ -359,6 +372,7 @@ export async function buildAgentClientDetailsWorkbook(opts: {
     totalClearedDebt: num(a.totalClearedDebt),
     clawbackAmount: num(a.clawbackAmount),
     manualBonusAmount: num(a.manualBonusAmount),
+    advancePaidAmount: num(a.advancePaidAmount),
     netCommission: num(a.netCommission),
     events: eventsByAp.get(a.id) ?? [],
   }));
@@ -399,6 +413,7 @@ export async function buildAgentClientDetailsWorkbook(opts: {
       revShares,
       tierRate: b.tierRate,
       bonus: b.manualBonusAmount,
+      advance: b.advancePaidAmount,
       totalCommissions: b.netCommission,
     });
   });
